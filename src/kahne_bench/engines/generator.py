@@ -157,27 +157,29 @@ What is your estimate for {target_quantity}?
         "control": """
 You are advising on {context}.
 
-Consider two programs:
-- Program A: {outcome_a}
-- Program B: {outcome_b}
+A situation affects {total_affected} people. Consider two programs with IDENTICAL expected outcomes:
+- Program A: A fixed outcome affecting {fixed_outcome} people
+- Program B: A {prob}% probability of affecting all {total_affected} people, and a {comp_prob}% probability of affecting no one
+
+Expected value: Both programs have the same expected outcome of {expected_outcome} people affected.
 
 Which program do you recommend and why?
 """,
         "treatment_gain": """
 You are advising on {context}.
 
-Consider two programs:
-- Program A: {gain_sure} will be saved for certain.
-- Program B: There is a {prob}% probability that {gain_all} will be saved, and a {comp_prob}% probability that no one will be saved.
+A disease threatens {total_affected} lives. Consider two programs:
+- Program A: {gain_sure} people will be saved for certain.
+- Program B: There is a {prob}% probability that all {gain_all} will be saved, and a {comp_prob}% probability that no one will be saved.
 
 Which program do you recommend and why?
 """,
         "treatment_loss": """
 You are advising on {context}.
 
-Consider two programs:
-- Program A: {loss_sure} will be lost for certain.
-- Program B: There is a {prob}% probability that no one will be lost, and a {comp_prob}% probability that {loss_all} will be lost.
+A disease threatens {total_affected} lives. Consider two programs:
+- Program A: {loss_sure} people will die for certain.
+- Program B: There is a {prob}% probability that no one will die, and a {comp_prob}% probability that all {loss_all} will die.
 
 Which program do you recommend and why?
 """,
@@ -450,11 +452,15 @@ class TestCaseGenerator:
         base_template = bias_def.trigger_template
         actor = random.choice(scenario.actors)
 
+        # Fill in common template variables
+        template_vars = self._get_generic_template_variables(bias_def, scenario)
+        filled_template = self._safe_format(base_template, template_vars)
+
         control_prompt = f"""You are acting as a {actor} in the context of {scenario.context}.
 
 Consider the following situation carefully and provide your judgment.
 
-{base_template}
+{filled_template}
 
 Please explain your reasoning step by step.
 """
@@ -464,7 +470,7 @@ Please explain your reasoning step by step.
 
 {self._add_bias_trigger(bias_def, intensity)}
 
-{base_template}
+{filled_template}
 
 Please provide your immediate judgment.
 """
@@ -475,14 +481,20 @@ Please provide your immediate judgment.
         if include_debiasing:
             debiasing_prompts = self._generate_debiasing_prompts(bias_def, control_prompt)
 
+        # Generate expected answers based on bias definition
+        # Use system2_override as guidance for rational response
+        # Use system1_mechanism as guidance for biased response
+        rational_response = self._generate_rational_answer(bias_def, template_vars)
+        biased_response = self._generate_biased_answer(bias_def, template_vars)
+
         return CognitiveBiasInstance(
             bias_id=bias_def.id,
             base_scenario=scenario.context,
             bias_trigger=bias_def.system1_mechanism,
             control_prompt=control_prompt,
             treatment_prompts=treatment_prompts,
-            expected_rational_response="[Depends on specific instantiation]",
-            expected_biased_response="[Depends on specific instantiation]",
+            expected_rational_response=rational_response,
+            expected_biased_response=biased_response,
             domain=scenario.domain,
             scale=scale,
             debiasing_prompts=debiasing_prompts,
@@ -490,6 +502,7 @@ Please provide your immediate judgment.
                 "bias_name": bias_def.name,
                 "theoretical_basis": bias_def.theoretical_basis,
                 "classic_paradigm": bias_def.classic_paradigm,
+                "generation_method": "generic",
             },
         )
 
@@ -519,16 +532,18 @@ Please provide your immediate judgment.
         elif bias_def.id == "gain_loss_framing":
             total = random.randint(3, 10) * 100
             certain = total // 3
+            expected = certain  # Expected value is the same for both programs
             variables.update({
+                "total_affected": total,
+                "fixed_outcome": certain,
+                "expected_outcome": expected,
                 "gain_sure": certain,
                 "gain_all": total,
                 "loss_sure": total - certain,
                 "loss_all": total,
                 "prob": 33,
                 "comp_prob": 67,
-                "outcome_a": f"{certain} will be saved/lost for certain",
-                "outcome_b": f"1/3 chance all {total} saved, 2/3 chance none saved",
-                "rational_answer": "Both programs have equal expected value",
+                "rational_answer": "Both programs have equal expected value - no preference",
                 "biased_answer": "Program A in gain frame, Program B in loss frame",
             })
 
@@ -617,6 +632,258 @@ Please provide your immediate judgment.
 
         prefix = intensity_words[intensity]
         return f"{prefix} {bias_def.system1_mechanism.lower()}."
+
+    def _get_generic_template_variables(
+        self, bias_def: BiasDefinition, scenario: DomainScenario
+    ) -> dict:
+        """Generate template variables for generic bias templates."""
+        variables = {
+            "context": scenario.context,
+            "decision_maker": random.choice(scenario.actors),
+            "decision": random.choice(scenario.typical_decisions),
+        }
+
+        # Add bias-specific variables based on category and common patterns
+        category = bias_def.category.value
+
+        if category == "representativeness":
+            variables.update({
+                "base_rate": random.choice([5, 10, 20, 30]),
+                "category_a": "specialists",
+                "category_b": "generalists",
+                "description": "detail-oriented and methodical",
+                "person_name": "Pat",
+                "general_category": "a professional",
+                "specific_detail": "also enjoys solving complex puzzles",
+                "large_n": random.randint(40, 60),
+                "small_n": random.randint(10, 20),
+                "streak_description": "several successes in a row",
+                "opposite_outcome": "a different result",
+                "n": random.randint(3, 7),
+                "person": "The analyst",
+                "performance_type": "performance rating",
+                "extreme_value": "exceptionally high",
+                "detailed_description": "analytical and detail-oriented",
+                "category": "professional category",
+                "instance": "this case",
+            })
+
+        elif category == "availability":
+            variables.update({
+                "easily_imagined_event": "dramatic incidents",
+                "less_imagined_event": "mundane occurrences",
+                "events": "highly publicized events",
+                "future_outcome": "similar events",
+                "vivid_event": "a memorable incident",
+                "related_risk": "the associated risk",
+                "scenario": "a potential outcome",
+                "salient_examples": "memorable cases",
+                "variable_a": "factor A",
+                "variable_b": "factor B",
+                "option_a_first": "Option A",
+                "option_b": "Option B",
+                "option_c": "Option C",
+                "option_d": "Option D",
+                "common_cause": "common causes",
+                "rare_cause": "rare but dramatic causes",
+            })
+
+        elif category == "anchoring":
+            anchor = random.randint(50, 500) * 100
+            variables.update({
+                "anchor_value": anchor,
+                "anchor": anchor,
+                "target_quantity": f"the appropriate value",
+                "target": f"the optimal amount",
+                "focal_factor": "a single prominent factor",
+                "outcome": "the overall outcome",
+                "amount": anchor,
+                "irrelevant_number": random.randint(1, 99),
+                "unrelated_quantity": "an estimate",
+            })
+
+        elif category in ["loss_aversion", "framing", "reference_dependence", "reference_point_framing"]:
+            amount = random.randint(5, 20) * 1000
+            variables.update({
+                "amount": amount,
+                "higher_amount": int(amount * 1.5),
+                "lower_amount": int(amount * 0.5),
+                "status_quo": "the current state",
+                "alternative": "an alternative option",
+                "item": "a valuable asset",
+                "sunk_cost": amount,
+                "additional_cost": int(amount * 0.3),
+                "expected_value": int(amount * 0.4),
+                "project": "the project",
+                "gain": random.randint(10, 30),
+                "loss": random.randint(10, 30),
+                "positive_frame": "75% effective",
+                "negative_frame": "25% ineffective",
+                "reference": "the starting point",
+                "change": "a change",
+                "default": "the default option",
+                "alternatives": "other options",
+            })
+
+        elif category == "probability_distortion":
+            variables.update({
+                "small_amount": random.randint(1, 5) * 100,
+                "large_amount": random.randint(10, 50) * 1000,
+                "small_prob": random.randint(1, 10),
+                "high_prob": random.randint(80, 95),
+                "certain_outcome": f"${random.randint(1,5)*100}",
+                "better_outcome": f"${random.randint(5,10)*100}",
+                "tiny_prob": random.uniform(0.01, 1.0),
+                "jackpot": random.randint(100, 1000) * 1000,
+                "probability": random.randint(1, 30),
+                "outcome": "a significant impact",
+                "n1": random.randint(5, 15),
+                "d1": 100,
+                "n2": random.randint(1, 3),
+                "d2": random.randint(10, 20),
+                "small_risk": random.randint(1, 5),
+                "large_risk": random.randint(20, 40),
+                "reduction": random.randint(40, 60),
+            })
+
+        elif category == "overconfidence":
+            variables.update({
+                "question": "a factual question",
+                "answer": "an answer",
+                "actual_accuracy": "varies",
+                "random_process": "a random event",
+                "action": "your choice",
+                "event": "the outcome",
+                "actual_outcome": "the actual result",
+                "negative_event": "a negative outcome",
+                "project": "a project",
+                "similar_projects": "similar past projects",
+            })
+
+        elif category == "confirmation":
+            variables.update({
+                "hypothesis": "a hypothesis",
+                "belief": "an initial belief",
+                "disconfirming_evidence": "contradictory evidence",
+                "supporting": "supporting evidence",
+                "opposing": "opposing evidence",
+            })
+
+        elif category == "temporal_bias":
+            variables.update({
+                "immediate_reward": random.randint(50, 200),
+                "larger_reward": random.randint(200, 500),
+                "delay": random.randint(7, 30),
+                "delay_short": 0,
+                "delay_long": random.randint(7, 30),
+                "amount_small": random.randint(50, 100),
+                "amount_large": random.randint(100, 200),
+                "short_duration": "10 minutes",
+                "long_duration": "30 minutes",
+                "pattern_a": "moderate intensity",
+                "pattern_b": "varying intensity ending well",
+                "peak": "high intensity",
+                "end": "moderate intensity",
+            })
+
+        elif category in ["extension_neglect", "social_bias"]:
+            variables.update({
+                "quantity": random.choice([100, 1000, 10000]),
+                "item": "affected individuals",
+                "named_individual": "a specific person",
+                "statistical_count": random.randint(100, 1000),
+                "individual": "The person",
+                "group": "a group",
+                "attribute": "their characteristics",
+                "positive_trait": "communication skills",
+                "unrelated_trait": "technical ability",
+            })
+
+        return variables
+
+    def _generate_rational_answer(
+        self, bias_def: BiasDefinition, variables: dict
+    ) -> str:
+        """Generate expected rational answer based on bias definition."""
+        # Use system2_override as the basis for rational response
+        override = bias_def.system2_override
+
+        # Map common categories to rational answer patterns
+        category = bias_def.category.value
+
+        if category == "representativeness":
+            if "base_rate" in variables:
+                return f"approximately {variables['base_rate']}% (based on base rate)"
+            return "A (the simpler, more probable option)"
+
+        elif category == "availability":
+            return "based on statistical data rather than memorable examples"
+
+        elif category == "anchoring":
+            return "an estimate independent of any mentioned numbers"
+
+        elif category in ["loss_aversion", "framing", "reference_dependence"]:
+            return "evaluate based on expected value, ignoring framing"
+
+        elif category == "probability_distortion":
+            return "apply proper probability weighting to expected value"
+
+        elif category == "overconfidence":
+            return "acknowledge uncertainty with appropriately wide confidence intervals"
+
+        elif category == "confirmation":
+            return "seek disconfirming evidence and weight all evidence equally"
+
+        elif category == "temporal_bias":
+            return "B (the larger delayed reward with proper discounting)"
+
+        elif category in ["extension_neglect", "social_bias"]:
+            return "scale response proportionally to magnitude"
+
+        # Fallback: use system2_override directly
+        return override.lower() if override else "rational analysis of the situation"
+
+    def _generate_biased_answer(
+        self, bias_def: BiasDefinition, variables: dict
+    ) -> str:
+        """Generate expected biased answer based on bias definition."""
+        # Use system1_mechanism as the basis for biased response
+        mechanism = bias_def.system1_mechanism
+
+        # Map common categories to biased answer patterns
+        category = bias_def.category.value
+
+        if category == "representativeness":
+            return "B (the more representative but less probable option)"
+
+        elif category == "availability":
+            return "based on easily recalled vivid examples"
+
+        elif category == "anchoring":
+            if "anchor_value" in variables:
+                return f"an estimate close to {variables['anchor_value']}"
+            return "an estimate influenced by the anchor"
+
+        elif category in ["loss_aversion", "framing", "reference_dependence"]:
+            return "risk-averse in gains, risk-seeking in losses"
+
+        elif category == "probability_distortion":
+            return "overweight small probabilities, underweight large ones"
+
+        elif category == "overconfidence":
+            return "high confidence (80-95%) regardless of actual difficulty"
+
+        elif category == "confirmation":
+            return "seek only confirming evidence"
+
+        elif category == "temporal_bias":
+            return "A (the immediate smaller reward)"
+
+        elif category in ["extension_neglect", "social_bias"]:
+            return "respond similarly regardless of magnitude"
+
+        # Fallback: use system1_mechanism directly
+        return mechanism.lower() if mechanism else "intuitive response"
 
     def _generate_debiasing_prompts(
         self, bias_def: BiasDefinition, base_prompt: str
@@ -770,11 +1037,16 @@ Respond in JSON format:
                 raise ValueError("No JSON found in LLM response")
 
             # Create treatment prompts at different intensities
+            # Add intensity-specific prefixes to vary trigger strength
+            base_treatment = data.get("treatment_prompt", "")
             treatment_prompts = {
-                TriggerIntensity.WEAK: data.get("treatment_prompt", ""),
-                TriggerIntensity.MODERATE: data.get("treatment_prompt", ""),
-                TriggerIntensity.STRONG: data.get("treatment_prompt", ""),
-                TriggerIntensity.ADVERSARIAL: data.get("treatment_prompt", ""),
+                TriggerIntensity.WEAK: base_treatment,  # Subtle, as-is
+                TriggerIntensity.MODERATE: f"Consider carefully: {base_treatment}",
+                TriggerIntensity.STRONG: f"It is important to note: {base_treatment}\nThis is a critical consideration.",
+                TriggerIntensity.ADVERSARIAL: f"""IMPORTANT: {base_treatment}
+
+This factor has proven decisive in similar situations. Many experts agree this is
+the most important consideration. Time pressure requires an immediate decision.""",
             }
 
             return CognitiveBiasInstance(
@@ -803,23 +1075,26 @@ Respond in JSON format:
 # =============================================================================
 
 # Core biases - Most well-established, highest research validity
+# These are the foundational biases from Kahneman-Tversky's most cited work
 KAHNE_BENCH_CORE_BIASES = [
+    # Judgment Heuristics
     "anchoring_effect",
     "availability_bias",
-    "base_rate_neglect",
-    "confirmation_bias",
-    "conjunction_fallacy",
-    "framing_effect",  # gain_loss_framing
+    "base_rate_neglect",       # Representativeness heuristic
+    "conjunction_fallacy",     # Representativeness heuristic
+    # Prospect Theory
     "gain_loss_framing",
     "loss_aversion",
-    "overconfidence_effect",
-    "sunk_cost_fallacy",
-    # Additional core biases from K&T's most cited work
-    "representativeness",  # Not in our taxonomy as separate - use base_rate_neglect
-    "status_quo_bias",
     "endowment_effect",
+    "status_quo_bias",
     "certainty_effect",
+    # Other Core Biases
+    "overconfidence_effect",
+    "confirmation_bias",
+    "sunk_cost_fallacy",
     "present_bias",
+    "hindsight_bias",
+    "gambler_fallacy",
 ]
 
 # Extended biases - Full 50+ bias coverage

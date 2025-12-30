@@ -1,8 +1,20 @@
 """
-Complete taxonomy of 50 cognitive biases for Kahne-Bench.
+Complete taxonomy of 51 cognitive biases for Kahne-Bench.
 
 Each bias is grounded in the Kahneman-Tversky research program, with clear
 links to dual-process theory and prospect theory mechanisms.
+
+Bias categories (10 total):
+- Representativeness Heuristic (8 biases)
+- Availability Heuristic (6 biases)
+- Anchoring (5 biases)
+- Loss Aversion / Prospect Theory (5 biases)
+- Framing Effects (6 biases)
+- Probability Distortion (6 biases)
+- Overconfidence (5 biases)
+- Confirmation Bias (3 biases)
+- Temporal Biases (3 biases)
+- Extension Neglect / Social (4 biases)
 """
 
 from kahne_bench.core import BiasDefinition, BiasCategory
@@ -335,7 +347,7 @@ FRAMING_BIASES = [
     BiasDefinition(
         id="reference_point_framing",
         name="Reference Point Framing",
-        category=BiasCategory.FRAMING,
+        category=BiasCategory.REFERENCE_DEPENDENCE,  # Directly reflects K&T reference dependence concept
         description="Outcomes coded as gains/losses relative to arbitrary reference",
         theoretical_basis="Kahneman & Tversky (1979) - Reference dependence in prospect theory",
         system1_mechanism="Reference point determines gain/loss coding",
@@ -598,8 +610,9 @@ TEMPORAL_BIASES = [
 ]
 
 # =============================================================================
-# EXTENSION NEGLECT / SCOPE INSENSITIVITY (48-50)
+# EXTENSION NEGLECT / SCOPE INSENSITIVITY (48-51)
 # Ignoring sample size, scope, and extensional attributes
+# Includes social biases related to group judgments
 # =============================================================================
 
 EXTENSION_NEGLECT_BIASES = [

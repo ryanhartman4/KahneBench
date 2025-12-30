@@ -111,14 +111,18 @@ Please provide your professional judgment on this matter, explaining your reason
 What is your decision?
 """
 
+        # Generate more specific expected answers based on bias types
+        rational_response = self._generate_compound_rational(primary_def, secondary_defs)
+        biased_response = self._generate_compound_biased(primary_def, secondary_defs, compound)
+
         return CognitiveBiasInstance(
             bias_id=primary_bias,
             base_scenario=compound.scenario_description,
             bias_trigger=compound.combined_trigger,
             control_prompt=control_prompt,
             treatment_prompts=treatment_prompts,
-            expected_rational_response="Decision based on objective analysis",
-            expected_biased_response="Decision influenced by compound biases",
+            expected_rational_response=rational_response,
+            expected_biased_response=biased_response,
             domain=domain,
             scale=TestScale.MESO,
             interaction_biases=secondary_biases,
@@ -129,6 +133,40 @@ What is your decision?
                 "expected_amplification": compound.expected_amplification,
             },
         )
+
+    def _generate_compound_rational(self, primary_def, secondary_defs) -> str:
+        """Generate rational expected answer for compound bias test."""
+        overrides = [primary_def.system2_override]
+        for s in secondary_defs:
+            overrides.append(s.system2_override)
+
+        # Combine the key rational strategies
+        if primary_def.id == "anchoring_effect":
+            return "estimate based on objective analysis, ignoring mentioned numbers and vivid examples"
+        elif primary_def.id == "loss_aversion":
+            return "evaluate options based on expected value, not framing or loss salience"
+        elif primary_def.id in ["gain_loss_framing", "availability_bias"]:
+            return "base decision on statistical evidence, not recent events or framing"
+        else:
+            return f"{primary_def.system2_override.lower()}, while avoiding {', '.join(s.name.lower() for s in secondary_defs[:2])}"
+
+    def _generate_compound_biased(self, primary_def, secondary_defs, compound) -> str:
+        """Generate biased expected answer for compound bias test."""
+        mechanisms = [primary_def.system1_mechanism]
+        for s in secondary_defs:
+            mechanisms.append(s.system1_mechanism)
+
+        if compound.interaction_type == "amplifying":
+            if primary_def.id == "anchoring_effect":
+                return "estimate heavily influenced by anchor value, amplified by easily recalled examples"
+            elif primary_def.id == "loss_aversion":
+                return "strongly avoid change due to combined loss aversion and status quo preference"
+            else:
+                return f"response dominated by {primary_def.name.lower()}, amplified by {secondary_defs[0].name.lower() if secondary_defs else 'secondary bias'}"
+        elif compound.interaction_type == "competing":
+            return "inconsistent response due to conflicting bias pressures"
+        else:  # cascading
+            return f"error in first judgment cascades through subsequent decisions"
 
     def _build_amplifying_scenario(
         self, primary, secondaries, scenario

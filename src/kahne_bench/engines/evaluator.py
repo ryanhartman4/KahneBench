@@ -342,6 +342,20 @@ class BiasEvaluator:
                 confidence_stated=confidence,
                 metadata={"trial": trial},
             )
+
+            # Score the response for bias (only if we have expected answers)
+            if (instance.expected_rational_response and
+                instance.expected_biased_response and
+                not instance.expected_rational_response.startswith("[") and
+                not instance.expected_biased_response.startswith("[")):
+                is_biased, bias_score = self.score_response(
+                    result,
+                    instance.expected_rational_response,
+                    instance.expected_biased_response,
+                )
+                result.is_biased = is_biased
+                result.bias_score = bias_score
+
             results.append(result)
 
             # Rate limiting delay
