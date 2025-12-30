@@ -2,23 +2,15 @@
 """
 OpenAI Evaluation Example for Kahne-Bench.
 
-This script demonstrates how to evaluate an OpenAI model (or any OpenAI-compatible API)
-for cognitive biases using Kahne-Bench.
-
-Compatible with:
-- OpenAI (gpt-4, gpt-4-turbo, gpt-3.5-turbo, etc.)
-- Azure OpenAI
-- Anthropic (via openai-compatible endpoint)
-- Local models via LiteLLM, Ollama, vLLM, etc.
-- Any provider with OpenAI-compatible API
+This script demonstrates how to evaluate an OpenAI model for cognitive biases
+using Kahne-Bench.
 
 Usage:
     export OPENAI_API_KEY="your-api-key"
     python examples/openai_evaluation.py
 
-    # Or with a custom base URL (e.g., Ollama, vLLM):
-    export OPENAI_BASE_URL="http://localhost:11434/v1"
-    python examples/openai_evaluation.py --model llama2
+    # With options:
+    python examples/openai_evaluation.py --model gpt-5.2 --tier extended
 """
 
 import argparse
@@ -48,18 +40,12 @@ from kahne_bench.utils import (
 @dataclass
 class OpenAIProvider:
     """
-    OpenAI-compatible LLM provider for Kahne-Bench.
-
-    Works with any OpenAI-compatible API including:
-    - OpenAI directly
-    - Azure OpenAI
-    - Ollama (with OpenAI compatibility layer)
-    - vLLM, LiteLLM, etc.
+    OpenAI LLM provider for Kahne-Bench using the modern Responses API.
     """
 
     client: AsyncOpenAI
-    model: str = "gpt-4"
-    system_prompt: str | None = None
+    model: str = "gpt-5.2"
+    instructions: str | None = None
 
     async def complete(
         self,
@@ -68,21 +54,15 @@ class OpenAIProvider:
         temperature: float = 0.0,
     ) -> str:
         """Generate completion from the model."""
-        messages = []
-
-        if self.system_prompt:
-            messages.append({"role": "system", "content": self.system_prompt})
-
-        messages.append({"role": "user", "content": prompt})
-
-        response = await self.client.chat.completions.create(
+        response = await self.client.responses.create(
             model=self.model,
-            messages=messages,
-            max_tokens=max_tokens,
+            input=prompt,
+            instructions=self.instructions,
+            max_output_tokens=max_tokens,
             temperature=temperature,
         )
 
-        return response.choices[0].message.content or ""
+        return response.output_text or ""
 
 
 async def run_evaluation(
@@ -96,17 +76,14 @@ async def run_evaluation(
     Run a complete cognitive bias evaluation.
 
     Args:
-        model: Model name (e.g., "gpt-4", "gpt-3.5-turbo")
+        model: Model name (e.g., "gpt-5.2", "gpt-4.1")
         tier: Benchmark tier ("core", "extended", or "interaction")
         domains: List of domains to test (default: all)
         num_trials: Number of trials per condition
         output_prefix: Prefix for output files
     """
     # Initialize OpenAI client
-    client = AsyncOpenAI(
-        api_key=os.getenv("OPENAI_API_KEY"),
-        base_url=os.getenv("OPENAI_BASE_URL"),  # Optional: for compatible APIs
-    )
+    client = AsyncOpenAI()
 
     provider = OpenAIProvider(client=client, model=model)
 
@@ -214,8 +191,8 @@ def main():
     )
     parser.add_argument(
         "--model", "-m",
-        default="gpt-4",
-        help="Model name (default: gpt-4)"
+        default="gpt-5.2",
+        help="Model name (default: gpt-5.2)"
     )
     parser.add_argument(
         "--tier", "-t",

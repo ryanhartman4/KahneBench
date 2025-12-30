@@ -37,7 +37,7 @@ PYTHONPATH=src python examples/basic_usage.py
 
 # Run a full evaluation with OpenAI
 export OPENAI_API_KEY="your-api-key"
-PYTHONPATH=src python examples/openai_evaluation.py --model gpt-4 --tier core
+PYTHONPATH=src python examples/openai_evaluation.py --model gpt-5.2 --tier core
 ```
 
 ---
@@ -133,22 +133,25 @@ print(f"Interaction tier: {len(interaction_biases)} biases")
 
 ```python
 import asyncio
+from openai import AsyncOpenAI
 from kahne_bench import BiasEvaluator
 from kahne_bench.engines.evaluator import EvaluationConfig
 
 # Define your LLM provider (must have async complete() method)
 class OpenAIProvider:
-    def __init__(self, client):
+    def __init__(self, client, model="gpt-5.2"):
         self.client = client
+        self.model = model
 
     async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str:
-        response = await self.client.chat.completions.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=max_tokens,
+        response = await self.client.responses.create(
+            model=self.model,
+            input=prompt,
+            instructions="You are a helpful assistant.",
+            max_output_tokens=max_tokens,
             temperature=temperature,
         )
-        return response.choices[0].message.content
+        return response.output_text
 
 # Configure evaluation
 config = EvaluationConfig(
@@ -158,14 +161,15 @@ config = EvaluationConfig(
     include_debiasing=True,
 )
 
-provider = OpenAIProvider(your_openai_client)
+client = AsyncOpenAI()
+provider = OpenAIProvider(client, model="gpt-5.2")
 evaluator = BiasEvaluator(provider, config)
 
 # Run evaluation
 async def evaluate():
     session = await evaluator.evaluate_batch(
         instances=batch,
-        model_id="gpt-4",
+        model_id="gpt-5.2",
         progress_callback=lambda i, n: print(f"Progress: {i}/{n}"),
     )
     return session
@@ -353,26 +357,19 @@ Demonstrates taxonomy exploration, test generation, evaluation with a mock provi
 ### OpenAI Evaluation
 ```bash
 export OPENAI_API_KEY="your-api-key"
-PYTHONPATH=src python examples/openai_evaluation.py --model gpt-4 --tier core
+PYTHONPATH=src python examples/openai_evaluation.py --model gpt-5.2 --tier core
 ```
 
 Options:
-- `--model`, `-m`: Model name (default: gpt-4)
+- `--model`, `-m`: Model name (default: gpt-5.2)
 - `--tier`, `-t`: Benchmark tier - core, extended, or interaction (default: core)
 - `--domains`, `-d`: Domains to test (default: professional, individual)
 - `--trials`, `-n`: Trials per condition (default: 3)
 - `--output`, `-o`: Output file prefix (default: evaluation)
 
-Works with any OpenAI-compatible API:
+Example with extended tier:
 ```bash
-# Ollama
-export OPENAI_BASE_URL="http://localhost:11434/v1"
-python examples/openai_evaluation.py --model llama2
-
-# Azure OpenAI
-export OPENAI_API_KEY="your-azure-key"
-export OPENAI_BASE_URL="https://your-resource.openai.azure.com"
-python examples/openai_evaluation.py --model gpt-4
+python examples/openai_evaluation.py --model gpt-5.2 --tier extended --trials 5
 ```
 
 ---
