@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kahne-bench"
+version = "0.1.0"
+description = "A cognitive bias benchmark framework based on Kahneman-Tversky dual-process theory"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Kahne-Bench Team"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+keywords = ["cognitive-bias", "benchmark", "llm", "evaluation", "kahneman", "tversky"]
+
+dependencies = [
+    "openai>=1.0.0",
+    "anthropic>=0.18.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "pydantic>=2.0.0",
+    "rich>=13.0.0",
+    "click>=8.0.0",
+    "tqdm>=4.65.0",
+    "jinja2>=3.1.0",
+    "pyyaml>=6.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[project.scripts]
+kahne-bench = "kahne_bench.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/kahne-bench/kahne-bench"
+Documentation = "https://kahne-bench.readthedocs.io"
+Repository = "https://github.com/kahne-bench/kahne-bench"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+asyncio_mode = "strict"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+]
