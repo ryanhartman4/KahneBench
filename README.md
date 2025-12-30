@@ -184,7 +184,7 @@ print(f"Completed {len(session.results)} evaluations")
 from kahne_bench import MetricCalculator
 
 calculator = MetricCalculator()
-report = calculator.calculate_all_metrics("gpt-4", session.results)
+report = calculator.calculate_all_metrics("gpt-5.2", session.results)
 
 # Summary statistics
 print(f"Overall Bias Susceptibility: {report.overall_bias_susceptibility:.2%}")
