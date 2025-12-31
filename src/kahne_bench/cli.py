@@ -432,7 +432,6 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
 @click.argument("fingerprint_file")
 def report(fingerprint_file: str):
     """Generate a human-readable report from a cognitive fingerprint."""
-    from kahne_bench.utils.io import generate_summary_report
     import json
 
     try:
