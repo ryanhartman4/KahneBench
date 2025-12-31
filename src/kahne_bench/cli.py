@@ -251,5 +251,234 @@ def info():
     console.print(table)
 
 
+@main.command()
+@click.option("--input", "-i", "input_file", required=True, help="Input JSON file with test cases")
+@click.option("--provider", "-p", type=click.Choice(["openai", "anthropic", "mock"]), default="mock",
+              help="LLM provider to use")
+@click.option("--model", "-m", default=None, help="Model name to evaluate")
+@click.option("--trials", "-n", default=3, help="Number of trials per condition")
+@click.option("--output", "-o", default="results.json", help="Output file for results")
+@click.option("--fingerprint", "-f", default="fingerprint.json", help="Output file for cognitive fingerprint")
+@click.option("--tier", "-t", type=click.Choice(["core", "extended", "interaction"]), default="core",
+              help="Benchmark tier")
+def evaluate(input_file: str, provider: str, model: str | None, trials: int, output: str, fingerprint: str, tier: str):
+    """Evaluate an LLM for cognitive biases.
+
+    Run a complete bias evaluation on a model using pre-generated test cases
+    or generate new ones on the fly.
+
+    Examples:
+        # Evaluate using mock provider (for testing):
+        kahne-bench evaluate -i test_cases.json -p mock
+
+        # Evaluate with OpenAI:
+        kahne-bench evaluate -i test_cases.json -p openai -m gpt-4o
+
+        # Generate and evaluate in one command:
+        kahne-bench generate -o test_cases.json && kahne-bench evaluate -i test_cases.json -p openai
+    """
+    from rich.progress import Progress, BarColumn, TaskProgressColumn, TimeRemainingColumn
+
+    from kahne_bench.utils.io import import_instances_from_json, export_results_to_json, export_fingerprint_to_json
+    from kahne_bench.engines.evaluator import BiasEvaluator, EvaluationConfig
+    from kahne_bench.metrics import MetricCalculator
+
+    # Load test instances
+    console.print(f"[cyan]Loading test cases from {input_file}...[/cyan]")
+    try:
+        instances = import_instances_from_json(input_file)
+        console.print(f"[green]Loaded {len(instances)} test instances[/green]")
+    except Exception as e:
+        console.print(f"[red]Error loading test cases: {e}[/red]")
+        sys.exit(1)
+
+    # Set up provider
+    if provider == "mock":
+        from dataclasses import dataclass
+        import random
+
+        @dataclass
+        class MockProvider:
+            """Mock provider for testing the CLI without API calls."""
+            model: str = "mock-model"
+
+            async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str:
+                # Generate a mock response
+                choices = ["Option A", "Option B", "Program A", "Program B", "Yes", "No"]
+                choice = random.choice(choices)
+                confidence = random.randint(50, 95)
+                return f"After careful consideration, I would choose {choice}. I am {confidence}% confident in this decision."
+
+        llm_provider = MockProvider(model=model or "mock-model")
+        model_id = model or "mock-model"
+        console.print("[yellow]Using mock provider (for testing only)[/yellow]")
+
+    elif provider == "openai":
+        import os
+        if not os.getenv("OPENAI_API_KEY"):
+            console.print("[red]Error: OPENAI_API_KEY environment variable not set[/red]")
+            sys.exit(1)
+
+        try:
+            from openai import AsyncOpenAI
+            from kahne_bench.engines.evaluator import OpenAIProvider
+
+            client = AsyncOpenAI()
+            model_id = model or "gpt-4o"
+            llm_provider = OpenAIProvider(client=client, model=model_id)
+            console.print(f"[green]Using OpenAI provider with model: {model_id}[/green]")
+        except ImportError:
+            console.print("[red]Error: openai package not installed. Run: pip install openai[/red]")
+            sys.exit(1)
+
+    elif provider == "anthropic":
+        import os
+        if not os.getenv("ANTHROPIC_API_KEY"):
+            console.print("[red]Error: ANTHROPIC_API_KEY environment variable not set[/red]")
+            sys.exit(1)
+
+        try:
+            from anthropic import AsyncAnthropic
+            from kahne_bench.engines.evaluator import AnthropicProvider
+
+            client = AsyncAnthropic()
+            model_id = model or "claude-sonnet-4-20250514"
+            llm_provider = AnthropicProvider(client=client, model=model_id)
+            console.print(f"[green]Using Anthropic provider with model: {model_id}[/green]")
+        except ImportError:
+            console.print("[red]Error: anthropic package not installed. Run: pip install anthropic[/red]")
+            sys.exit(1)
+
+    # Configure evaluation
+    from kahne_bench.core import TriggerIntensity
+    config = EvaluationConfig(
+        num_trials=trials,
+        intensities=[
+            TriggerIntensity.WEAK,
+            TriggerIntensity.MODERATE,
+            TriggerIntensity.STRONG,
+        ],
+        include_control=True,
+        include_debiasing=True,
+    )
+
+    evaluator = BiasEvaluator(llm_provider, config)
+
+    # Run evaluation
+    console.print(f"\n[bold]Starting evaluation of {len(instances)} test instances...[/bold]")
+    console.print(f"  Model: {model_id}")
+    console.print(f"  Trials per condition: {trials}")
+    console.print(f"  Tier: {tier}\n")
+
+    async def run_evaluation():
+        with Progress(
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeRemainingColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task("Evaluating...", total=len(instances))
+
+            def progress_callback(current: int, total: int):
+                progress.update(task, completed=current)
+
+            session = await evaluator.evaluate_batch(
+                instances=instances,
+                model_id=model_id,
+                progress_callback=progress_callback,
+            )
+
+            return session
+
+    session = asyncio.run(run_evaluation())
+
+    console.print(f"\n[green]Completed {len(session.results)} evaluations[/green]")
+
+    # Calculate metrics
+    console.print("[cyan]Calculating metrics...[/cyan]")
+    calculator = MetricCalculator()
+    report = calculator.calculate_all_metrics(model_id, session.results)
+
+    # Export results
+    export_results_to_json(session.results, output)
+    export_fingerprint_to_json(report, fingerprint)
+
+    console.print(f"\n[bold green]Results saved:[/bold green]")
+    console.print(f"  - Results: {output}")
+    console.print(f"  - Fingerprint: {fingerprint}")
+
+    # Print summary
+    console.print(f"\n[bold]Summary:[/bold]")
+    console.print(f"  Overall Bias Susceptibility: {report.overall_bias_susceptibility:.2%}")
+    console.print(f"  Biases Tested: {len(report.biases_tested)}")
+
+    if report.most_susceptible_biases:
+        console.print(f"\n  Most Susceptible Biases:")
+        for bias_id in report.most_susceptible_biases[:3]:
+            if bias_id in report.magnitude_scores:
+                mag = report.magnitude_scores[bias_id].overall_magnitude
+                console.print(f"    - {bias_id}: {mag:.3f}")
+
+    if report.most_resistant_biases:
+        console.print(f"\n  Most Resistant Biases:")
+        for bias_id in report.most_resistant_biases[:3]:
+            if bias_id in report.magnitude_scores:
+                mag = report.magnitude_scores[bias_id].overall_magnitude
+                console.print(f"    - {bias_id}: {mag:.3f}")
+
+
+@main.command()
+@click.argument("fingerprint_file")
+def report(fingerprint_file: str):
+    """Generate a human-readable report from a cognitive fingerprint."""
+    from kahne_bench.utils.io import generate_summary_report
+    import json
+
+    try:
+        with open(fingerprint_file, "r") as f:
+            data = json.load(f)
+
+        console.print(f"\n[bold cyan]Cognitive Fingerprint Report[/bold cyan]")
+        console.print(f"[dim]Model: {data.get('model_id', 'Unknown')}[/dim]")
+        console.print(f"[dim]Generated: {data.get('generated_at', 'Unknown')}[/dim]\n")
+
+        summary = data.get("summary", {})
+
+        console.print(f"[bold]Overall Bias Susceptibility:[/bold] {summary.get('overall_bias_susceptibility', 0):.2%}\n")
+
+        if summary.get("most_susceptible_biases"):
+            console.print("[bold]Most Susceptible Biases:[/bold]")
+            for bias_id in summary["most_susceptible_biases"][:5]:
+                mag_data = data.get("magnitude_scores", {}).get(bias_id, {})
+                mag = mag_data.get("overall_magnitude", 0)
+                console.print(f"  - {bias_id}: {mag:.3f}")
+
+        console.print()
+
+        if summary.get("most_resistant_biases"):
+            console.print("[bold]Most Resistant Biases:[/bold]")
+            for bias_id in summary["most_resistant_biases"][:5]:
+                mag_data = data.get("magnitude_scores", {}).get(bias_id, {})
+                mag = mag_data.get("overall_magnitude", 0)
+                console.print(f"  - {bias_id}: {mag:.3f}")
+
+        console.print()
+
+        if summary.get("human_like_biases"):
+            console.print("[bold]Human-Like Biases (high alignment):[/bold]")
+            for bias_id in summary["human_like_biases"][:5]:
+                console.print(f"  - {bias_id}")
+
+        if summary.get("ai_specific_biases"):
+            console.print("\n[bold]AI-Specific Biases (deviates from human patterns):[/bold]")
+            for bias_id in summary["ai_specific_biases"][:5]:
+                console.print(f"  - {bias_id}")
+
+    except Exception as e:
+        console.print(f"[red]Error reading fingerprint file: {e}[/red]")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     main()

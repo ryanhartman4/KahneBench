@@ -1,10 +1,13 @@
 """
-Complete taxonomy of 51 cognitive biases for Kahne-Bench.
+Complete taxonomy of 58 cognitive biases for Kahne-Bench.
 
 Each bias is grounded in the Kahneman-Tversky research program, with clear
 links to dual-process theory and prospect theory mechanisms.
 
-Bias categories (10 total):
+The framework extends beyond the original 50-bias specification to include
+58 well-documented biases across 12 categories:
+
+Bias categories (12 total, 58 biases):
 - Representativeness Heuristic (8 biases)
 - Availability Heuristic (6 biases)
 - Anchoring (5 biases)
@@ -15,6 +18,8 @@ Bias categories (10 total):
 - Confirmation Bias (3 biases)
 - Temporal Biases (3 biases)
 - Extension Neglect / Social (4 biases)
+- Memory Biases (4 biases)
+- Attention Biases (3 biases)
 """
 
 from kahne_bench.core import BiasDefinition, BiasCategory
@@ -664,6 +669,101 @@ EXTENSION_NEGLECT_BIASES = [
 
 
 # =============================================================================
+# MEMORY BIASES (4 biases)
+# Systematic distortions in how information is encoded, stored, and recalled
+# =============================================================================
+
+MEMORY_BIASES = [
+    BiasDefinition(
+        id="rosy_retrospection",
+        name="Rosy Retrospection",
+        category=BiasCategory.MEMORY_BIAS,
+        description="Tendency to recall past events more positively than they actually were",
+        theoretical_basis="Mitchell et al. (1997) - Studies on vacation experiences",
+        system1_mechanism="Emotional fading allows positive aspects to dominate memory reconstruction",
+        system2_override="Use contemporaneous records and objective data when evaluating past events",
+        classic_paradigm="Vacations remembered more positively than rated during the trip",
+        trigger_template="Recall your experience with {past_event}. How would you rate it compared to similar {current_event}?"
+    ),
+    BiasDefinition(
+        id="source_confusion",
+        name="Source Confusion",
+        category=BiasCategory.MEMORY_BIAS,
+        description="Misattributing the source of a memory to the wrong context or person",
+        theoretical_basis="Johnson et al. (1993) - Source monitoring framework",
+        system1_mechanism="Familiarity overrides source attribution during retrieval",
+        system2_override="Explicitly verify source attribution before acting on remembered information",
+        classic_paradigm="Remembering information but forgetting where it was learned",
+        trigger_template="You recall {information}. Where did you originally learn this, and how certain are you?"
+    ),
+    BiasDefinition(
+        id="misinformation_effect",
+        name="Misinformation Effect",
+        category=BiasCategory.MEMORY_BIAS,
+        description="Post-event information distorting memory of the original event",
+        theoretical_basis="Loftus & Palmer (1974) - Car crash speed estimation studies",
+        system1_mechanism="New information integrates with original memory trace",
+        system2_override="Distinguish between original observations and later acquired information",
+        classic_paradigm="Leading questions changing eyewitness memory of car crash speed",
+        trigger_template="After observing {event}, you learn that {post_event_information}. Describe what you originally saw."
+    ),
+    BiasDefinition(
+        id="memory_reconstruction_bias",
+        name="Memory Reconstruction Bias",
+        category=BiasCategory.MEMORY_BIAS,
+        description="Reconstructing past attitudes and beliefs to match current ones",
+        theoretical_basis="Ross (1989) - Studies on attitude change and memory",
+        system1_mechanism="Current beliefs serve as anchors for reconstructing past beliefs",
+        system2_override="Consult records and external evidence of past positions",
+        classic_paradigm="People who changed opinions believing they always held new view",
+        trigger_template="Your current position on {topic} is {current_position}. What was your position {time_ago}?"
+    ),
+]
+
+
+# =============================================================================
+# ATTENTION BIASES (3 biases)
+# Selective focus on certain information while ignoring other relevant data
+# =============================================================================
+
+ATTENTION_BIASES = [
+    BiasDefinition(
+        id="attentional_bias",
+        name="Attentional Bias",
+        category=BiasCategory.ATTENTION_BIAS,
+        description="Preferential attention to certain types of stimuli based on emotional relevance",
+        theoretical_basis="MacLeod et al. (1986) - Emotional Stroop task studies",
+        system1_mechanism="Emotionally relevant information captures attention automatically",
+        system2_override="Consciously redirect attention to all relevant information systematically",
+        classic_paradigm="Anxious individuals attend more to threatening stimuli",
+        trigger_template="Review this information about {topic}: {positive_info} and {negative_info}. Which aspects are most relevant?"
+    ),
+    BiasDefinition(
+        id="inattentional_blindness",
+        name="Inattentional Blindness",
+        category=BiasCategory.ATTENTION_BIAS,
+        description="Failing to notice unexpected stimuli when attention is focused elsewhere",
+        theoretical_basis="Simons & Chabris (1999) - Gorilla experiment",
+        system1_mechanism="Focused attention creates perceptual blindspots for unexpected information",
+        system2_override="Deliberately scan for unexpected information outside focal area",
+        classic_paradigm="Observers counting basketball passes miss person in gorilla suit",
+        trigger_template="While focused on {primary_task}, what other information might you be missing about {context}?"
+    ),
+    BiasDefinition(
+        id="selective_perception",
+        name="Selective Perception",
+        category=BiasCategory.ATTENTION_BIAS,
+        description="Filtering information based on expectations, allowing only expected info through",
+        theoretical_basis="Hastorf & Cantril (1954) - Dartmouth-Princeton football study",
+        system1_mechanism="Expectations shape what information is perceived and encoded",
+        system2_override="Actively seek information that contradicts expectations",
+        classic_paradigm="Fans from opposing teams seeing different fouls in same game",
+        trigger_template="Given your expectations about {topic}, review this data: {ambiguous_data}. What patterns do you see?"
+    ),
+]
+
+
+# =============================================================================
 # COMPLETE TAXONOMY AGGREGATION
 # =============================================================================
 
@@ -680,6 +780,8 @@ BIAS_TAXONOMY: dict[str, BiasDefinition] = {
         CONFIRMATION_BIASES,
         TEMPORAL_BIASES,
         EXTENSION_NEGLECT_BIASES,
+        MEMORY_BIASES,
+        ATTENTION_BIASES,
     ]
     for bias in bias_list
 }

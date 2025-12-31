@@ -584,3 +584,292 @@ Please reconsider, being careful to avoid this cognitive bias.
         ))
 
         return results
+
+
+class ContextSensitivityEvaluator(BiasEvaluator):
+    """
+    Extended evaluator for context sensitivity testing.
+
+    Implements Section 4.2 of the Kahne-Bench specification:
+    Tests how expertise level, formality, and stakes affect bias expression.
+    """
+
+    async def evaluate_context_sensitivity(
+        self,
+        instance: CognitiveBiasInstance,
+        model_id: str,
+        intensity: TriggerIntensity = TriggerIntensity.MODERATE,
+    ) -> list[TestResult]:
+        """
+        Evaluate bias expression across different context configurations.
+
+        Tests all combinations of expertise, formality, and stakes to
+        measure how context affects bias susceptibility.
+
+        Args:
+            instance: The test instance
+            model_id: Model identifier
+            intensity: Trigger intensity to use
+
+        Returns:
+            Results across all context configurations
+        """
+        from kahne_bench.core import (
+            ExpertiseLevel,
+            Formality,
+            Stakes,
+            ContextSensitivityConfig,
+        )
+
+        results = []
+
+        # Test key context combinations
+        context_configs = [
+            # Low context pressure
+            ContextSensitivityConfig(
+                expertise_level=ExpertiseLevel.NOVICE,
+                formality=Formality.CASUAL,
+                stakes=Stakes.LOW,
+            ),
+            # Medium context pressure (baseline)
+            ContextSensitivityConfig(
+                expertise_level=ExpertiseLevel.INTERMEDIATE,
+                formality=Formality.PROFESSIONAL,
+                stakes=Stakes.MODERATE,
+            ),
+            # High context pressure
+            ContextSensitivityConfig(
+                expertise_level=ExpertiseLevel.EXPERT,
+                formality=Formality.FORMAL,
+                stakes=Stakes.HIGH,
+            ),
+            # Maximum pressure (authority + critical stakes)
+            ContextSensitivityConfig(
+                expertise_level=ExpertiseLevel.AUTHORITY,
+                formality=Formality.FORMAL,
+                stakes=Stakes.CRITICAL,
+            ),
+            # Expert with low stakes (test expertise effect)
+            ContextSensitivityConfig(
+                expertise_level=ExpertiseLevel.EXPERT,
+                formality=Formality.CASUAL,
+                stakes=Stakes.LOW,
+            ),
+            # Novice with high stakes (test vulnerability)
+            ContextSensitivityConfig(
+                expertise_level=ExpertiseLevel.NOVICE,
+                formality=Formality.FORMAL,
+                stakes=Stakes.HIGH,
+            ),
+        ]
+
+        for config in context_configs:
+            prompt = instance.apply_context_sensitivity(
+                instance.get_treatment(intensity),
+                config,
+            )
+
+            start_time = time.time()
+            try:
+                response = await self.provider.complete(
+                    prompt=prompt,
+                    max_tokens=self.config.max_tokens,
+                    temperature=self.config.temperature,
+                )
+            except Exception as e:
+                response = f"ERROR: {str(e)}"
+
+            elapsed_ms = (time.time() - start_time) * 1000
+
+            extracted = self.extractor.extract(
+                response, self._infer_answer_type(instance)
+            )
+            confidence = self.extractor.extract_confidence(response)
+
+            result = TestResult(
+                instance=instance,
+                model_id=model_id,
+                condition=f"context_{config.expertise_level.value}_{config.stakes.value}",
+                prompt_used=prompt,
+                model_response=response,
+                extracted_answer=extracted,
+                response_time_ms=elapsed_ms,
+                confidence_stated=confidence,
+                metadata={
+                    "context_sensitivity": True,
+                    "expertise_level": config.expertise_level.value,
+                    "formality": config.formality.value,
+                    "stakes": config.stakes.value,
+                },
+            )
+
+            # Score the response
+            if (instance.expected_rational_response and
+                instance.expected_biased_response and
+                not instance.expected_rational_response.startswith("[") and
+                not instance.expected_biased_response.startswith("[")):
+                is_biased, bias_score = self.score_response(
+                    result,
+                    instance.expected_rational_response,
+                    instance.expected_biased_response,
+                )
+                result.is_biased = is_biased
+                result.bias_score = bias_score
+
+            results.append(result)
+
+        return results
+
+    async def evaluate_expertise_gradient(
+        self,
+        instance: CognitiveBiasInstance,
+        model_id: str,
+        intensity: TriggerIntensity = TriggerIntensity.MODERATE,
+    ) -> list[TestResult]:
+        """
+        Evaluate bias expression specifically across expertise levels.
+
+        Tests whether expert framing reduces bias susceptibility.
+
+        Args:
+            instance: The test instance
+            model_id: Model identifier
+            intensity: Trigger intensity to use
+
+        Returns:
+            Results for each expertise level
+        """
+        from kahne_bench.core import ExpertiseLevel, Formality, Stakes
+
+        results = []
+
+        for expertise in ExpertiseLevel:
+            prompt = instance.get_context_variant(
+                intensity=intensity,
+                expertise=expertise,
+                formality=Formality.PROFESSIONAL,
+                stakes=Stakes.MODERATE,
+            )
+
+            start_time = time.time()
+            try:
+                response = await self.provider.complete(
+                    prompt=prompt,
+                    max_tokens=self.config.max_tokens,
+                    temperature=self.config.temperature,
+                )
+            except Exception as e:
+                response = f"ERROR: {str(e)}"
+
+            elapsed_ms = (time.time() - start_time) * 1000
+
+            result = TestResult(
+                instance=instance,
+                model_id=model_id,
+                condition=f"expertise_{expertise.value}",
+                prompt_used=prompt,
+                model_response=response,
+                extracted_answer=self.extractor.extract(
+                    response, self._infer_answer_type(instance)
+                ),
+                response_time_ms=elapsed_ms,
+                metadata={
+                    "context_sensitivity": True,
+                    "expertise_level": expertise.value,
+                    "test_type": "expertise_gradient",
+                },
+            )
+
+            # Score the response
+            if (instance.expected_rational_response and
+                instance.expected_biased_response and
+                not instance.expected_rational_response.startswith("[") and
+                not instance.expected_biased_response.startswith("[")):
+                is_biased, bias_score = self.score_response(
+                    result,
+                    instance.expected_rational_response,
+                    instance.expected_biased_response,
+                )
+                result.is_biased = is_biased
+                result.bias_score = bias_score
+
+            results.append(result)
+
+        return results
+
+    async def evaluate_stakes_gradient(
+        self,
+        instance: CognitiveBiasInstance,
+        model_id: str,
+        intensity: TriggerIntensity = TriggerIntensity.MODERATE,
+    ) -> list[TestResult]:
+        """
+        Evaluate bias expression specifically across stakes levels.
+
+        Tests whether high-stakes framing increases or decreases bias.
+
+        Args:
+            instance: The test instance
+            model_id: Model identifier
+            intensity: Trigger intensity to use
+
+        Returns:
+            Results for each stakes level
+        """
+        from kahne_bench.core import ExpertiseLevel, Formality, Stakes
+
+        results = []
+
+        for stakes in Stakes:
+            prompt = instance.get_context_variant(
+                intensity=intensity,
+                expertise=ExpertiseLevel.INTERMEDIATE,
+                formality=Formality.PROFESSIONAL,
+                stakes=stakes,
+            )
+
+            start_time = time.time()
+            try:
+                response = await self.provider.complete(
+                    prompt=prompt,
+                    max_tokens=self.config.max_tokens,
+                    temperature=self.config.temperature,
+                )
+            except Exception as e:
+                response = f"ERROR: {str(e)}"
+
+            elapsed_ms = (time.time() - start_time) * 1000
+
+            result = TestResult(
+                instance=instance,
+                model_id=model_id,
+                condition=f"stakes_{stakes.value}",
+                prompt_used=prompt,
+                model_response=response,
+                extracted_answer=self.extractor.extract(
+                    response, self._infer_answer_type(instance)
+                ),
+                response_time_ms=elapsed_ms,
+                metadata={
+                    "context_sensitivity": True,
+                    "stakes": stakes.value,
+                    "test_type": "stakes_gradient",
+                },
+            )
+
+            # Score the response
+            if (instance.expected_rational_response and
+                instance.expected_biased_response and
+                not instance.expected_rational_response.startswith("[") and
+                not instance.expected_biased_response.startswith("[")):
+                is_biased, bias_score = self.score_response(
+                    result,
+                    instance.expected_rational_response,
+                    instance.expected_biased_response,
+                )
+                result.is_biased = is_biased
+                result.bias_score = bias_score
+
+            results.append(result)
+
+        return results

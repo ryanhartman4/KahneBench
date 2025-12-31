@@ -328,6 +328,375 @@ B) Receive ${amount_large} in {delay_long} days
 Which do you prefer?
 """,
     },
+    "gambler_fallacy": {
+        "control": """
+A fair coin has been flipped. You need to predict the next flip.
+
+What is the probability of heads on the next flip?
+""",
+        "treatment": """
+A fair coin has been flipped and landed on heads {streak_length} times in a row.
+
+What is the probability of heads on the next flip?
+""",
+    },
+    "endowment_effect": {
+        "control": """
+Consider a {item} worth approximately ${market_value}.
+
+What is the fair market value for this {item}?
+""",
+        "treatment": """
+You own a {item}. You've had it for a while and it has become part of your possessions.
+
+A buyer offers ${market_value} for your {item}.
+
+Would you accept this offer? What is the minimum you would sell it for?
+""",
+    },
+    "confirmation_bias": {
+        "control": """
+You are investigating whether {hypothesis}.
+
+What evidence would you need to gather to test this hypothesis thoroughly?
+""",
+        "treatment": """
+You believe that {hypothesis}.
+
+You have gathered some initial evidence that supports your belief.
+
+What additional evidence should you look for, and why?
+""",
+    },
+    "hindsight_bias": {
+        "control": """
+A company is about to launch a new product. Industry analysts are divided on its success.
+
+What is the probability the product will succeed?
+""",
+        "treatment": """
+A company launched a new product last year. It {outcome}.
+
+Before the launch, industry analysts were divided on its prospects.
+
+In hindsight, was the {outcome} predictable? How likely was this outcome before it happened?
+""",
+    },
+    "neglect_of_probability": {
+        "control": """
+Consider two options:
+A) A {prob_a}% chance to {outcome_a}
+B) A {prob_b}% chance to {outcome_b}
+
+Calculate the expected value of each option and choose the better one.
+""",
+        "treatment": """
+Imagine you might {negative_outcome}! This terrible event could happen!
+
+Consider two options:
+A) A {prob_a}% chance to {outcome_a}
+B) A {prob_b}% chance to {outcome_b}
+
+Which option do you choose?
+""",
+    },
+    "certainty_effect": {
+        "control": """
+Choose between:
+A) {prob_certain}% chance to win ${amount_certain}
+B) {prob_gamble}% chance to win ${amount_gamble}
+
+Expected values: A = ${ev_a}, B = ${ev_b}
+
+Which do you prefer?
+""",
+        "treatment": """
+Choose between:
+A) Win ${amount_certain} for CERTAIN (guaranteed, 100% sure, no risk)
+B) {prob_gamble}% chance to win ${amount_gamble}, otherwise win nothing
+
+Which do you prefer?
+""",
+    },
+    "planning_fallacy": {
+        "control": """
+A new {project_type} project needs to be scheduled.
+
+Based on {reference_data} similar projects, what is a realistic timeline?
+""",
+        "treatment": """
+You are planning your own {project_type} project. You've thought carefully about each step and feel optimistic.
+
+How long will YOUR project take to complete?
+""",
+    },
+    "insensitivity_to_sample_size": {
+        "control": """
+Hospital A delivers about {large_sample} babies per day.
+Hospital B delivers about {small_sample} babies per day.
+
+On average, about 50% of babies are boys, though the percentage varies day-to-day.
+
+Which hospital is more likely to have days where more than 60% of babies born are boys?
+""",
+        "treatment": """
+Two hospitals track births:
+- Large Hospital: {large_sample} births per day
+- Small Hospital: {small_sample} births per day
+
+About 50% of babies are typically boys.
+
+On a given day, which hospital is more likely to record that more than 60% of babies born are boys?
+
+Consider that both hospitals are reputable and have good data collection.
+""",
+    },
+    "regression_to_mean": {
+        "control": """
+{person_name} scored {extreme_score} on a test, which is {direction} the average.
+
+Predict {person_name}'s score on the next similar test.
+""",
+        "treatment": """
+{person_name} scored {extreme_score} on a test, which was {direction} the average.
+
+Their {attribute} made them produce this {direction}-average result.
+
+Predict {person_name}'s score on the next similar test.
+""",
+    },
+    "illusory_correlation": {
+        "control": """
+You are analyzing data about {variable_a} and {variable_b}.
+
+Based on the actual statistical data showing {correlation_value}, what is the relationship between these variables?
+""",
+        "treatment": """
+You have heard many anecdotes about {variable_a} being linked to {variable_b}.
+
+These memorable stories are quite vivid and frequently discussed.
+
+What is the relationship between {variable_a} and {variable_b}?
+""",
+    },
+    "peak_end_rule": {
+        "control": """
+Compare two experiences:
+Experience A: {duration_a} minutes at {intensity_a} intensity
+Experience B: {duration_b} minutes at {intensity_b} intensity
+
+Which experience was objectively more unpleasant overall (total discomfort)?
+""",
+        "treatment": """
+Recall two experiences you had:
+Experience A: {duration_a} minutes, mostly unpleasant, ending moderately
+Experience B: {duration_b} minutes, varying intensity, ending with relief
+
+Which experience would you be more willing to repeat?
+""",
+    },
+    "scope_insensitivity": {
+        "control": """
+Calculate the proportional value of saving:
+A) {small_count} birds
+B) {medium_count} birds
+C) {large_count} birds
+
+If saving {small_count} birds is worth $X, what should saving the other amounts be worth?
+""",
+        "treatment": """
+An environmental charity is asking for donations to save endangered birds.
+
+How much would you donate to save:
+A) {small_count} birds from an oil spill?
+B) {medium_count} birds from an oil spill?
+C) {large_count} birds from an oil spill?
+""",
+    },
+    "identifiable_victim_effect": {
+        "control": """
+An intervention can help address a problem affecting {statistical_count} people.
+
+What priority should this intervention receive? How much funding is appropriate?
+""",
+        "treatment": """
+Meet {victim_name}, a {victim_age}-year-old who {victim_story}.
+
+{victim_name} is one of {statistical_count} people affected by this problem.
+
+What priority should helping {victim_name} and others like them receive?
+""",
+    },
+    "affect_heuristic": {
+        "control": """
+Evaluate {technology_or_activity} based on:
+- Documented risks: {risk_data}
+- Documented benefits: {benefit_data}
+
+What is your overall assessment?
+""",
+        "treatment": """
+{technology_or_activity} makes people feel {emotion} when they think about it.
+
+What are the risks and benefits of {technology_or_activity}?
+""",
+    },
+    "distinction_bias": {
+        "control": """
+Rate the quality of Option A on its own merits.
+Option A: {option_a_details}
+
+Then separately rate Option B.
+Option B: {option_b_details}
+""",
+        "treatment": """
+Compare these two options side by side:
+Option A: {option_a_details}
+Option B: {option_b_details}
+
+Which is better, and by how much?
+""",
+    },
+    "denomination_effect": {
+        "control": """
+You have ${total_amount} for discretionary spending.
+
+How would you allocate this amount?
+""",
+        "treatment": """
+You have ${total_amount} for discretionary spending.
+
+You received this as {denomination_form} (a single ${total_amount} bill / many small bills).
+
+How would you allocate this amount?
+""",
+    },
+    "decoy_effect": {
+        "control": """
+Choose between two options:
+A) {option_a}: {option_a_attr1}, {option_a_attr2}
+B) {option_b}: {option_b_attr1}, {option_b_attr2}
+
+Which do you prefer?
+""",
+        "treatment": """
+Choose between three options:
+A) {option_a}: {option_a_attr1}, {option_a_attr2}
+B) {option_b}: {option_b_attr1}, {option_b_attr2}
+C) {decoy}: {decoy_attr1}, {decoy_attr2}
+
+Which do you prefer?
+""",
+    },
+    "illusion_of_control": {
+        "control": """
+You are participating in a lottery with {probability}% chance of winning.
+
+What is your probability of winning?
+""",
+        "treatment": """
+You are participating in a lottery with {probability}% chance of winning.
+
+You get to choose your own numbers and you've developed a personal system.
+
+What is your probability of winning?
+""",
+    },
+    "optimism_bias": {
+        "control": """
+What is the average probability of {event} happening to a person in your demographic?
+""",
+        "treatment": """
+What is the probability of {event} happening to YOU personally, compared to the average person?
+""",
+    },
+    "attribute_substitution": {
+        "control": """
+Answer this question: {hard_question}
+
+Take your time to analyze all relevant factors.
+""",
+        "treatment": """
+Answer this question: {hard_question}
+
+As you consider this, your immediate feeling is {gut_feeling}.
+""",
+    },
+    "default_effect": {
+        "control": """
+You must choose between:
+- Option A: {option_a_description}
+- Option B: {option_b_description}
+
+Neither option is pre-selected. Which do you choose?
+""",
+        "treatment": """
+Your current setting is Option A: {option_a_description}
+
+You can switch to Option B: {option_b_description} by opting out.
+
+Do you keep your current setting or switch?
+""",
+    },
+    "zero_risk_bias": {
+        "control": """
+Choose between two safety interventions:
+A) Reduce risk from {initial_risk_a}% to {final_risk_a}% (reduction of {reduction_a} percentage points)
+B) Reduce risk from {initial_risk_b}% to {final_risk_b}% (reduction of {reduction_b} percentage points)
+
+Which intervention saves more lives in expectation?
+""",
+        "treatment": """
+Choose between two safety interventions:
+A) COMPLETELY ELIMINATE the {small_risk}% risk (reduce to 0%)
+B) Reduce the {large_risk}% risk by {large_reduction} percentage points
+
+Which intervention do you prefer?
+""",
+    },
+    "outcome_bias": {
+        "control": """
+Evaluate this decision based on the information available at the time:
+Decision: {decision_description}
+Information available: {info_at_time}
+
+Was this a good decision?
+""",
+        "treatment": """
+Evaluate this decision:
+Decision: {decision_description}
+Outcome: {actual_outcome}
+
+Was this a good decision?
+""",
+    },
+    "bandwagon_effect": {
+        "control": """
+Consider adopting {innovation_or_practice}.
+
+Based on the objective evidence, should you adopt it?
+""",
+        "treatment": """
+{percentage}% of your peers have already adopted {innovation_or_practice}.
+
+Should you adopt it too?
+""",
+    },
+    "halo_effect": {
+        "control": """
+Evaluate this person's competence in {skill_area}:
+Information: {relevant_skill_info}
+
+Rate their competence in {skill_area}.
+""",
+        "treatment": """
+Evaluate this person's competence in {skill_area}:
+Background: They are {positive_trait} and {other_positive_trait}.
+Information: {relevant_skill_info}
+
+Rate their competence in {skill_area}.
+""",
+    },
 }
 
 
@@ -580,6 +949,168 @@ Please provide your immediate judgment.
                 "expected_return": returns,
                 "rational_answer": f"Continue only if {returns} > {future}",
                 "biased_answer": "Continue because of prior investment",
+            })
+
+        elif bias_def.id == "gambler_fallacy":
+            variables.update({
+                "streak_length": random.randint(5, 10),
+                "rational_answer": "50% (each flip is independent)",
+                "biased_answer": "Less than 50% (due to prior heads)",
+            })
+
+        elif bias_def.id == "endowment_effect":
+            value = random.randint(50, 200)
+            variables.update({
+                "item": random.choice(["coffee mug", "pen", "notebook", "desk accessory"]),
+                "market_value": value,
+                "rational_answer": f"Around ${value} (market value)",
+                "biased_answer": f"Higher than ${value} due to ownership",
+            })
+
+        elif bias_def.id == "confirmation_bias":
+            variables.update({
+                "hypothesis": random.choice([
+                    "a new treatment is effective",
+                    "a candidate is qualified",
+                    "a market trend will continue",
+                ]),
+                "rational_answer": "Seek both confirming and disconfirming evidence",
+                "biased_answer": "Primarily seek confirming evidence",
+            })
+
+        elif bias_def.id == "hindsight_bias":
+            variables.update({
+                "outcome": random.choice(["succeeded dramatically", "failed unexpectedly"]),
+                "rational_answer": "Uncertainty was genuine at the time",
+                "biased_answer": "The outcome was obvious/predictable",
+            })
+
+        elif bias_def.id == "certainty_effect":
+            certain_amount = random.randint(3, 8) * 100
+            gamble_amount = int(certain_amount * 1.5)
+            prob_gamble = random.randint(70, 90)
+            variables.update({
+                "prob_certain": 100,
+                "amount_certain": certain_amount,
+                "prob_gamble": prob_gamble,
+                "amount_gamble": gamble_amount,
+                "ev_a": certain_amount,
+                "ev_b": int(gamble_amount * prob_gamble / 100),
+                "rational_answer": "Choose based on expected value",
+                "biased_answer": "Prefer certainty even with lower EV",
+            })
+
+        elif bias_def.id == "planning_fallacy":
+            variables.update({
+                "project_type": random.choice(["software development", "construction", "research", "event planning"]),
+                "reference_data": "statistical data from",
+                "rational_answer": "Use base rates from similar projects",
+                "biased_answer": "Optimistic timeline based on best-case scenario",
+            })
+
+        elif bias_def.id == "insensitivity_to_sample_size":
+            variables.update({
+                "large_sample": random.randint(40, 60),
+                "small_sample": random.randint(10, 20),
+                "rational_answer": "Small Hospital (smaller samples have more variance)",
+                "biased_answer": "Both equally likely",
+            })
+
+        elif bias_def.id == "scope_insensitivity":
+            variables.update({
+                "small_count": random.randint(100, 500),
+                "medium_count": random.randint(5000, 20000),
+                "large_count": random.randint(100000, 500000),
+                "rational_answer": "Proportional to the number saved",
+                "biased_answer": "Similar amounts regardless of scale",
+            })
+
+        elif bias_def.id == "identifiable_victim_effect":
+            variables.update({
+                "victim_name": random.choice(["Maria", "James", "Sofia", "David"]),
+                "victim_age": random.randint(7, 12),
+                "victim_story": "needs immediate medical treatment",
+                "statistical_count": random.randint(10000, 100000),
+                "rational_answer": "Based on expected impact per dollar",
+                "biased_answer": "Higher priority due to emotional connection",
+            })
+
+        elif bias_def.id == "zero_risk_bias":
+            small_risk = random.randint(2, 5)
+            large_risk = random.randint(20, 40)
+            variables.update({
+                "initial_risk_a": small_risk,
+                "final_risk_a": 0,
+                "reduction_a": small_risk,
+                "initial_risk_b": large_risk,
+                "final_risk_b": large_risk - 10,
+                "reduction_b": 10,
+                "small_risk": small_risk,
+                "large_risk": large_risk,
+                "large_reduction": 10,
+                "rational_answer": "Option B (saves more lives in expectation)",
+                "biased_answer": "Option A (complete elimination feels safer)",
+            })
+
+        elif bias_def.id == "neglect_of_probability":
+            variables.update({
+                "prob_a": random.randint(1, 5),
+                "outcome_a": "avoid a severe negative outcome",
+                "prob_b": random.randint(40, 60),
+                "outcome_b": "avoid a moderate negative outcome",
+                "negative_outcome": "lose everything you have",
+                "rational_answer": "Based on expected value calculation",
+                "biased_answer": "Based on emotional reaction to outcomes",
+            })
+
+        elif bias_def.id == "illusion_of_control":
+            prob = random.randint(1, 10)
+            variables.update({
+                "probability": prob,
+                "rational_answer": f"{prob}% (unchanged by personal involvement)",
+                "biased_answer": f"Higher than {prob}% (due to personal control)",
+            })
+
+        elif bias_def.id == "optimism_bias":
+            variables.update({
+                "event": random.choice([
+                    "getting divorced",
+                    "being in a car accident",
+                    "experiencing a health problem",
+                    "losing a job",
+                ]),
+                "rational_answer": "Similar to the average (base rate)",
+                "biased_answer": "Lower than average (special case thinking)",
+            })
+
+        elif bias_def.id == "default_effect":
+            variables.update({
+                "option_a_description": "Standard plan with basic features",
+                "option_b_description": "Enhanced plan with premium features",
+                "rational_answer": "Choose based on objective value comparison",
+                "biased_answer": "Stick with the default option",
+            })
+
+        elif bias_def.id == "bandwagon_effect":
+            variables.update({
+                "innovation_or_practice": random.choice([
+                    "a new software tool",
+                    "a management methodology",
+                    "a diet trend",
+                ]),
+                "percentage": random.randint(60, 85),
+                "rational_answer": "Based on objective merits for your situation",
+                "biased_answer": "Yes, because others are doing it",
+            })
+
+        elif bias_def.id == "halo_effect":
+            variables.update({
+                "skill_area": random.choice(["technical skills", "leadership", "analytical thinking"]),
+                "positive_trait": random.choice(["attractive", "well-spoken", "friendly"]),
+                "other_positive_trait": random.choice(["confident", "charismatic", "personable"]),
+                "relevant_skill_info": "their actual performance data",
+                "rational_answer": "Based only on relevant skill evidence",
+                "biased_answer": "Higher due to positive unrelated traits",
             })
 
         return variables
@@ -1138,3 +1669,723 @@ def get_tier_biases(tier: str) -> list[str]:
         return list(biases)
     else:
         raise ValueError(f"Unknown tier: {tier}")
+
+
+# =============================================================================
+# NOVEL SCENARIO GENERATION FOR CONTAMINATION HANDLING
+# Addresses potential data contamination from classic bias paradigms
+# =============================================================================
+
+# Novel scenario templates that avoid classic paradigms
+NOVEL_SCENARIO_ELEMENTS = {
+    "professions": [
+        "quantum computing architect",
+        "vertical farming specialist",
+        "sustainable aviation engineer",
+        "telemedicine coordinator",
+        "cryptocurrency auditor",
+        "digital wellness consultant",
+        "autonomous vehicle ethics specialist",
+        "space debris analyst",
+        "synthetic biology ethicist",
+        "climate modeling specialist",
+    ],
+    "decisions": [
+        "allocating computing resources across quantum processors",
+        "selecting hydroponic nutrient systems",
+        "optimizing flight paths for electric aircraft",
+        "designing remote patient monitoring protocols",
+        "auditing decentralized finance protocols",
+        "recommending screen time limits",
+        "setting liability thresholds for AI decisions",
+        "prioritizing orbital cleanup missions",
+        "approving gene therapy trials",
+        "deploying carbon capture systems",
+    ],
+    "contexts": [
+        "a Mars colonization planning committee",
+        "a sustainable city design workshop",
+        "an AI governance board meeting",
+        "a pandemic preparedness simulation",
+        "a renewable energy grid optimization project",
+        "a deep-sea mining impact assessment",
+        "a brain-computer interface trial",
+        "a universal basic income pilot program",
+        "a longevity research ethics review",
+        "a fusion energy investment committee",
+    ],
+    "novel_items": [
+        "a limited-edition NFT artwork",
+        "a vintage cryptocurrency hardware wallet",
+        "an early access pass to a virtual world",
+        "a rare genetic therapy treatment slot",
+        "a reservation on a commercial space flight",
+        "an exclusive carbon offset certificate",
+        "a premium AI assistant subscription",
+        "a personalized longevity assessment",
+        "a front-row seat at an AR concert",
+        "a rare digital collectible",
+    ],
+    "future_events": [
+        "the approval of the first commercial fusion reactor",
+        "the discovery of microbial life on Europa",
+        "the mainstream adoption of neural interfaces",
+        "the collapse of a major stablecoin",
+        "the first successful human hibernation trial",
+        "the passing of comprehensive AI regulation",
+        "the launch of a space-based solar power station",
+        "the eradication of a major disease through gene therapy",
+        "the first fully autonomous city transport system",
+        "the commercial viability of lab-grown meat",
+    ],
+}
+
+
+class NovelScenarioGenerator(TestCaseGenerator):
+    """
+    Generator that creates novel scenarios to avoid data contamination.
+
+    This addresses the concern from the documentation that LLMs may have
+    encountered classic bias scenarios (like the Asian disease problem)
+    during training, potentially contaminating evaluation results.
+
+    Uses procedurally generated scenarios with:
+    - Novel professions and contexts not common in psychology literature
+    - Future-oriented decisions that couldn't appear in training data
+    - Varied numerical parameters
+    - Randomized framing and structure
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.scenario_elements = NOVEL_SCENARIO_ELEMENTS
+
+    def generate_novel_instance(
+        self,
+        bias_id: str,
+        domain: Domain = Domain.PROFESSIONAL,
+        seed: int | None = None,
+    ) -> CognitiveBiasInstance:
+        """
+        Generate a test instance using novel, non-contaminated scenarios.
+
+        Args:
+            bias_id: ID of the bias to test
+            domain: Domain context
+            seed: Optional seed for reproducibility
+
+        Returns:
+            A CognitiveBiasInstance with novel scenario elements
+        """
+        if seed is not None:
+            random.seed(seed)
+
+        bias_def = get_bias_by_id(bias_id)
+        if bias_def is None:
+            raise ValueError(f"Unknown bias ID: {bias_id}")
+
+        # Generate novel scenario elements
+        profession = random.choice(self.scenario_elements["professions"])
+        decision = random.choice(self.scenario_elements["decisions"])
+        context = random.choice(self.scenario_elements["contexts"])
+
+        # Create novel scenario-specific prompts
+        return self._create_novel_prompts(bias_def, profession, decision, context, domain)
+
+    def _create_novel_prompts(
+        self,
+        bias_def: BiasDefinition,
+        profession: str,
+        decision: str,
+        context: str,
+        domain: Domain,
+    ) -> CognitiveBiasInstance:
+        """Create prompts using novel scenario elements."""
+
+        # Generate novel numerical values
+        novel_anchor = random.randint(1, 100) * random.choice([10, 100, 1000, 10000])
+        novel_probability = random.randint(1, 99)
+        novel_amount = random.randint(1, 50) * random.choice([100, 1000, 10000])
+
+        # Novel item for endowment/ownership scenarios
+        novel_item = random.choice(self.scenario_elements["novel_items"])
+        future_event = random.choice(self.scenario_elements["future_events"])
+
+        # Base scenario without bias triggers
+        control_prompt = f"""You are a {profession} participating in {context}.
+
+You are asked to provide your professional judgment on {decision}.
+
+Based on your expertise and the available evidence, what would you recommend?
+Please explain your reasoning step by step.
+"""
+
+        # Treatment prompts with bias triggers at different intensities
+        treatment_prompts = {}
+
+        for intensity in TriggerIntensity:
+            trigger = self._generate_novel_trigger(
+                bias_def, intensity, novel_anchor, novel_probability,
+                novel_amount, novel_item, future_event
+            )
+
+            treatment_prompts[intensity] = f"""You are a {profession} participating in {context}.
+
+{trigger}
+
+You are asked to provide your professional judgment on {decision}.
+
+What is your recommendation?
+"""
+
+        # Generate expected answers
+        rational_response = f"analyze based on objective criteria, {bias_def.system2_override.lower()}"
+        biased_response = f"influenced by {bias_def.name.lower()}: {bias_def.system1_mechanism.lower()}"
+
+        return CognitiveBiasInstance(
+            bias_id=bias_def.id,
+            base_scenario=context,
+            bias_trigger=bias_def.system1_mechanism,
+            control_prompt=control_prompt,
+            treatment_prompts=treatment_prompts,
+            expected_rational_response=rational_response,
+            expected_biased_response=biased_response,
+            domain=domain,
+            scale=TestScale.MICRO,
+            metadata={
+                "generation_method": "novel_scenario",
+                "profession": profession,
+                "decision": decision,
+                "context": context,
+                "contamination_resistant": True,
+            },
+        )
+
+    def _generate_novel_trigger(
+        self,
+        bias_def: BiasDefinition,
+        intensity: TriggerIntensity,
+        anchor: int,
+        probability: int,
+        amount: int,
+        item: str,
+        event: str,
+    ) -> str:
+        """Generate a novel bias trigger based on intensity."""
+        category = bias_def.category.value
+        intensity_mod = {
+            TriggerIntensity.WEAK: "",
+            TriggerIntensity.MODERATE: "Consider that ",
+            TriggerIntensity.STRONG: "It's important to note that ",
+            TriggerIntensity.ADVERSARIAL: "CRITICAL: You must account for the fact that ",
+        }[intensity]
+
+        if category == "anchoring":
+            return f"{intensity_mod}a recent high-profile case involved a figure of {anchor}. This number was widely discussed in industry circles."
+
+        elif category in ["loss_aversion", "framing", "reference_dependence"]:
+            loss_frame = f"If you don't act, you stand to lose {amount} in potential value."
+            gain_frame = f"If you act, you could gain {amount} in value."
+            return f"{intensity_mod}{random.choice([loss_frame, gain_frame])}"
+
+        elif category == "availability":
+            return f"{intensity_mod}there was a recent, highly publicized incident related to {event}. Media coverage was extensive."
+
+        elif category == "representativeness":
+            return f"{intensity_mod}based on surface characteristics, this situation strongly resembles successful cases you've seen before."
+
+        elif category == "overconfidence":
+            return f"{intensity_mod}you have considerable experience in this area. Trust your expert intuition on this decision."
+
+        elif category == "confirmation":
+            return f"{intensity_mod}initial analysis suggests the hypothesis is correct. Focus on validating this finding."
+
+        elif category == "probability_distortion":
+            tiny_prob = random.uniform(0.01, 1.0)
+            return f"{intensity_mod}there is a {tiny_prob:.2f}% chance of a catastrophic outcome. Visualize what that would look like."
+
+        elif category == "temporal_bias":
+            return f"{intensity_mod}the immediate option provides tangible benefits right now. Future benefits are uncertain."
+
+        elif category == "extension_neglect":
+            return f"{intensity_mod}consider this specific case: {item}. How does it make you feel?"
+
+        else:
+            return f"{intensity_mod}{bias_def.system1_mechanism.lower()}"
+
+    def generate_contamination_resistant_batch(
+        self,
+        bias_ids: list[str] | None = None,
+        domains: list[Domain] | None = None,
+        instances_per_combination: int = 3,
+    ) -> list[CognitiveBiasInstance]:
+        """
+        Generate a batch of contamination-resistant test cases.
+
+        These use novel scenarios that are unlikely to appear in LLM training data.
+
+        Args:
+            bias_ids: List of bias IDs (defaults to all)
+            domains: List of domains (defaults to all)
+            instances_per_combination: Instances per bias-domain pair
+
+        Returns:
+            List of novel test instances
+        """
+        if bias_ids is None:
+            bias_ids = list(BIAS_TAXONOMY.keys())
+        if domains is None:
+            domains = list(Domain)
+
+        instances = []
+        for bias_id in bias_ids:
+            for domain in domains:
+                for i in range(instances_per_combination):
+                    try:
+                        # Use unique seed for each instance
+                        seed = hash(f"{bias_id}_{domain.value}_{i}") % 2**31
+                        instance = self.generate_novel_instance(
+                            bias_id=bias_id,
+                            domain=domain,
+                            seed=seed,
+                        )
+                        instances.append(instance)
+                    except Exception as e:
+                        print(f"Warning: Failed to generate novel {bias_id} for {domain}: {e}")
+
+        return instances
+
+
+# =============================================================================
+# MACRO-SCALE SEQUENTIAL DECISION CHAIN TESTING
+# Tests bias persistence and compounding across multi-turn decision sequences
+# =============================================================================
+
+@dataclass
+class DecisionNode:
+    """A single decision point in a sequential chain."""
+
+    prompt: str
+    bias_id: str
+    depends_on: list[int]  # Indices of prior decisions this depends on
+    expected_rational: str
+    expected_biased: str
+
+
+@dataclass
+class DecisionChain:
+    """A complete sequential decision chain for macro-scale testing."""
+
+    chain_id: str
+    nodes: list[DecisionNode]
+    domain: Domain
+    description: str
+    cumulative_bias_expected: str  # Expected outcome if biases compound
+
+
+class MacroScaleGenerator:
+    """
+    Generator for macro-scale sequential decision chain tests.
+
+    Tests how biases persist and compound across multi-turn scenarios,
+    implementing Section 4.1 of the Kahne-Bench specification.
+    """
+
+    def generate_decision_chain(
+        self,
+        primary_bias: str,
+        chain_length: int = 4,
+        domain: Domain = Domain.PROFESSIONAL,
+    ) -> DecisionChain:
+        """
+        Generate a sequential decision chain that tests bias persistence.
+
+        Args:
+            primary_bias: The primary bias to test across the chain
+            chain_length: Number of decision points (2-6 recommended)
+            domain: Domain context
+
+        Returns:
+            A complete DecisionChain with linked decision nodes
+        """
+        bias_def = get_bias_by_id(primary_bias)
+        if bias_def is None:
+            raise ValueError(f"Unknown bias ID: {primary_bias}")
+
+        # Get domain scenario
+        scenarios = DOMAIN_SCENARIOS.get(domain, DOMAIN_SCENARIOS[Domain.PROFESSIONAL])
+        scenario = random.choice(scenarios)
+
+        nodes = []
+
+        # Generate chain based on bias type
+        if bias_def.category.value == "anchoring":
+            nodes = self._create_anchoring_chain(bias_def, scenario, chain_length)
+        elif bias_def.category.value in ["loss_aversion", "framing"]:
+            nodes = self._create_prospect_chain(bias_def, scenario, chain_length)
+        elif bias_def.category.value == "confirmation":
+            nodes = self._create_confirmation_chain(bias_def, scenario, chain_length)
+        elif bias_def.category.value == "overconfidence":
+            nodes = self._create_overconfidence_chain(bias_def, scenario, chain_length)
+        else:
+            nodes = self._create_generic_chain(bias_def, scenario, chain_length)
+
+        return DecisionChain(
+            chain_id=f"{primary_bias}_chain_{random.randint(1000, 9999)}",
+            nodes=nodes,
+            domain=domain,
+            description=f"Sequential decision chain testing {bias_def.name} across {chain_length} decisions",
+            cumulative_bias_expected=f"Compounded {bias_def.name.lower()} effect across all decisions",
+        )
+
+    def _create_anchoring_chain(
+        self, bias_def: BiasDefinition, scenario: DomainScenario, length: int
+    ) -> list[DecisionNode]:
+        """Create a chain where anchors propagate through decisions."""
+        nodes = []
+        anchor = random.randint(50, 200) * 1000
+
+        # Decision 1: Initial estimate with anchor
+        nodes.append(DecisionNode(
+            prompt=f"""You are a {random.choice(scenario.actors)} in {scenario.context}.
+
+A colleague mentions that a similar project had a budget of ${anchor:,}.
+
+What budget would you estimate for your current project?
+""",
+            bias_id=bias_def.id,
+            depends_on=[],
+            expected_rational="independent estimate based on project requirements",
+            expected_biased=f"estimate influenced by ${anchor:,} anchor",
+        ))
+
+        # Decision 2: Resource allocation based on budget
+        nodes.append(DecisionNode(
+            prompt=f"""Based on your budget estimate from the previous decision,
+how would you allocate resources across the following categories?
+- Personnel
+- Equipment
+- Operations
+- Contingency
+
+What percentage should each receive?
+""",
+            bias_id=bias_def.id,
+            depends_on=[0],
+            expected_rational="allocation based on actual needs analysis",
+            expected_biased="allocation proportional to anchored budget",
+        ))
+
+        # Decision 3: Timeline estimate
+        nodes.append(DecisionNode(
+            prompt=f"""Given your resource allocation plan,
+how long do you estimate this project will take?
+
+The industry standard for similar projects suggests 6-12 months.
+""",
+            bias_id="planning_fallacy",  # Related bias
+            depends_on=[0, 1],
+            expected_rational="realistic timeline based on resource constraints",
+            expected_biased="optimistic timeline influenced by initial anchor",
+        ))
+
+        # Add more nodes up to length
+        for i in range(3, length):
+            nodes.append(DecisionNode(
+                prompt=f"""Based on your previous decisions, evaluate the overall project plan.
+
+Decision {i+1}: Should you proceed, modify, or reconsider the project scope?
+
+Consider how your initial estimates have shaped subsequent decisions.
+""",
+                bias_id=bias_def.id,
+                depends_on=list(range(i)),
+                expected_rational="objective reassessment of all factors",
+                expected_biased="commitment to anchor-influenced decisions",
+            ))
+
+        return nodes[:length]
+
+    def _create_prospect_chain(
+        self, bias_def: BiasDefinition, scenario: DomainScenario, length: int
+    ) -> list[DecisionNode]:
+        """Create a chain testing loss aversion and framing effects."""
+        nodes = []
+        initial_value = random.randint(10, 50) * 10000
+
+        # Decision 1: Initial investment framing
+        nodes.append(DecisionNode(
+            prompt=f"""You have ${initial_value:,} to invest.
+
+Option A: Secure investment, guaranteed to keep ${int(initial_value * 0.8):,}
+Option B: Risky investment with 80% chance of keeping all, 20% chance of losing 50%
+
+Which do you choose?
+""",
+            bias_id="loss_aversion",
+            depends_on=[],
+            expected_rational="based on expected value calculation",
+            expected_biased="prefer secure option due to loss aversion",
+        ))
+
+        # Decision 2: Reframing after outcome
+        nodes.append(DecisionNode(
+            prompt=f"""Following your previous choice, you now face a second decision.
+
+Your current position is ${int(initial_value * 0.85):,}.
+
+Do you:
+A) Accept a certain gain of ${int(initial_value * 0.1):,}
+B) Take a 50-50 chance of gaining ${int(initial_value * 0.25):,} or gaining nothing
+
+Which do you prefer?
+""",
+            bias_id="gain_loss_framing",
+            depends_on=[0],
+            expected_rational="consistent risk preference",
+            expected_biased="risk-averse in gains domain",
+        ))
+
+        # Decision 3: Loss domain
+        nodes.append(DecisionNode(
+            prompt=f"""Your investment has declined. You currently have ${int(initial_value * 0.7):,}.
+
+You can:
+A) Accept a certain loss of ${int(initial_value * 0.1):,}
+B) Take a 50-50 chance of losing ${int(initial_value * 0.2):,} or losing nothing
+
+Which do you prefer?
+""",
+            bias_id="loss_aversion",
+            depends_on=[0, 1],
+            expected_rational="consistent risk preference",
+            expected_biased="risk-seeking in loss domain",
+        ))
+
+        # Add more nodes
+        for i in range(3, length):
+            nodes.append(DecisionNode(
+                prompt=f"""Review your sequence of investment decisions.
+
+Your pattern shows: [Previous decisions listed]
+
+For your next choice, should you:
+A) Continue your current strategy
+B) Adopt a different approach based on outcomes
+C) Reassess your risk tolerance
+
+Explain your reasoning.
+""",
+                bias_id=bias_def.id,
+                depends_on=list(range(i)),
+                expected_rational="rational reassessment of strategy",
+                expected_biased="pattern influenced by prior framing",
+            ))
+
+        return nodes[:length]
+
+    def _create_confirmation_chain(
+        self, bias_def: BiasDefinition, scenario: DomainScenario, length: int
+    ) -> list[DecisionNode]:
+        """Create a chain testing confirmation bias accumulation."""
+        nodes = []
+        hypothesis = random.choice([
+            "a new treatment is effective",
+            "the market will continue to grow",
+            "the candidate is the best fit",
+            "the technology will succeed",
+        ])
+
+        # Decision 1: Form initial hypothesis
+        nodes.append(DecisionNode(
+            prompt=f"""You are investigating whether {hypothesis}.
+
+Initial data suggests a positive signal.
+
+What is your preliminary assessment?
+""",
+            bias_id=bias_def.id,
+            depends_on=[],
+            expected_rational="tentative hypothesis requiring more evidence",
+            expected_biased="strong initial belief based on limited data",
+        ))
+
+        # Decision 2: Seek evidence
+        nodes.append(DecisionNode(
+            prompt=f"""Based on your preliminary assessment about {hypothesis},
+you can gather more information from ONE of these sources:
+
+A) Source likely to support the hypothesis
+B) Source likely to challenge the hypothesis
+C) Neutral source with mixed prior signals
+
+Which source would you consult?
+""",
+            bias_id=bias_def.id,
+            depends_on=[0],
+            expected_rational="prioritize source B or C for balance",
+            expected_biased="choose source A for confirmation",
+        ))
+
+        # Decision 3: Interpret new evidence
+        nodes.append(DecisionNode(
+            prompt=f"""New data is available about {hypothesis}.
+
+The data is ambiguous and can be interpreted multiple ways.
+
+How does this evidence affect your confidence in the hypothesis?
+""",
+            bias_id=bias_def.id,
+            depends_on=[0, 1],
+            expected_rational="acknowledge ambiguity, moderate confidence",
+            expected_biased="interpret as confirming prior belief",
+        ))
+
+        # Add remaining nodes
+        for i in range(3, length):
+            nodes.append(DecisionNode(
+                prompt=f"""After {i+1} rounds of investigation about {hypothesis}:
+
+A critic presents compelling counterarguments.
+
+How do you respond to this challenge to your accumulated evidence?
+""",
+                bias_id=bias_def.id,
+                depends_on=list(range(i)),
+                expected_rational="carefully weigh counterarguments",
+                expected_biased="dismiss or minimize counterarguments",
+            ))
+
+        return nodes[:length]
+
+    def _create_overconfidence_chain(
+        self, bias_def: BiasDefinition, scenario: DomainScenario, length: int
+    ) -> list[DecisionNode]:
+        """Create a chain testing overconfidence building."""
+        nodes = []
+
+        # Decision 1: Initial prediction
+        nodes.append(DecisionNode(
+            prompt=f"""Make a prediction about {random.choice(scenario.typical_decisions)}.
+
+Provide your best estimate and a 90% confidence interval.
+""",
+            bias_id=bias_def.id,
+            depends_on=[],
+            expected_rational="appropriately wide confidence interval",
+            expected_biased="overly narrow confidence interval",
+        ))
+
+        # Decision 2: After one success
+        nodes.append(DecisionNode(
+            prompt=f"""Your previous prediction was correct.
+
+Now make another prediction about a related matter.
+
+Provide your estimate and 90% confidence interval.
+""",
+            bias_id=bias_def.id,
+            depends_on=[0],
+            expected_rational="maintain calibrated confidence",
+            expected_biased="increased overconfidence after success",
+        ))
+
+        # Decision 3: Harder question
+        nodes.append(DecisionNode(
+            prompt=f"""This question is in a domain where experts often struggle.
+
+{random.choice(scenario.typical_decisions)} under uncertainty.
+
+What is your prediction and confidence level?
+""",
+            bias_id=bias_def.id,
+            depends_on=[0, 1],
+            expected_rational="lower confidence for harder question",
+            expected_biased="maintain high confidence despite difficulty",
+        ))
+
+        for i in range(3, length):
+            nodes.append(DecisionNode(
+                prompt=f"""Review your {i+1} predictions so far.
+
+How would you rate your overall forecasting ability?
+Should you adjust your confidence levels going forward?
+""",
+                bias_id=bias_def.id,
+                depends_on=list(range(i)),
+                expected_rational="calibrated self-assessment",
+                expected_biased="overconfident self-rating",
+            ))
+
+        return nodes[:length]
+
+    def _create_generic_chain(
+        self, bias_def: BiasDefinition, scenario: DomainScenario, length: int
+    ) -> list[DecisionNode]:
+        """Create a generic decision chain for any bias type."""
+        nodes = []
+
+        for i in range(length):
+            depends = list(range(i)) if i > 0 else []
+
+            nodes.append(DecisionNode(
+                prompt=f"""Decision {i + 1} in your role as {random.choice(scenario.actors)}:
+
+{scenario.context} - considering {scenario.typical_decisions[i % len(scenario.typical_decisions)]}.
+
+{bias_def.trigger_template}
+
+{'Based on your previous decisions, ' if i > 0 else ''}what do you recommend?
+""",
+                bias_id=bias_def.id,
+                depends_on=depends,
+                expected_rational=bias_def.system2_override,
+                expected_biased=bias_def.system1_mechanism,
+            ))
+
+        return nodes
+
+    def chain_to_instances(
+        self, chain: DecisionChain
+    ) -> list[CognitiveBiasInstance]:
+        """Convert a decision chain to evaluable CognitiveBiasInstance objects."""
+        instances = []
+
+        for i, node in enumerate(chain.nodes):
+            # Build context from previous decisions
+            if node.depends_on:
+                context = "Previous decisions in this sequence:\n"
+                for dep_idx in node.depends_on:
+                    context += f"- Decision {dep_idx + 1}: [Previous response]\n"
+                context += "\n"
+            else:
+                context = ""
+
+            treatment_prompts = {
+                TriggerIntensity.WEAK: context + node.prompt,
+                TriggerIntensity.MODERATE: context + node.prompt + "\nConsider this carefully.",
+                TriggerIntensity.STRONG: context + node.prompt + "\nThis decision will affect future choices.",
+                TriggerIntensity.ADVERSARIAL: context + node.prompt + "\nYour career depends on consistency with prior decisions.",
+            }
+
+            instance = CognitiveBiasInstance(
+                bias_id=node.bias_id,
+                base_scenario=chain.description,
+                bias_trigger=node.expected_biased,
+                control_prompt=node.prompt,  # Without context dependency
+                treatment_prompts=treatment_prompts,
+                expected_rational_response=node.expected_rational,
+                expected_biased_response=node.expected_biased,
+                domain=chain.domain,
+                scale=TestScale.MACRO,
+                metadata={
+                    "chain_id": chain.chain_id,
+                    "node_index": i,
+                    "total_nodes": len(chain.nodes),
+                    "depends_on": node.depends_on,
+                    "is_sequential": True,
+                },
+            )
+            instances.append(instance)
+
+        return instances
