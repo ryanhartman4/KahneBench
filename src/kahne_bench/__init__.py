@@ -12,6 +12,11 @@ from kahne_bench.core import (
     TestScale,
     TriggerIntensity,
     TemporalCondition,
+    # Context sensitivity types (Section 4.2)
+    ExpertiseLevel,
+    Formality,
+    Stakes,
+    ContextSensitivityConfig,
 )
 from kahne_bench.biases import BIAS_TAXONOMY, get_bias_by_id, get_biases_by_category
 from kahne_bench.engines.generator import TestCaseGenerator
@@ -35,6 +40,11 @@ __all__ = [
     "TestScale",
     "TriggerIntensity",
     "TemporalCondition",
+    # Context sensitivity (Section 4.2)
+    "ExpertiseLevel",
+    "Formality",
+    "Stakes",
+    "ContextSensitivityConfig",
     # Taxonomy
     "BIAS_TAXONOMY",
     "get_bias_by_id",

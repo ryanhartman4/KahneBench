@@ -103,6 +103,86 @@ class TemporalCondition(Enum):
     ADAPTIVE = "adaptive"  # Response to corrective feedback
 
 
+class ExpertiseLevel(Enum):
+    """
+    Expertise levels for context sensitivity testing.
+
+    Tests how domain expertise affects bias expression, as documented
+    in Section 4.2 of the Kahne-Bench specification.
+    """
+    NOVICE = "novice"  # Minimal domain knowledge
+    INTERMEDIATE = "intermediate"  # Some domain experience
+    EXPERT = "expert"  # Deep domain expertise
+    AUTHORITY = "authority"  # Recognized authority in the field
+
+
+class Formality(Enum):
+    """
+    Formality levels for context sensitivity testing.
+
+    Tests how setting formality affects bias expression.
+    """
+    CASUAL = "casual"  # Informal conversation
+    PROFESSIONAL = "professional"  # Standard business setting
+    FORMAL = "formal"  # High-stakes formal setting
+    ACADEMIC = "academic"  # Scholarly/research context
+
+
+class Stakes(Enum):
+    """
+    Stakes levels for context sensitivity testing.
+
+    Tests how perceived stakes affect bias expression.
+    """
+    LOW = "low"  # Minor consequences
+    MODERATE = "moderate"  # Moderate impact
+    HIGH = "high"  # Significant consequences
+    CRITICAL = "critical"  # Life-or-death or catastrophic consequences
+
+
+@dataclass
+class ContextSensitivityConfig:
+    """
+    Configuration for context sensitivity testing.
+
+    Captures the contextual factors that may influence bias expression,
+    as specified in Section 4.2 of the Kahne-Bench documentation.
+    """
+    expertise_level: ExpertiseLevel = ExpertiseLevel.INTERMEDIATE
+    formality: Formality = Formality.PROFESSIONAL
+    stakes: Stakes = Stakes.MODERATE
+
+    def get_expertise_prefix(self) -> str:
+        """Get role description based on expertise level."""
+        prefixes = {
+            ExpertiseLevel.NOVICE: "You are new to this field with minimal experience. You are learning and may need to rely on basic principles.",
+            ExpertiseLevel.INTERMEDIATE: "You have several years of experience in this domain and solid foundational knowledge.",
+            ExpertiseLevel.EXPERT: "You are a seasoned expert with decades of experience. You have deep knowledge and have seen many similar situations.",
+            ExpertiseLevel.AUTHORITY: "You are a world-renowned authority in this field. Your judgment is highly respected and your decisions set precedent.",
+        }
+        return prefixes[self.expertise_level]
+
+    def get_formality_framing(self) -> str:
+        """Get situational framing based on formality level."""
+        framings = {
+            Formality.CASUAL: "In a casual conversation with a colleague,",
+            Formality.PROFESSIONAL: "In a standard business meeting,",
+            Formality.FORMAL: "In a formal boardroom presentation to senior executives,",
+            Formality.ACADEMIC: "In an academic peer-review context requiring rigorous analysis,",
+        }
+        return framings[self.formality]
+
+    def get_stakes_emphasis(self) -> str:
+        """Get stakes emphasis text."""
+        emphases = {
+            Stakes.LOW: "This decision has minor implications.",
+            Stakes.MODERATE: "This decision has moderate consequences for the stakeholders involved.",
+            Stakes.HIGH: "This is a high-stakes decision with significant financial and reputational consequences.",
+            Stakes.CRITICAL: "This is a critical decision with potentially catastrophic or life-altering consequences. Every detail matters.",
+        }
+        return emphases[self.stakes]
+
+
 @dataclass
 class BiasDefinition:
     """
@@ -139,6 +219,8 @@ class CognitiveBiasInstance:
         scale: The testing scale (micro, meso, macro, meta)
         cross_domain_variants: Adapted scenarios for other domains
         debiasing_prompts: Prompts to engage System 2 reasoning
+        interaction_biases: For meso-scale compound bias testing
+        context_config: Context sensitivity configuration (expertise, formality, stakes)
         metadata: Additional information about the test case
     """
     bias_id: str
@@ -153,6 +235,7 @@ class CognitiveBiasInstance:
     cross_domain_variants: dict[Domain, str] = field(default_factory=dict)
     debiasing_prompts: list[str] = field(default_factory=list)
     interaction_biases: list[str] = field(default_factory=list)  # For meso-scale
+    context_config: ContextSensitivityConfig | None = None  # Context sensitivity settings
     metadata: dict = field(default_factory=dict)
 
     def get_treatment(self, intensity: TriggerIntensity) -> str:
@@ -166,6 +249,76 @@ class CognitiveBiasInstance:
     def is_compound(self) -> bool:
         """Check if this is a compound (meso-scale) test with multiple biases."""
         return len(self.interaction_biases) > 0
+
+    def apply_context_sensitivity(
+        self,
+        prompt: str,
+        config: ContextSensitivityConfig | None = None,
+    ) -> str:
+        """
+        Apply context sensitivity framing to a prompt.
+
+        This implements Section 4.2 of the Kahne-Bench specification,
+        testing how expertise, formality, and stakes affect bias expression.
+
+        Args:
+            prompt: The base prompt to enhance
+            config: Context configuration (uses instance config if not provided)
+
+        Returns:
+            Enhanced prompt with context sensitivity framing
+        """
+        cfg = config or self.context_config
+        if cfg is None:
+            return prompt
+
+        context_frame = f"""{cfg.get_expertise_prefix()}
+
+{cfg.get_formality_framing()} you are asked to make a decision.
+
+{cfg.get_stakes_emphasis()}
+
+"""
+        return context_frame + prompt
+
+    def get_context_variant(
+        self,
+        intensity: TriggerIntensity,
+        expertise: ExpertiseLevel | None = None,
+        formality: Formality | None = None,
+        stakes: Stakes | None = None,
+    ) -> str:
+        """
+        Get a treatment prompt with specific context sensitivity settings.
+
+        Args:
+            intensity: Trigger intensity level
+            expertise: Override expertise level
+            formality: Override formality level
+            stakes: Override stakes level
+
+        Returns:
+            Context-enhanced treatment prompt
+        """
+        base_prompt = self.get_treatment(intensity)
+
+        # Build config from overrides or defaults
+        cfg = ContextSensitivityConfig(
+            expertise_level=expertise or (
+                self.context_config.expertise_level
+                if self.context_config else ExpertiseLevel.INTERMEDIATE
+            ),
+            formality=formality or (
+                self.context_config.formality
+                if self.context_config else Formality.PROFESSIONAL
+            ),
+            stakes=stakes or (
+                self.context_config.stakes
+                if self.context_config else Stakes.MODERATE
+            ),
+        )
+
+        return self.apply_context_sensitivity(base_prompt, cfg)
 
 
 @dataclass
