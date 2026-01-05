@@ -1,0 +1,278 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+Kahne-Bench is a cognitive bias benchmark framework for evaluating Large Language Models, grounded in Kahneman-Tversky dual-process theory. It tests 51 cognitive biases across 5 ecological domains with 6 advanced metrics.
+
+**Quick Start:** See `examples/basic_usage.py` for a complete demo with mock provider, or `examples/openai_evaluation.py` for production usage.
+
+## Development Commands
+
+```bash
+# Install dependencies
+uv sync
+
+# Run tests
+PYTHONPATH=src uv run pytest
+
+# Run a single test file
+PYTHONPATH=src uv run pytest tests/test_generator.py
+
+# Run a specific test
+PYTHONPATH=src uv run pytest tests/test_generator.py::TestTestCaseGenerator::test_generate_instance_returns_valid_instance
+
+# Run with verbose output
+PYTHONPATH=src uv run pytest -v
+
+# Run the basic demo
+PYTHONPATH=src uv run python examples/basic_usage.py
+
+# Run OpenAI evaluation (requires OPENAI_API_KEY)
+PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-4o --tier core
+```
+
+### CLI Commands
+
+```bash
+# List all 51 biases
+PYTHONPATH=src uv run kahne-bench list-biases
+
+# List all bias categories
+PYTHONPATH=src uv run kahne-bench list-categories
+
+# Show detailed bias information
+PYTHONPATH=src uv run kahne-bench describe anchoring_effect
+
+# Generate test instances
+PYTHONPATH=src uv run kahne-bench generate --bias anchoring_effect --domain INDIVIDUAL
+
+# Generate compound (meso-scale) test instances
+PYTHONPATH=src uv run kahne-bench generate-compound --primary anchoring_effect --secondary availability_bias
+
+# Show framework information
+PYTHONPATH=src uv run kahne-bench info
+```
+
+### Code Quality
+
+```bash
+# Format code (line-length: 100)
+black src/ tests/ examples/
+
+# Lint (target: py310)
+ruff check src/ tests/
+
+# Type check (strict mode)
+mypy src/
+```
+
+## Architecture
+
+### Core Data Flow
+
+1. **Bias Taxonomy** (`biases/taxonomy.py`) → Defines 51 biases with theoretical grounding
+2. **Test Generation** (`engines/generator.py`) → Creates test instances from templates + domain scenarios
+3. **LLM Evaluation** (`engines/evaluator.py`) → Runs tests via async provider protocol
+4. **Metric Calculation** (`metrics/core.py`) → Computes 6 metrics from results
+
+### Key Abstractions
+
+**LLMProvider Protocol** (`engines/evaluator.py`): Any LLM can be tested by implementing:
+```python
+async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str
+```
+
+**Built-in Providers** (`engines/evaluator.py`):
+- `OpenAIProvider`: Uses AsyncOpenAI client, configurable model (default: gpt-4o)
+- `AnthropicProvider`: Uses AsyncAnthropic client (default: claude-sonnet-4-20250514)
+
+**CognitiveBiasInstance** (`core.py`): Central test case type containing:
+- Control prompt (baseline, no bias trigger)
+- Treatment prompts keyed by `TriggerIntensity` (WEAK, MODERATE, STRONG, ADVERSARIAL)
+- Expected rational and biased responses
+- Optional debiasing prompts for meta-scale testing
+- Cross-domain variants for efficient multi-domain testing
+
+**TestResult** (`core.py`): Evaluation output containing:
+- Model response and extracted answer
+- `is_biased` flag and `bias_score` (0-1 magnitude)
+- `confidence_stated` for metacognition analysis
+- Response timing and metadata
+
+**EvaluationConfig** (`engines/evaluator.py`): Key configuration options:
+- `num_trials`: Trials per condition (default: 3, used for RCI calculation)
+- `intensities`: Which trigger levels to test
+- `include_control` / `include_debiasing`: Enable/disable conditions
+- `requests_per_minute`: Rate limiting for API calls
+
+**Benchmark Tiers** (`engines/generator.py`):
+- CORE: 15 foundational biases for quick evaluation
+- EXTENDED: All 51 biases
+- INTERACTION: Bias pairs for compound effect testing
+
+### The 6 Metrics
+
+| Metric | Class | Purpose |
+|--------|-------|---------|
+| BMS | `BiasMagnitudeScore` | Strength of bias (weighted by trigger intensity) |
+| BCI | `BiasConsistencyIndex` | Cross-domain consistency + systematic prevalence |
+| BMP | `BiasMitigationPotential` | System 2 override capacity with debiasing prompts |
+| HAS | `HumanAlignmentScore` | Comparison to human baselines from research literature |
+| RCI | `ResponseConsistencyIndex` | Trial-to-trial variance (distinguishes noise from systematic bias) |
+| CAS | `CalibrationAwarenessScore` | Metacognitive accuracy (confidence vs actual performance) |
+
+### Module Dependencies
+
+```
+kahne_bench/
+├── core.py              # Core types (no dependencies)
+├── cli.py               # Click-based CLI (depends on all modules)
+├── biases/
+│   └── taxonomy.py      # BiasDefinition instances (depends on core)
+├── engines/
+│   ├── generator.py     # TestCaseGenerator (depends on core, biases)
+│   ├── evaluator.py     # BiasEvaluator + LLMProvider (depends on core)
+│   ├── compound.py      # Meso-scale testing (depends on generator)
+│   └── robustness.py    # Adversarial testing
+├── metrics/
+│   └── core.py          # All 6 metric classes + MetricCalculator
+└── utils/
+    ├── io.py            # JSON/CSV export functions
+    └── diversity.py     # Dataset validation (self-BLEU, ROUGE)
+```
+
+## Bias Taxonomy
+
+### 16 Bias Categories
+
+| Category | Description | Example Biases |
+|----------|-------------|----------------|
+| REPRESENTATIVENESS | Judging by similarity to prototypes | base_rate_neglect, conjunction_fallacy |
+| AVAILABILITY | Judging by ease of recall | availability_bias, recency_bias |
+| ANCHORING | Over-reliance on initial information | anchoring_effect, insufficient_adjustment |
+| LOSS_AVERSION | Losses loom larger than gains | loss_aversion, endowment_effect |
+| FRAMING | Decisions affected by presentation | gain_loss_framing, attribute_framing |
+| REFERENCE_DEPENDENCE | Outcomes evaluated relative to reference points | status_quo_bias, default_effect |
+| PROBABILITY_DISTORTION | Misweighting probabilities | probability_weighting, certainty_effect |
+| UNCERTAINTY_JUDGMENT | Errors in assessing uncertainty | overconfidence_effect, illusion_of_control |
+| MEMORY_BIAS | Systematic distortions in recall | hindsight_bias, rosy_retrospection |
+| ATTENTION_BIAS | Selective focus on certain information | salience_bias, focalism |
+| SOCIAL_BIAS | Biases in social judgments | stereotype_bias, ingroup_bias |
+| ATTRIBUTION_BIAS | Errors in explaining causes | fundamental_attribution_error |
+| OVERCONFIDENCE | Excessive certainty in judgments | planning_fallacy, illusion_of_validity |
+| CONFIRMATION | Seeking confirming evidence | confirmation_bias, belief_perseverance |
+| TEMPORAL_BIAS | Biases related to time perception | present_bias, duration_neglect |
+| EXTENSION_NEGLECT | Ignoring sample size and scope | scope_insensitivity, halo_effect |
+
+**Note:** All 51 biases with full definitions (K&T theoretical basis, System 1 mechanism, System 2 override, classic paradigm) are in `biases/taxonomy.py`.
+
+## Ecological Domains
+
+| Domain | Description | Typical Decisions |
+|--------|-------------|-------------------|
+| INDIVIDUAL | Personal finance, consumer choice, lifestyle | Investment, purchases, health |
+| PROFESSIONAL | Managerial, medical, legal decisions | Hiring, diagnosis, case assessment |
+| SOCIAL | Negotiation, persuasion, collaboration | Offers, influence, team dynamics |
+| TEMPORAL | Long-term planning, delayed gratification | Retirement, project timelines |
+| RISK | Policy, technology, environmental uncertainty | Safety protocols, innovation |
+
+## Test Scales & Intensities
+
+### Test Scales
+
+| Scale | Purpose |
+|-------|---------|
+| MICRO | Single isolated bias, control vs treatment comparison |
+| MESO | Multiple bias interactions in complex scenarios |
+| MACRO | Bias persistence across sequential related decisions |
+| META | Self-correction and debiasing capacity testing |
+
+### Trigger Intensities
+
+| Intensity | Weight | Rationale |
+|-----------|--------|-----------|
+| WEAK | 2.0x | High susceptibility if subtle triggers cause bias |
+| MODERATE | 1.0x | Baseline standard trigger |
+| STRONG | 0.67x | Expected that strong pressure causes deviation |
+| ADVERSARIAL | 0.5x | Compound triggers, lowest weight |
+
+**Philosophy:** The weighting reflects susceptibility, not trigger strength. A model vulnerable to weak anchors is more biased than one requiring strong pressure.
+
+## Temporal Testing
+
+**TemporalCondition** enum (`core.py`):
+- `IMMEDIATE`: Instant response, System 1 dominant
+- `DELIBERATIVE`: With explicit reflection time
+- `PERSISTENT`: Bias stability across sequential prompts
+- `ADAPTIVE`: Pre/post feedback comparison
+
+**TemporalEvaluator** (`engines/evaluator.py`): Extends BiasEvaluator with:
+- `evaluate_persistent()`: Tests bias evolution over sequential decisions
+- `evaluate_adaptive()`: Pre/post feedback testing for learning effects
+
+## Testing Patterns
+
+- Tests use `pytest` with `pytest-asyncio` for async evaluator tests
+- Generator tests use `seed=42` for reproducibility
+- Test files mirror source structure: `test_generator.py` tests `engines/generator.py`
+- No `conftest.py` - fixtures are defined locally within test files
+- Temporary file tests use try/finally for cleanup
+
+### Test Files
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `test_taxonomy.py` | 12 | Bias definitions, interaction matrix |
+| `test_generator.py` | 19 | Instance generation, batch generation, tiers |
+| `test_metrics.py` | 13 | All 6 metrics, MetricCalculator |
+| `test_io.py` | 11 | JSON/CSV export/import roundtrips |
+
+**Total:** 55 tests
+
+## Key Design Decisions
+
+1. **Intensity weighting in BMS**: Weak triggers causing bias are weighted higher (2.0x) than strong triggers (0.67x) - a model susceptible to weak triggers is more biased than one only affected by strong pressure
+
+2. **Human baselines** in `metrics/core.py` (`HUMAN_BASELINES` dict): Research-backed susceptibility rates from K&T literature for 40+ biases, enabling human-AI alignment scoring
+
+3. **Template-based generation**: `BIAS_TEMPLATES` and `DOMAIN_SCENARIOS` in generator.py enable consistent test creation across all bias×domain combinations
+
+4. **Async-first evaluation**: `BiasEvaluator.evaluate_batch()` is async with rate limiting built in (`requests_per_minute` config)
+
+5. **Placeholder answers**: Expected answers starting with `[` are treated as non-evaluable (default score: 0.5)
+
+## Dependencies
+
+### Core
+- `openai>=1.0.0` - OpenAI API client
+- `anthropic>=0.18.0` - Anthropic API client
+- `pandas>=2.0.0` - Data analysis
+- `numpy>=1.24.0` - Numerical computing
+- `pydantic>=2.0.0` - Data validation
+- `rich>=13.0.0` - Terminal output formatting
+- `click>=8.0.0` - CLI framework
+- `tqdm>=4.65.0` - Progress bars
+- `jinja2>=3.1.0` - Template engine
+- `pyyaml>=6.0.0` - YAML support
+
+### Development
+- `pytest>=7.0.0` - Testing framework
+- `pytest-asyncio>=0.21.0` - Async test support
+- `black>=23.0.0` - Code formatting
+- `ruff>=0.1.0` - Linting
+- `mypy>=1.0.0` - Type checking
+
+**Python:** 3.10, 3.11, 3.12 supported
+
+## Examples
+
+| File | Purpose |
+|------|---------|
+| `examples/basic_usage.py` | Full demo with MockProvider - taxonomy, generation, evaluation, metrics |
+| `examples/openai_evaluation.py` | Production usage with CLI args: `--model`, `--tier`, `--domains`, `--trials` |
+
+**Environment:** Set `OPENAI_API_KEY` for OpenAI examples, `ANTHROPIC_API_KEY` for Anthropic.
+
+**Note:** No CI/CD configuration exists currently. Run tests locally before committing.
