@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Kahne-Bench is a cognitive bias benchmark framework for evaluating Large Language Models, grounded in Kahneman-Tversky dual-process theory. It tests 58 cognitive biases across 5 ecological domains with 6 advanced metrics.
+Kahne-Bench is a cognitive bias benchmark framework for evaluating Large Language Models, grounded in Kahneman-Tversky dual-process theory. It tests 69 cognitive biases across 5 ecological domains with 6 advanced metrics.
 
 **Quick Start:** See `examples/basic_usage.py` for a complete demo with mock provider, or `examples/openai_evaluation.py` for production usage.
 
@@ -36,7 +36,7 @@ PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-4o --tier
 ### CLI Commands
 
 ```bash
-# List all 58 biases
+# List all 69 biases
 PYTHONPATH=src uv run kahne-bench list-biases
 
 # List all bias categories
@@ -78,7 +78,7 @@ mypy src/
 
 ### Core Data Flow
 
-1. **Bias Taxonomy** (`biases/taxonomy.py`) → Defines 58 biases with theoretical grounding
+1. **Bias Taxonomy** (`biases/taxonomy.py`) → Defines 69 biases with theoretical grounding
 2. **Test Generation** (`engines/generator.py`) → Creates test instances from templates + domain scenarios
 3. **LLM Evaluation** (`engines/evaluator.py`) → Runs tests via async provider protocol
 4. **Metric Calculation** (`metrics/core.py`) → Computes 6 metrics from results
@@ -115,7 +115,7 @@ async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float
 
 **Benchmark Tiers** (`engines/generator.py`):
 - CORE: 15 foundational biases for quick evaluation
-- EXTENDED: All 58 biases
+- EXTENDED: All 69 biases
 - INTERACTION: Bias pairs for compound effect testing
 
 ### The 6 Metrics
@@ -136,7 +136,7 @@ kahne_bench/
 ├── core.py              # Core types + context sensitivity (no dependencies)
 ├── cli.py               # Click-based CLI with evaluate/report commands
 ├── biases/
-│   └── taxonomy.py      # 58 BiasDefinition instances (depends on core)
+│   └── taxonomy.py      # 69 BiasDefinition instances (depends on core)
 ├── engines/
 │   ├── generator.py     # TestCaseGenerator, NovelScenarioGenerator, MacroScaleGenerator
 │   ├── evaluator.py     # BiasEvaluator, TemporalEvaluator, ContextSensitivityEvaluator
@@ -172,7 +172,7 @@ kahne_bench/
 | TEMPORAL_BIAS | Biases related to time perception | present_bias, duration_neglect |
 | EXTENSION_NEGLECT | Ignoring sample size and scope | scope_insensitivity, halo_effect |
 
-**Note:** All 58 biases with full definitions (K&T theoretical basis, System 1 mechanism, System 2 override, classic paradigm) are in `biases/taxonomy.py`.
+**Note:** All 69 biases with full definitions (K&T theoretical basis, System 1 mechanism, System 2 override, classic paradigm) are in `biases/taxonomy.py`.
 
 ## Ecological Domains
 

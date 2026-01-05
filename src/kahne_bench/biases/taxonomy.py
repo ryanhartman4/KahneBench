@@ -1,25 +1,28 @@
 """
-Complete taxonomy of 58 cognitive biases for Kahne-Bench.
+Complete taxonomy of 69 cognitive biases for Kahne-Bench.
 
 Each bias is grounded in the Kahneman-Tversky research program, with clear
 links to dual-process theory and prospect theory mechanisms.
 
 The framework extends beyond the original 50-bias specification to include
-58 well-documented biases across 12 categories:
+69 well-documented biases across 16 categories:
 
-Bias categories (12 total, 58 biases):
+Bias categories (16 total, 69 biases):
 - Representativeness Heuristic (8 biases)
 - Availability Heuristic (6 biases)
 - Anchoring (5 biases)
 - Loss Aversion / Prospect Theory (5 biases)
-- Framing Effects (6 biases)
-- Probability Distortion (6 biases)
+- Framing Effects (7 biases) - includes mental_accounting
+- Probability Distortion (7 biases) - includes affect_heuristic
 - Overconfidence (5 biases)
 - Confirmation Bias (3 biases)
 - Temporal Biases (3 biases)
-- Extension Neglect / Social (4 biases)
+- Extension Neglect (4 biases)
 - Memory Biases (4 biases)
 - Attention Biases (3 biases)
+- Attribution Biases (3 biases) - NEW
+- Uncertainty Judgment (3 biases) - NEW
+- Social Biases (5 biases) - expanded with ingroup_bias, false_consensus, outgroup_homogeneity
 """
 
 from kahne_bench.core import BiasDefinition, BiasCategory
@@ -764,6 +767,163 @@ ATTENTION_BIASES = [
 
 
 # =============================================================================
+# ATTRIBUTION BIASES (3 biases)
+# Errors in explaining causes of behavior and events
+# =============================================================================
+
+ATTRIBUTION_BIASES = [
+    BiasDefinition(
+        id="fundamental_attribution_error",
+        name="Fundamental Attribution Error",
+        category=BiasCategory.ATTRIBUTION_BIAS,
+        description="Overemphasizing dispositional factors and underemphasizing situational factors when explaining others' behavior",
+        theoretical_basis="Ross (1977) - The intuitive psychologist; Jones & Harris (1967) - Castro essay study",
+        system1_mechanism="Dispositional attributions are cognitively simpler than situational analysis",
+        system2_override="Systematically consider situational constraints and pressures on behavior",
+        classic_paradigm="Observers attributing essay positions to writers even when positions were assigned",
+        trigger_template="{person} did {action} in {situation}. Why do you think they did this?"
+    ),
+    BiasDefinition(
+        id="actor_observer_bias",
+        name="Actor-Observer Bias",
+        category=BiasCategory.ATTRIBUTION_BIAS,
+        description="Attributing own behavior to situations but others' behavior to dispositions",
+        theoretical_basis="Jones & Nisbett (1971) - Divergent perceptions of causes of behavior",
+        system1_mechanism="Different information available from actor vs observer perspectives",
+        system2_override="Adopt the other person's perspective when making attributions",
+        classic_paradigm="Students explain their own behavior situationally but peers' behavior dispositionally",
+        trigger_template="You did {your_action} because of {situation}. Why did {other_person} do the same thing?"
+    ),
+    BiasDefinition(
+        id="self_serving_bias",
+        name="Self-Serving Bias",
+        category=BiasCategory.ATTRIBUTION_BIAS,
+        description="Attributing successes to internal factors and failures to external factors",
+        theoretical_basis="Miller & Ross (1975) - Self-serving biases in attribution",
+        system1_mechanism="Motivation to maintain positive self-image shapes causal attribution",
+        system2_override="Apply same attribution standards to self as to others",
+        classic_paradigm="Students attribute good grades to ability, poor grades to unfair tests",
+        trigger_template="Your {outcome_type} on {task} was due to what factors?"
+    ),
+]
+
+
+# =============================================================================
+# UNCERTAINTY JUDGMENT BIASES (3 biases)
+# Errors in assessing and responding to uncertainty
+# =============================================================================
+
+UNCERTAINTY_JUDGMENT_BIASES = [
+    BiasDefinition(
+        id="ambiguity_aversion",
+        name="Ambiguity Aversion",
+        category=BiasCategory.UNCERTAINTY_JUDGMENT,
+        description="Preference for known risks over unknown risks, even when expected values are equal",
+        theoretical_basis="Ellsberg (1961) - Risk, ambiguity, and the Savage axioms",
+        system1_mechanism="Unknown probabilities trigger stronger negative affect than known risks",
+        system2_override="Calculate expected values regardless of whether probabilities are known or estimated",
+        classic_paradigm="Ellsberg paradox: preferring known 50/50 urn over ambiguous urn",
+        trigger_template="Choose between Option A with {known_probability}% chance of {outcome} or Option B with unknown probability of the same outcome."
+    ),
+    BiasDefinition(
+        id="illusion_of_validity",
+        name="Illusion of Validity",
+        category=BiasCategory.UNCERTAINTY_JUDGMENT,
+        description="Overconfidence in predictions based on coherent but unreliable information",
+        theoretical_basis="Kahneman & Tversky (1973) - On the psychology of prediction",
+        system1_mechanism="Internal consistency of information creates unwarranted confidence",
+        system2_override="Assess base rates and reliability of predictors independently of coherence",
+        classic_paradigm="Interviewers confident in predictions despite low validity of interviews",
+        trigger_template="Based on this {coherent_description}, predict {outcome} and rate your confidence."
+    ),
+    BiasDefinition(
+        id="competence_hypothesis",
+        name="Competence Hypothesis",
+        category=BiasCategory.UNCERTAINTY_JUDGMENT,
+        description="Preference for betting on outcomes in domains where one feels knowledgeable",
+        theoretical_basis="Heath & Tversky (1991) - Preference and belief: Ambiguity and competence in choice under uncertainty",
+        system1_mechanism="Feeling of competence reduces perceived ambiguity even without better information",
+        system2_override="Evaluate objective information quality regardless of subjective domain knowledge",
+        classic_paradigm="Sports fans prefer betting on their team's games despite no informational advantage",
+        trigger_template="Would you prefer to bet on {familiar_domain} or {unfamiliar_domain} given equal odds?"
+    ),
+]
+
+
+# =============================================================================
+# SOCIAL BIASES - EXTENDED (3 biases)
+# Additional social judgment biases
+# =============================================================================
+
+SOCIAL_BIASES_EXTENDED = [
+    BiasDefinition(
+        id="ingroup_bias",
+        name="Ingroup Bias",
+        category=BiasCategory.SOCIAL_BIAS,
+        description="Favoring members of one's own group over outgroup members",
+        theoretical_basis="Tajfel & Turner (1979) - Social identity theory; Minimal group paradigm",
+        system1_mechanism="Group membership triggers automatic positive associations for ingroup",
+        system2_override="Evaluate individuals based on relevant attributes, not group membership",
+        classic_paradigm="Minimal group experiments: favoritism based on arbitrary group assignment",
+        trigger_template="Evaluate these two candidates: {ingroup_member} from your {group} and {outgroup_member} from {other_group}."
+    ),
+    BiasDefinition(
+        id="false_consensus_effect",
+        name="False Consensus Effect",
+        category=BiasCategory.SOCIAL_BIAS,
+        description="Overestimating how much others share one's own beliefs, attitudes, and behaviors",
+        theoretical_basis="Ross, Greene & House (1977) - The false consensus effect",
+        system1_mechanism="Own perspective is more available than others' perspectives",
+        system2_override="Actively sample and consider diverse viewpoints before estimating consensus",
+        classic_paradigm="Subjects who chose to wear sign estimated more others would also choose to wear it",
+        trigger_template="You prefer {your_preference}. What percentage of people do you think share this preference?"
+    ),
+    BiasDefinition(
+        id="outgroup_homogeneity_bias",
+        name="Outgroup Homogeneity Bias",
+        category=BiasCategory.SOCIAL_BIAS,
+        description="Perceiving outgroup members as more similar to each other than ingroup members",
+        theoretical_basis="Quattrone & Jones (1980) - They all look alike effect",
+        system1_mechanism="Less exposure to outgroup creates undifferentiated mental representation",
+        system2_override="Seek information about individual differences within outgroups",
+        classic_paradigm="'They all look alike' - difficulty distinguishing faces of other races",
+        trigger_template="How similar are members of {outgroup} to each other compared to members of {ingroup}?"
+    ),
+]
+
+
+# =============================================================================
+# ADDITIONAL K&T BIASES (2 biases)
+# Core Kahneman-Tversky biases filling gaps in framework
+# =============================================================================
+
+ADDITIONAL_KT_BIASES = [
+    BiasDefinition(
+        id="affect_heuristic",
+        name="Affect Heuristic",
+        category=BiasCategory.PROBABILITY_DISTORTION,
+        description="Using emotional reactions as a shortcut for complex judgments about risk and benefit",
+        theoretical_basis="Slovic et al. (2002) - The affect heuristic; Finucane et al. (2000)",
+        system1_mechanism="Affective tags attached to stimuli guide probability and utility judgments",
+        system2_override="Separate emotional reactions from objective probability and consequence assessment",
+        classic_paradigm="Nuclear power: negative affect leads to high risk AND low benefit ratings (inverse correlation)",
+        trigger_template="How do you feel about {topic}? Now estimate its risks and benefits."
+    ),
+    BiasDefinition(
+        id="mental_accounting",
+        name="Mental Accounting",
+        category=BiasCategory.FRAMING,
+        description="Treating money differently depending on its mental categorization rather than fungibility",
+        theoretical_basis="Thaler (1985, 1999) - Mental accounting and consumer choice",
+        system1_mechanism="Money is mentally segregated into accounts with different rules",
+        system2_override="Treat all money as fungible and evaluate total wealth changes",
+        classic_paradigm="Treating found money or winnings differently than earned income",
+        trigger_template="You have {amount} in your {account_type}. Would you spend it on {purchase}?"
+    ),
+]
+
+
+# =============================================================================
 # COMPLETE TAXONOMY AGGREGATION
 # =============================================================================
 
@@ -782,6 +942,10 @@ BIAS_TAXONOMY: dict[str, BiasDefinition] = {
         EXTENSION_NEGLECT_BIASES,
         MEMORY_BIASES,
         ATTENTION_BIASES,
+        ATTRIBUTION_BIASES,
+        UNCERTAINTY_JUDGMENT_BIASES,
+        SOCIAL_BIASES_EXTENDED,
+        ADDITIONAL_KT_BIASES,
     ]
     for bias in bias_list
 }
@@ -813,30 +977,35 @@ BIAS_INTERACTION_MATRIX: dict[str, list[str]] = {
         "availability_bias",  # Available anchor values are more influential
         "overconfidence_effect",  # Confidence in anchored estimates
         "confirmation_bias",  # Seeking info confirming anchored value
+        "insufficient_adjustment",  # Anchor prevents adequate adjustment
     ],
     # Availability compounds with framing and probability
     "availability_bias": [
         "neglect_of_probability",  # Vivid events seem more probable
         "gain_loss_framing",  # Available losses feel more salient
         "salience_bias",  # Amplification of vivid information
+        "affect_heuristic",  # Emotional availability guides judgment
     ],
     # Loss aversion amplifies framing
     "loss_aversion": [
         "gain_loss_framing",  # Frame determines gain/loss coding
         "status_quo_bias",  # Current state as reference point
         "endowment_effect",  # Owned items framed as potential losses
+        "sunk_cost_fallacy",  # Prior losses increase commitment
     ],
     # Overconfidence interacts with confirmation
     "overconfidence_effect": [
         "confirmation_bias",  # Seeking evidence supporting confident belief
         "planning_fallacy",  # Overconfidence in project estimates
         "hindsight_bias",  # Confidence that outcome was predictable
+        "illusion_of_validity",  # Coherent info breeds overconfidence
     ],
     # Framing compounds with probability distortion
     "gain_loss_framing": [
         "certainty_effect",  # Sure gains vs risky losses
         "probability_weighting",  # Frame affects probability perception
         "risk_framing",  # Probability format affects decisions
+        "mental_accounting",  # Frame determines mental account
     ],
     # Representativeness compounds with base rate neglect
     "base_rate_neglect": [
@@ -849,5 +1018,72 @@ BIAS_INTERACTION_MATRIX: dict[str, list[str]] = {
         "duration_neglect",  # Immediate moment overweighted
         "planning_fallacy",  # Underestimating future time
         "optimism_bias",  # Future seems rosier
+    ],
+    # Confirmation bias cluster
+    "confirmation_bias": [
+        "myside_bias",  # Supporting own position
+        "belief_perseverance",  # Maintaining beliefs despite disconfirmation
+        "overconfidence_effect",  # Confidence reinforces confirmation seeking
+        "selective_perception",  # Only seeing confirming evidence
+    ],
+    # Hindsight bias cluster
+    "hindsight_bias": [
+        "overconfidence_effect",  # "I knew it" leads to overconfidence
+        "illusion_of_control",  # Retrospective control attribution
+        "memory_reconstruction_bias",  # Memory changed to match outcome
+    ],
+    # Sunk cost interactions
+    "sunk_cost_fallacy": [
+        "loss_aversion",  # Losses from abandonment feel painful
+        "status_quo_bias",  # Continuing current course
+        "endowment_effect",  # Invested effort creates ownership
+    ],
+    # Extension neglect cluster
+    "scope_insensitivity": [
+        "identifiable_victim_effect",  # Individual vs statistical lives
+        "neglect_of_probability",  # Magnitude neglected
+        "affect_heuristic",  # Emotional response independent of scope
+    ],
+    # Memory distortion cluster
+    "memory_reconstruction_bias": [
+        "hindsight_bias",  # Retroactive distortion
+        "rosy_retrospection",  # Positive memory bias
+        "self_serving_bias",  # Memory serves self-image
+    ],
+    # Attention-availability link
+    "attentional_bias": [
+        "salience_bias",  # Attention to salient features
+        "availability_bias",  # Attended info more available
+        "selective_perception",  # Filtering based on attention
+    ],
+    # Social judgment cluster
+    "halo_effect": [
+        "stereotype_bias",  # Generalizing from category
+        "group_attribution_bias",  # Group-level traits applied to individuals
+        "ingroup_bias",  # Positive halo for ingroup members
+    ],
+    # Probability distortion cluster
+    "certainty_effect": [
+        "zero_risk_bias",  # Preference for elimination
+        "probability_weighting",  # Overweighting small probabilities
+        "affect_heuristic",  # Certainty feels emotionally better
+    ],
+    # Attribution bias cluster
+    "fundamental_attribution_error": [
+        "actor_observer_bias",  # Self vs other attribution difference
+        "self_serving_bias",  # Protecting self-image in attributions
+        "group_attribution_bias",  # Group-level attributions
+    ],
+    # Social bias cluster
+    "ingroup_bias": [
+        "outgroup_homogeneity_bias",  # They all look alike
+        "false_consensus_effect",  # Assuming ingroup agreement
+        "halo_effect",  # Positive halo for ingroup
+    ],
+    # Uncertainty cluster
+    "ambiguity_aversion": [
+        "competence_hypothesis",  # Familiar domains less ambiguous
+        "illusion_of_validity",  # Coherence reduces perceived ambiguity
+        "affect_heuristic",  # Ambiguity feels uncomfortable
     ],
 }

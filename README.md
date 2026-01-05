@@ -4,16 +4,16 @@ A comprehensive cognitive bias benchmark framework for evaluating Large Language
 
 ## Overview
 
-Kahne-Bench provides systematic evaluation of 51 cognitive biases across 5 ecological domains, with multi-scale testing methodology and 6 advanced metrics for deep analysis of LLM cognitive patterns.
+Kahne-Bench provides systematic evaluation of 69 cognitive biases across 5 ecological domains, with multi-scale testing methodology and 6 advanced metrics for deep analysis of LLM cognitive patterns.
 
 ### Key Features
 
-- **51 Cognitive Biases**: Complete taxonomy based on Kahneman-Tversky research
+- **69 Cognitive Biases**: Complete taxonomy based on Kahneman-Tversky research
 - **5 Ecological Domains**: Individual, Professional, Social, Temporal, Risk
 - **Multi-Scale Testing**: Micro, Meso, Macro, and Meta scales
 - **6 Advanced Metrics**: BMS, BCI, BMP, HAS, RCI, CAS
 - **Bias Interaction Matrix**: Test compound effects between biases
-- **Benchmark Tiers**: Core (15), Extended (51), and Interaction tiers
+- **Benchmark Tiers**: Core (15), Extended (69), and Interaction tiers
 - **Data Export**: JSON, CSV, and human-readable reports
 
 ## Installation
@@ -54,7 +54,7 @@ from kahne_bench import (
     BiasCategory,
 )
 
-# See all 51 biases
+# See all 69 biases
 print(f"Total biases: {len(BIAS_TAXONOMY)}")
 
 # Get a specific bias
@@ -120,7 +120,7 @@ from kahne_bench.engines.generator import get_tier_biases, KahneBenchTier
 core_biases = get_tier_biases(KahneBenchTier.CORE)
 print(f"Core tier: {len(core_biases)} biases")
 
-# Extended tier: All 51 biases for comprehensive evaluation
+# Extended tier: All 69 biases for comprehensive evaluation
 extended_biases = get_tier_biases(KahneBenchTier.EXTENDED)
 print(f"Extended tier: {len(extended_biases)} biases")
 
@@ -259,7 +259,7 @@ print(f"Scale: {instance.scale.value}")  # "meso"
 
 ## Bias Taxonomy
 
-The 51 biases are organized into 11 categories based on underlying cognitive mechanisms:
+The 69 biases are organized into 16 categories based on underlying cognitive mechanisms:
 
 | Category | Count | Key Biases |
 |----------|-------|------------|
@@ -267,13 +267,17 @@ The 51 biases are organized into 11 categories based on underlying cognitive mec
 | Availability | 6 | Availability bias, Recency bias, Primacy bias |
 | Anchoring | 5 | Anchoring effect, Insufficient adjustment |
 | Loss Aversion | 5 | Loss aversion, Endowment effect, Sunk cost |
-| Framing | 6 | Gain-loss framing, Attribute framing |
-| Probability Distortion | 6 | Certainty effect, Probability weighting |
+| Framing | 7 | Gain-loss framing, Mental accounting |
+| Probability Distortion | 7 | Certainty effect, Affect heuristic |
 | Overconfidence | 5 | Overconfidence, Planning fallacy |
 | Confirmation | 3 | Confirmation bias, Belief perseverance |
 | Temporal | 3 | Present bias, Duration neglect |
-| Social Bias | 2 | Group attribution, Halo effect |
-| Extension Neglect | 2 | Scope insensitivity, Identifiable victim |
+| Extension Neglect | 4 | Scope insensitivity, Identifiable victim |
+| Memory | 4 | Hindsight bias, Rosy retrospection |
+| Attention | 3 | Attentional bias, Selective perception |
+| Attribution | 3 | Fundamental attribution error, Self-serving bias |
+| Uncertainty Judgment | 3 | Ambiguity aversion, Illusion of validity |
+| Social Bias | 5 | Ingroup bias, False consensus, Halo effect |
 
 ---
 
@@ -328,7 +332,7 @@ src/kahne_bench/
 ├── cli.py               # Command-line interface
 ├── biases/
 │   ├── __init__.py
-│   └── taxonomy.py      # 51-bias taxonomy
+│   └── taxonomy.py      # 69-bias taxonomy
 ├── engines/
 │   ├── __init__.py
 │   ├── generator.py     # Test case generation

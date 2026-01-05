@@ -357,6 +357,25 @@ HUMAN_BASELINES: dict[str, float | None] = {
     "identifiable_victim_effect": 0.72,  # Small et al. (2007)
     "group_attribution_bias": 0.55,      # Pettigrew (1979)
     "halo_effect": 0.60,                 # Thorndike (1920)
+
+    # Attribution Biases
+    "fundamental_attribution_error": 0.72,  # Ross (1977) - Jones & Harris (1967)
+    "actor_observer_bias": 0.65,            # Jones & Nisbett (1971)
+    "self_serving_bias": 0.75,              # Miller & Ross (1975)
+
+    # Uncertainty Judgment
+    "ambiguity_aversion": 0.68,             # Ellsberg (1961)
+    "illusion_of_validity": 0.70,           # Kahneman & Tversky (1973)
+    "competence_hypothesis": 0.58,          # Heath & Tversky (1991)
+
+    # Social Biases - Extended
+    "ingroup_bias": 0.70,                   # Tajfel & Turner (1979)
+    "false_consensus_effect": 0.65,         # Ross et al. (1977)
+    "outgroup_homogeneity_bias": 0.62,      # Quattrone & Jones (1980)
+
+    # Additional K&T Biases
+    "affect_heuristic": 0.72,               # Slovic et al. (2002)
+    "mental_accounting": 0.68,              # Thaler (1985, 1999)
 }
 
 # Biases without reliable human baseline data
