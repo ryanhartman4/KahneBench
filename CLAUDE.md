@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Kahne-Bench is a cognitive bias benchmark framework for evaluating Large Language Models, grounded in Kahneman-Tversky dual-process theory. It tests 51 cognitive biases across 5 ecological domains with 6 advanced metrics.
+Kahne-Bench is a cognitive bias benchmark framework for evaluating Large Language Models, grounded in Kahneman-Tversky dual-process theory. It tests 58 cognitive biases across 5 ecological domains with 6 advanced metrics.
 
 **Quick Start:** See `examples/basic_usage.py` for a complete demo with mock provider, or `examples/openai_evaluation.py` for production usage.
 
@@ -36,7 +36,7 @@ PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-4o --tier
 ### CLI Commands
 
 ```bash
-# List all 51 biases
+# List all 58 biases
 PYTHONPATH=src uv run kahne-bench list-biases
 
 # List all bias categories
@@ -50,6 +50,12 @@ PYTHONPATH=src uv run kahne-bench generate --bias anchoring_effect --domain INDI
 
 # Generate compound (meso-scale) test instances
 PYTHONPATH=src uv run kahne-bench generate-compound --primary anchoring_effect --secondary availability_bias
+
+# Run full evaluation pipeline (requires API key)
+PYTHONPATH=src uv run kahne-bench evaluate -i test_cases.json -p openai -m gpt-4o
+
+# Generate cognitive fingerprint report
+PYTHONPATH=src uv run kahne-bench report fingerprint.json
 
 # Show framework information
 PYTHONPATH=src uv run kahne-bench info
@@ -72,7 +78,7 @@ mypy src/
 
 ### Core Data Flow
 
-1. **Bias Taxonomy** (`biases/taxonomy.py`) → Defines 51 biases with theoretical grounding
+1. **Bias Taxonomy** (`biases/taxonomy.py`) → Defines 58 biases with theoretical grounding
 2. **Test Generation** (`engines/generator.py`) → Creates test instances from templates + domain scenarios
 3. **LLM Evaluation** (`engines/evaluator.py`) → Runs tests via async provider protocol
 4. **Metric Calculation** (`metrics/core.py`) → Computes 6 metrics from results
@@ -109,7 +115,7 @@ async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float
 
 **Benchmark Tiers** (`engines/generator.py`):
 - CORE: 15 foundational biases for quick evaluation
-- EXTENDED: All 51 biases
+- EXTENDED: All 58 biases
 - INTERACTION: Bias pairs for compound effect testing
 
 ### The 6 Metrics
@@ -127,13 +133,13 @@ async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float
 
 ```
 kahne_bench/
-├── core.py              # Core types (no dependencies)
-├── cli.py               # Click-based CLI (depends on all modules)
+├── core.py              # Core types + context sensitivity (no dependencies)
+├── cli.py               # Click-based CLI with evaluate/report commands
 ├── biases/
-│   └── taxonomy.py      # BiasDefinition instances (depends on core)
+│   └── taxonomy.py      # 58 BiasDefinition instances (depends on core)
 ├── engines/
-│   ├── generator.py     # TestCaseGenerator (depends on core, biases)
-│   ├── evaluator.py     # BiasEvaluator + LLMProvider (depends on core)
+│   ├── generator.py     # TestCaseGenerator, NovelScenarioGenerator, MacroScaleGenerator
+│   ├── evaluator.py     # BiasEvaluator, TemporalEvaluator, ContextSensitivityEvaluator
 │   ├── compound.py      # Meso-scale testing (depends on generator)
 │   └── robustness.py    # Adversarial testing
 ├── metrics/
@@ -166,7 +172,7 @@ kahne_bench/
 | TEMPORAL_BIAS | Biases related to time perception | present_bias, duration_neglect |
 | EXTENSION_NEGLECT | Ignoring sample size and scope | scope_insensitivity, halo_effect |
 
-**Note:** All 51 biases with full definitions (K&T theoretical basis, System 1 mechanism, System 2 override, classic paradigm) are in `biases/taxonomy.py`.
+**Note:** All 58 biases with full definitions (K&T theoretical basis, System 1 mechanism, System 2 override, classic paradigm) are in `biases/taxonomy.py`.
 
 ## Ecological Domains
 
@@ -209,8 +215,42 @@ kahne_bench/
 - `ADAPTIVE`: Pre/post feedback comparison
 
 **TemporalEvaluator** (`engines/evaluator.py`): Extends BiasEvaluator with:
-- `evaluate_persistent()`: Tests bias evolution over sequential decisions
+- `evaluate_persistent()`: Tests bias evolution over sequential decisions (5 rounds default)
 - `evaluate_adaptive()`: Pre/post feedback testing for learning effects
+
+**ContextSensitivityEvaluator** (`engines/evaluator.py`): Tests how context affects bias:
+- `evaluate_context_sensitivity()`: Tests all context combinations (6 preset configs)
+- `evaluate_expertise_gradient()`: Isolates expertise level effects (NOVICE → AUTHORITY)
+- `evaluate_stakes_gradient()`: Isolates stakes level effects (LOW → CRITICAL)
+
+## Advanced Generators
+
+**NovelScenarioGenerator** (`engines/generator.py`): Contamination-resistant testing:
+- Uses futuristic professions (quantum computing architect, space debris analyst, etc.)
+- Uses novel contexts unlikely in training data (Mars colonization, AI governance boards)
+- `generate_novel_instance()`: Single contamination-resistant test
+- `generate_contamination_resistant_batch()`: Batch generation for all bias-domain pairs
+
+**MacroScaleGenerator** (`engines/generator.py`): Sequential decision chain testing:
+- `generate_decision_chain()`: Creates multi-turn bias persistence tests
+- Bias-specific chain generators for anchoring, prospect theory, confirmation, overconfidence
+- `DecisionNode` and `DecisionChain` dataclasses for structured chain representation
+
+## Context Sensitivity
+
+**Context Types** (`core.py`):
+- `ExpertiseLevel`: NOVICE, INTERMEDIATE, EXPERT, AUTHORITY
+- `Formality`: CASUAL, PROFESSIONAL, FORMAL, ACADEMIC
+- `Stakes`: LOW, MODERATE, HIGH, CRITICAL
+
+**ContextSensitivityConfig** (`core.py`): Wraps prompts with context framing:
+- `get_expertise_prefix()`: Generates role descriptions
+- `get_formality_framing()`: Generates setting descriptions
+- `get_stakes_emphasis()`: Generates stakes descriptions
+
+**CognitiveBiasInstance** methods for context:
+- `apply_context_sensitivity()`: Wraps prompts with context framing
+- `get_context_variant()`: Gets treatment with specific context overrides
 
 ## Testing Patterns
 
