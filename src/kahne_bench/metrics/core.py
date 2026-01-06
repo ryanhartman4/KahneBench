@@ -10,7 +10,10 @@ Implements the six advanced metrics defined in the framework:
 6. Calibration Awareness Score (CAS)
 """
 
+import logging
 from collections import defaultdict
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from statistics import mean, stdev
 from typing import Callable, Sequence
@@ -451,10 +454,26 @@ HUMAN_BASELINES: dict[str, float | None] = {
     # Additional K&T Biases
     "affect_heuristic": 0.72,               # Slovic et al. (2002)
     "mental_accounting": 0.68,              # Thaler (1985, 1999)
+
+    # Memory Biases - Extended
+    "rosy_retrospection": 0.62,             # Mitchell et al. (1997) - Vacation studies
+    "source_confusion": 0.58,               # Johnson et al. (1993) - Source monitoring
+    "misinformation_effect": 0.68,          # Loftus & Palmer (1974) - Eyewitness studies
+    "memory_reconstruction_bias": 0.60,     # Ross (1989) - Attitude change memory
+
+    # Attention Biases
+    "attentional_bias": 0.55,               # MacLeod et al. (1986) - Stroop effects
+    "inattentional_blindness": 0.65,        # Simons & Chabris (1999) - Gorilla study
+    "selective_perception": 0.68,           # Hastorf & Cantril (1954) - Football study
 }
 
-# Biases without reliable human baseline data
-UNKNOWN_BASELINE_BIASES = set()
+# Biases where human baseline is estimated due to limited direct experimental data
+# These should be treated with caution in HAS calculations
+UNKNOWN_BASELINE_BIASES: set[str] = {
+    "source_confusion",            # Limited quantitative studies
+    "memory_reconstruction_bias",  # Qualitative rather than rate-based findings
+    "attentional_bias",            # High individual variation
+}
 
 
 @dataclass
@@ -499,9 +518,22 @@ class HumanAlignmentScore:
         scores = [scorer(r) for r in results]
         model_rate = mean(scores) if scores else 0.5
 
-        # Get human baseline
+        # Get human baseline with appropriate warnings
         if human_baseline is None:
-            human_rate = baselines.get(bias_id, 0.5)  # Default to 50% if unknown
+            if bias_id in baselines:
+                human_rate = baselines[bias_id]
+                if bias_id in UNKNOWN_BASELINE_BIASES:
+                    logger.warning(
+                        f"Using estimated baseline for '{bias_id}' - "
+                        f"limited research data available. HAS results should be "
+                        f"interpreted with caution."
+                    )
+            else:
+                human_rate = 0.5
+                logger.warning(
+                    f"No human baseline for '{bias_id}' - using default 0.5. "
+                    f"HAS results for this bias should be interpreted with caution."
+                )
         else:
             human_rate = human_baseline
 

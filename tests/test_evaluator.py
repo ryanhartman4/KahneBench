@@ -527,3 +527,172 @@ class TestEvaluationConfig:
         assert config.num_trials == 5
         assert len(config.intensities) == 2
         assert config.include_debiasing is False
+
+
+class TestAnswerExtractorEdgeCases:
+    """Tests for edge cases in AnswerExtractor."""
+
+    def test_extract_returns_none_when_no_option_found(self):
+        """Test that None is returned when no option can be extracted."""
+        extractor = AnswerExtractor()
+        response = "I'm not sure what to choose. Let me think about it."
+        result = extractor.extract(response, "option")
+        assert result is None
+
+    def test_extract_returns_none_when_no_number_found(self):
+        """Test that None is returned when no number can be extracted."""
+        extractor = AnswerExtractor()
+        response = "I cannot provide a numeric estimate without more data."
+        result = extractor.extract(response, "numeric")
+        assert result is None
+
+    def test_extract_returns_none_when_no_yes_no_found(self):
+        """Test that None is returned when no yes/no can be extracted."""
+        extractor = AnswerExtractor()
+        response = "This requires more consideration before I can decide."
+        result = extractor.extract(response, "yes_no")
+        assert result is None
+
+    def test_confidence_clamped_to_max_one(self):
+        """Test that confidence values over 100% are clamped to 1.0."""
+        extractor = AnswerExtractor()
+        response = "I am 200% confident in this answer."
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 1.0
+
+    def test_confidence_clamped_to_min_zero(self):
+        """Test that confidence values are at least 0.0."""
+        extractor = AnswerExtractor()
+        response = "I am 0% confident in this answer."
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 0.0
+
+    def test_numeric_extraction_excludes_confidence(self):
+        """Test that confidence percentages are excluded from numeric extraction."""
+        extractor = AnswerExtractor()
+        response = "Based on 3 factors, my estimate is 75000 dollars. I am 80% confident."
+        result = extractor.extract(response, "numeric")
+        # Should not extract 80 (the confidence), should extract 75000
+        assert result == "75000"
+
+    def test_numeric_extraction_prefers_answer_context(self):
+        """Test that numbers near answer keywords are preferred."""
+        extractor = AnswerExtractor()
+        response = "After analyzing 5 data points, my answer is 42."
+        result = extractor.extract(response, "numeric")
+        assert result == "42"
+
+
+class TestScoreResponseEdgeCases:
+    """Tests for edge cases in score_response."""
+
+    def test_score_response_returns_none_for_none_extraction(self):
+        """Test that None extraction returns None, None."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = create_test_instance()
+
+        from kahne_bench.core import TestResult
+
+        result = TestResult(
+            instance=instance,
+            model_id="test",
+            condition="treatment",
+            prompt_used="test prompt",
+            model_response="I don't know",
+            extracted_answer=None,  # Extraction failed
+            response_time_ms=100.0,
+        )
+
+        is_biased, score = evaluator.score_response(result, "50", "100")
+        assert is_biased is None
+        assert score is None
+
+    def test_score_response_numeric_tolerance_rational(self):
+        """Test that 100.0 matches 100 with epsilon tolerance."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = create_test_instance()
+
+        from kahne_bench.core import TestResult
+
+        result = TestResult(
+            instance=instance,
+            model_id="test",
+            condition="treatment",
+            prompt_used="test prompt",
+            model_response="100.0",
+            extracted_answer="100.0",
+            response_time_ms=100.0,
+        )
+
+        # 100.0 should match 100 (rational) with epsilon tolerance
+        is_biased, score = evaluator.score_response(result, "100", "200")
+        assert is_biased is False
+        assert score == 0.0
+
+    def test_score_response_numeric_tolerance_biased(self):
+        """Test that 199.99 matches 200 with epsilon tolerance."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = create_test_instance()
+
+        from kahne_bench.core import TestResult
+
+        result = TestResult(
+            instance=instance,
+            model_id="test",
+            condition="treatment",
+            prompt_used="test prompt",
+            model_response="199.99",
+            extracted_answer="199.99",
+            response_time_ms=100.0,
+        )
+
+        is_biased, score = evaluator.score_response(result, "100", "200")
+        assert is_biased is True
+        assert score == 1.0
+
+    def test_score_response_placeholder_returns_none(self):
+        """Test that placeholder expected answers return None."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = create_test_instance()
+
+        from kahne_bench.core import TestResult
+
+        result = TestResult(
+            instance=instance,
+            model_id="test",
+            condition="treatment",
+            prompt_used="test prompt",
+            model_response="42",
+            extracted_answer="42",
+            response_time_ms=100.0,
+        )
+
+        is_biased, score = evaluator.score_response(result, "[rational]", "[biased]")
+        assert is_biased is None
+        assert score is None
+
+    def test_score_response_unknown_string_returns_none(self):
+        """Test that unmatched string answers return None."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = create_test_instance()
+
+        from kahne_bench.core import TestResult
+
+        result = TestResult(
+            instance=instance,
+            model_id="test",
+            condition="treatment",
+            prompt_used="test prompt",
+            model_response="Option E",
+            extracted_answer="E",
+            response_time_ms=100.0,
+        )
+
+        is_biased, score = evaluator.score_response(result, "A", "B")
+        assert is_biased is None
+        assert score is None

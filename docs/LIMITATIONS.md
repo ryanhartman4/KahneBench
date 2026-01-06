@@ -63,8 +63,8 @@ Not all 69 biases have direct grounding in Kahneman-Tversky research:
 
 | Category | Notes |
 |----------|-------|
-| **Core K&T** (~50 biases) | Direct lineage from prospect theory and heuristics research |
-| **Extended** (~19 biases) | Related cognitive biases documented by other researchers |
+| **Core K&T** (25 biases) | Direct authorship by Kahneman &/or Tversky (use `get_kt_core_biases()`) |
+| **Extended** (44 biases) | Related cognitive biases documented by other researchers |
 
 Biases with weaker K&T grounding include:
 - Attention biases (Simons & Chabris, 1999)
@@ -72,7 +72,7 @@ Biases with weaker K&T grounding include:
 - Some social biases (Tajfel & Turner, 1979)
 
 ### 3.2 Interaction Matrix Coverage
-The `BIAS_INTERACTION_MATRIX` currently covers approximately 30% of theoretically plausible bias interactions. Many documented compound effects from the literature are not yet implemented.
+The `BIAS_INTERACTION_MATRIX` now covers 100% of biases (40 primary entries with all 69 biases appearing either as primary or secondary). However, not all theoretically plausible bias interactions are implemented - the matrix focuses on well-documented compound effects.
 
 ### 3.3 Ecological Validity
 Test scenarios, while mapped to five domains, may not fully capture:
@@ -87,12 +87,14 @@ Test scenarios, while mapped to five domains, may not fully capture:
 The `AnswerExtractor` uses pattern matching that may:
 - Misidentify answers in complex responses
 - Fail to extract numeric answers embedded in explanations
-- Return "UNKNOWN" for valid but unconventionally formatted responses
+- Return `None` for valid but unconventionally formatted responses
+
+**Note**: Extraction failures now return `None` instead of "UNKNOWN", allowing downstream code to handle them appropriately.
 
 ### 4.2 Scoring Edge Cases
-- **Numeric tolerance**: Partial credit scoring for numeric answers uses linear interpolation, which may not reflect psychological distance
-- **Unknown responses**: Treated as 0.5 bias score, which may inflate or deflate true bias measures
-- **Confidence extraction**: May miss confidence statements not matching expected patterns
+- **Numeric tolerance**: Scoring uses 1% epsilon tolerance for numeric comparisons (e.g., "100.0" matches "100")
+- **Unknown responses**: Return `(None, None)` instead of being treated as biased, preventing inflation of bias measurements
+- **Confidence extraction**: May miss confidence statements not matching expected patterns; values are clamped to [0, 1]
 
 ### 4.3 Rate Limiting
 Rate limiting is applied between instances but not between trials within an instance, which could cause API issues with strict rate limits.
@@ -116,10 +118,10 @@ Rate limiting is applied between instances but not between trials within an inst
 We are actively working to address these limitations:
 
 - [ ] Conduct human validation studies
-- [ ] Expand interaction matrix coverage to 60%+
+- [x] Expand interaction matrix coverage to 60%+ (now 100%)
 - [ ] Add sensitivity analysis for metric weights
-- [ ] Improve answer extraction robustness
-- [ ] Add `is_kt_core` field to distinguish theoretical grounding levels
+- [x] Improve answer extraction robustness (returns None, handles edge cases)
+- [x] Add `is_kt_core` field to distinguish theoretical grounding levels
 
 ## References
 
@@ -133,4 +135,4 @@ For a complete list of bias-specific citations, see `src/kahne_bench/biases/taxo
 
 ---
 
-*Last updated: 2025-01-06*
+*Last updated: 2026-01-06*

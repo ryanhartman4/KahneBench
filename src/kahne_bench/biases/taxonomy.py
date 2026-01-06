@@ -43,7 +43,8 @@ REPRESENTATIVENESS_BIASES = [
         system1_mechanism="Pattern matching to stereotypes overrides statistical thinking",
         system2_override="Explicitly calculate Bayesian posterior probabilities",
         classic_paradigm="Engineer/Lawyer problem: Given base rates and personality description",
-        trigger_template="Given that {base_rate}% of the population are {category_a}, consider {vivid_description}..."
+        trigger_template="Given that {base_rate}% of the population are {category_a}, consider {vivid_description}...",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="conjunction_fallacy",
@@ -54,7 +55,8 @@ REPRESENTATIVENESS_BIASES = [
         system1_mechanism="Representativeness makes conjunction seem more typical",
         system2_override="Apply probability axiom: P(A∩B) ≤ P(A)",
         classic_paradigm="Linda Problem: feminist bank teller vs bank teller",
-        trigger_template="{person_description} Which is more likely: (A) {general_category} or (B) {general_category} and {specific_detail}?"
+        trigger_template="{person_description} Which is more likely: (A) {general_category} or (B) {general_category} and {specific_detail}?",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="insensitivity_to_sample_size",
@@ -65,7 +67,8 @@ REPRESENTATIVENESS_BIASES = [
         system1_mechanism="Representativeness ignores sample size in pattern assessment",
         system2_override="Apply statistical reasoning about sampling variability",
         classic_paradigm="Hospital problem: Which hospital has more days with >60% boys?",
-        trigger_template="Hospital A delivers {large_n} babies/day, Hospital B delivers {small_n}/day. Which has more extreme days?"
+        trigger_template="Hospital A delivers {large_n} babies/day, Hospital B delivers {small_n}/day. Which has more extreme days?",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="gambler_fallacy",
@@ -76,7 +79,8 @@ REPRESENTATIVENESS_BIASES = [
         system1_mechanism="Short sequences expected to represent global frequencies",
         system2_override="Recognize independence of random events",
         classic_paradigm="After 5 heads in a row, tails is 'due'",
-        trigger_template="After {streak_description}, what is the probability of {opposite_outcome}?"
+        trigger_template="After {streak_description}, what is the probability of {opposite_outcome}?",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="hot_hand_fallacy",
@@ -87,7 +91,8 @@ REPRESENTATIVENESS_BIASES = [
         system1_mechanism="Pattern detection in random sequences",
         system2_override="Test for actual statistical dependence",
         classic_paradigm="Basketball player 'on fire' - expecting continued success",
-        trigger_template="{person} has succeeded in the last {n} attempts. What is the probability of success on the next attempt?"
+        trigger_template="{person} has succeeded in the last {n} attempts. What is the probability of success on the next attempt?",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="regression_neglect",
@@ -98,7 +103,8 @@ REPRESENTATIVENESS_BIASES = [
         system1_mechanism="Causal thinking applied to statistical regression",
         system2_override="Recognize regression as statistical necessity",
         classic_paradigm="Praise after good performance seems to cause decline",
-        trigger_template="After an extreme {performance_type} of {extreme_value}, predict the next {performance_type}."
+        trigger_template="After an extreme {performance_type} of {extreme_value}, predict the next {performance_type}.",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="stereotype_bias",
@@ -109,7 +115,8 @@ REPRESENTATIVENESS_BIASES = [
         system1_mechanism="Prototype matching dominates individuating information",
         system2_override="Weight base rates and individual evidence appropriately",
         classic_paradigm="Predicting profession from personality description",
-        trigger_template="{detailed_description}. What is the most likely {category} for this person?"
+        trigger_template="{detailed_description}. What is the most likely {category} for this person?",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="prototype_heuristic",
@@ -120,7 +127,8 @@ REPRESENTATIVENESS_BIASES = [
         system1_mechanism="Substituting 'how typical?' for 'how probable?'",
         system2_override="Consider base rates and diagnostic value of features",
         classic_paradigm="Is a penguin a 'real' bird?",
-        trigger_template="Rate how typical {instance} is of {category}, then estimate probability of {instance} being {category}."
+        trigger_template="Rate how typical {instance} is of {category}, then estimate probability of {instance} being {category}.",
+        is_kt_core=True,
     ),
 ]
 
@@ -139,7 +147,8 @@ AVAILABILITY_BIASES = [
         system1_mechanism="Fluency of recall substitutes for actual frequency",
         system2_override="Seek objective statistics rather than relying on memory",
         classic_paradigm="Letters: More words starting with K or with K as 3rd letter?",
-        trigger_template="Estimate the frequency of {easily_imagined_event} versus {less_imagined_event}."
+        trigger_template="Estimate the frequency of {easily_imagined_event} versus {less_imagined_event}.",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="recency_bias",
@@ -161,7 +170,8 @@ AVAILABILITY_BIASES = [
         system1_mechanism="Vivid memories easily retrieved, seem more frequent",
         system2_override="Correct for emotional impact on memory accessibility",
         classic_paradigm="Fear of flying vs. driving despite statistics",
-        trigger_template="After {vivid_event}, estimate the probability of {related_risk}."
+        trigger_template="After {vivid_event}, estimate the probability of {related_risk}.",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="simulation_heuristic",
@@ -172,7 +182,8 @@ AVAILABILITY_BIASES = [
         system1_mechanism="Easily imagined scenarios seem more likely",
         system2_override="Distinguish imaginability from actual probability",
         classic_paradigm="Near-miss scenarios in lottery (almost won!)",
-        trigger_template="Imagine {scenario}. How likely is this to occur?"
+        trigger_template="Imagine {scenario}. How likely is this to occur?",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="illusory_correlation",
@@ -213,7 +224,8 @@ ANCHORING_BIASES = [
         system1_mechanism="Initial value activates related concepts; adjustment insufficient",
         system2_override="Generate estimate independently before considering anchor",
         classic_paradigm="UN percentage in Africa after random wheel spin",
-        trigger_template="The number {anchor} was mentioned. Now estimate {target_quantity}."
+        trigger_template="The number {anchor} was mentioned. Now estimate {target_quantity}.",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="insufficient_adjustment",
@@ -276,7 +288,8 @@ LOSS_AVERSION_BIASES = [
         system1_mechanism="Negative outcomes trigger stronger emotional response",
         system2_override="Calculate expected value objectively",
         classic_paradigm="Rejecting 50/50 bet to win $150 or lose $100",
-        trigger_template="Choose: (A) Sure gain of {amount}, or (B) 50% chance to gain {higher_amount} or lose {lower_amount}?"
+        trigger_template="Choose: (A) Sure gain of {amount}, or (B) 50% chance to gain {higher_amount} or lose {lower_amount}?",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="endowment_effect",
@@ -287,7 +300,8 @@ LOSS_AVERSION_BIASES = [
         system1_mechanism="Selling = loss of owned item; loss aversion inflates price",
         system2_override="Consider opportunity cost of not selling",
         classic_paradigm="Mug owners demand ~2x what buyers will pay",
-        trigger_template="You own {item}. At what price would you sell it? If you didn't own it, what would you pay?"
+        trigger_template="You own {item}. At what price would you sell it? If you didn't own it, what would you pay?",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="status_quo_bias",
@@ -339,7 +353,8 @@ FRAMING_BIASES = [
         system1_mechanism="Gains trigger risk aversion; losses trigger risk seeking",
         system2_override="Compute expected values; recognize framing manipulation",
         classic_paradigm="Asian Disease Problem: 200 saved vs 400 die",
-        trigger_template="Program A: {gain_frame}. Program B: {equivalent_gamble}. Which do you choose?"
+        trigger_template="Program A: {gain_frame}. Program B: {equivalent_gamble}. Which do you choose?",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="attribute_framing",
@@ -361,7 +376,8 @@ FRAMING_BIASES = [
         system1_mechanism="Reference point determines gain/loss coding",
         system2_override="Evaluate final wealth states, not changes",
         classic_paradigm="Tax 'bonus' vs 'refund' framing",
-        trigger_template="Starting from {reference}, outcome is {change}. Evaluate this outcome."
+        trigger_template="Starting from {reference}, outcome is {change}. Evaluate this outcome.",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="default_effect",
@@ -413,7 +429,8 @@ PROBABILITY_BIASES = [
         system1_mechanism="Small probabilities overweighted; certainty effect for high probs",
         system2_override="Use objective probabilities in calculations",
         classic_paradigm="Lottery tickets and insurance purchases",
-        trigger_template="Option A: Certain {small_amount}. Option B: {small_prob}% chance of {large_amount}. Choose."
+        trigger_template="Option A: Certain {small_amount}. Option B: {small_prob}% chance of {large_amount}. Choose.",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="certainty_effect",
@@ -424,7 +441,8 @@ PROBABILITY_BIASES = [
         system1_mechanism="Certainty eliminates anxiety; probabilistic outcomes feel risky",
         system2_override="Calculate expected values without overweighting certainty",
         classic_paradigm="Allais Paradox: Preference reversals with certain options",
-        trigger_template="Option A: {certain_outcome} for sure. Option B: {high_prob}% chance of {better_outcome}. Choose."
+        trigger_template="Option A: {certain_outcome} for sure. Option B: {high_prob}% chance of {better_outcome}. Choose.",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="possibility_effect",
@@ -435,7 +453,8 @@ PROBABILITY_BIASES = [
         system1_mechanism="Non-zero probability feels like 'real chance'",
         system2_override="Weight tiny probabilities appropriately in EV calculation",
         classic_paradigm="Buying lottery tickets despite negative expected value",
-        trigger_template="There is a {tiny_prob}% chance of winning {jackpot}. How much would you pay for this lottery ticket?"
+        trigger_template="There is a {tiny_prob}% chance of winning {jackpot}. How much would you pay for this lottery ticket?",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="neglect_of_probability",
@@ -498,7 +517,8 @@ OVERCONFIDENCE_BIASES = [
         system1_mechanism="Inside view focuses on specifics, ignores base rates",
         system2_override="Use outside view: compare to similar past projects",
         classic_paradigm="Sydney Opera House: 6 years estimate, 16 years actual",
-        trigger_template="Estimate time to complete {project}. Consider past {similar_projects}."
+        trigger_template="Estimate time to complete {project}. Consider past {similar_projects}.",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="illusion_of_control",
@@ -602,7 +622,8 @@ TEMPORAL_BIASES = [
         system1_mechanism="Peak and end moments dominate memory, not duration",
         system2_override="Consider total experienced utility",
         classic_paradigm="Longer painful procedure preferred if end is less painful",
-        trigger_template="Experience A: {short_duration} with {pattern_a}. Experience B: {long_duration} with {pattern_b}. Rate each."
+        trigger_template="Experience A: {short_duration} with {pattern_a}. Experience B: {long_duration} with {pattern_b}. Rate each.",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="peak_end_rule",
@@ -613,7 +634,8 @@ TEMPORAL_BIASES = [
         system1_mechanism="Peak and end are most memorable; summarize experience",
         system2_override="Weight all moments equally in evaluation",
         classic_paradigm="Adding painful time if it improves the ending",
-        trigger_template="Experience peaked at {peak} and ended at {end}. Rate the overall experience."
+        trigger_template="Experience peaked at {peak} and ended at {end}. Rate the overall experience.",
+        is_kt_core=True,
     ),
 ]
 
@@ -633,7 +655,8 @@ EXTENSION_NEGLECT_BIASES = [
         system1_mechanism="Emotional response similar regardless of scope",
         system2_override="Scale valuation proportionally with quantity",
         classic_paradigm="Similar WTP to save 2,000, 20,000, or 200,000 birds",
-        trigger_template="How much would you pay to save {quantity} {item}?"
+        trigger_template="How much would you pay to save {quantity} {item}?",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="identifiable_victim_effect",
@@ -834,7 +857,8 @@ UNCERTAINTY_JUDGMENT_BIASES = [
         system1_mechanism="Internal consistency of information creates unwarranted confidence",
         system2_override="Assess base rates and reliability of predictors independently of coherence",
         classic_paradigm="Interviewers confident in predictions despite low validity of interviews",
-        trigger_template="Based on this {coherent_description}, predict {outcome} and rate your confidence."
+        trigger_template="Based on this {coherent_description}, predict {outcome} and rate your confidence.",
+        is_kt_core=True,
     ),
     BiasDefinition(
         id="competence_hypothesis",
@@ -845,7 +869,8 @@ UNCERTAINTY_JUDGMENT_BIASES = [
         system1_mechanism="Feeling of competence reduces perceived ambiguity even without better information",
         system2_override="Evaluate objective information quality regardless of subjective domain knowledge",
         classic_paradigm="Sports fans prefer betting on their team's games despite no informational advantage",
-        trigger_template="Would you prefer to bet on {familiar_domain} or {unfamiliar_domain} given equal odds?"
+        trigger_template="Would you prefer to bet on {familiar_domain} or {unfamiliar_domain} given equal odds?",
+        is_kt_core=True,
     ),
 ]
 
@@ -964,6 +989,24 @@ def get_biases_by_category(category: BiasCategory) -> list[BiasDefinition]:
 def get_all_bias_ids() -> list[str]:
     """Get a list of all bias IDs in the taxonomy."""
     return list(BIAS_TAXONOMY.keys())
+
+
+def get_kt_core_biases() -> list[BiasDefinition]:
+    """Get all biases directly authored by Kahneman & Tversky.
+
+    Returns biases where is_kt_core=True, meaning the bias was documented
+    in papers where Kahneman and/or Tversky were authors.
+    """
+    return [bias for bias in BIAS_TAXONOMY.values() if bias.is_kt_core]
+
+
+def get_extended_biases() -> list[BiasDefinition]:
+    """Get all biases not directly from K&T but theoretically related.
+
+    Returns biases where is_kt_core=False, meaning the bias was documented
+    by other researchers but is theoretically connected to dual-process theory.
+    """
+    return [bias for bias in BIAS_TAXONOMY.values() if not bias.is_kt_core]
 
 
 # =============================================================================
@@ -1085,5 +1128,140 @@ BIAS_INTERACTION_MATRIX: dict[str, list[str]] = {
         "competence_hypothesis",  # Familiar domains less ambiguous
         "illusion_of_validity",  # Coherence reduces perceived ambiguity
         "affect_heuristic",  # Ambiguity feels uncomfortable
+    ],
+
+    # =========================================================================
+    # EXPANDED INTERACTION MATRIX - Additional entries for 60%+ coverage
+    # =========================================================================
+
+    # REFERENCE_DEPENDENCE - Critical gap (was 0/1)
+    "reference_point_framing": [
+        "loss_aversion",  # Reference determines gain/loss coding
+        "status_quo_bias",  # Current state as reference
+        "gain_loss_framing",  # Frame manipulates reference
+        "endowment_effect",  # Ownership creates reference point
+    ],
+
+    # REPRESENTATIVENESS gaps
+    "gambler_fallacy": [
+        "hot_hand_fallacy",  # Opposite errors about randomness
+        "insensitivity_to_sample_size",  # Both involve sequence judgments
+        "regression_neglect",  # Both misunderstand random processes
+    ],
+    "hot_hand_fallacy": [
+        "gambler_fallacy",  # Mirror biases
+        "illusion_of_control",  # Both attribute pattern to skill
+        "overconfidence_effect",  # Confidence in streaks
+    ],
+    "regression_neglect": [
+        "gambler_fallacy",  # Both misunderstand regression
+        "illusion_of_control",  # Misattributing randomness
+        "hindsight_bias",  # Retrospective pattern-finding
+    ],
+    "prototype_heuristic": [
+        "stereotype_bias",  # Both use prototypes
+        "base_rate_neglect",  # Typicality overrides base rates
+        "conjunction_fallacy",  # Representativeness mechanism
+    ],
+
+    # AVAILABILITY gaps
+    "recency_bias": [
+        "availability_bias",  # Recency increases availability
+        "anchoring_effect",  # Recent info as anchor
+        "primacy_bias",  # Order effects in general
+    ],
+    "primacy_bias": [
+        "anchoring_effect",  # First info as anchor
+        "recency_bias",  # Opposite order effect
+        "availability_bias",  # First info more available
+    ],
+    "illusory_correlation": [
+        "availability_bias",  # Memorable pairings
+        "confirmation_bias",  # Seeking confirming instances
+        "stereotype_bias",  # Group-based correlations
+    ],
+    "simulation_heuristic": [
+        "availability_bias",  # Ease of imagination
+        "planning_fallacy",  # Imagining positive outcomes
+        "optimism_bias",  # Easy to imagine success
+    ],
+
+    # ANCHORING gaps
+    "first_offer_anchoring": [
+        "anchoring_effect",  # Core mechanism
+        "loss_aversion",  # Anchors affect loss perception
+        "status_quo_bias",  # First offer as status quo
+    ],
+    "focalism": [
+        "anchoring_effect",  # Focus on salient info
+        "salience_bias",  # Attention to focal information
+        "planning_fallacy",  # Focus on current project details
+    ],
+    "numeric_priming": [
+        "anchoring_effect",  # Incidental anchors
+        "availability_bias",  # Primed numbers more available
+        "insufficient_adjustment",  # Adjustment from primed anchor
+    ],
+
+    # FRAMING gaps
+    "attribute_framing": [
+        "gain_loss_framing",  # Both involve frame effects
+        "affect_heuristic",  # Positive/negative frames trigger affect
+        "reference_point_framing",  # Frame sets reference
+    ],
+    "default_effect": [
+        "status_quo_bias",  # Default as status quo
+        "loss_aversion",  # Switching from default feels like loss
+        "endowment_effect",  # Default feels like owned
+    ],
+    "temporal_framing": [
+        "present_bias",  # Time period perception
+        "duration_neglect",  # Ignoring time aspects
+        "mental_accounting",  # Time-based accounts
+    ],
+
+    # PROBABILITY gaps
+    "denominator_neglect": [
+        "neglect_of_probability",  # Both ignore probability components
+        "scope_insensitivity",  # Ignoring magnitude
+        "probability_weighting",  # Distorted probability processing
+    ],
+    "possibility_effect": [
+        "certainty_effect",  # Both from prospect theory
+        "probability_weighting",  # Overweighting small probs
+        "zero_risk_bias",  # Eliminating possibility
+    ],
+
+    # LOSS_AVERSION gaps
+    "disposition_effect": [
+        "loss_aversion",  # Core mechanism
+        "sunk_cost_fallacy",  # Holding losers as sunk cost
+        "endowment_effect",  # Owned stocks valued more
+    ],
+
+    # TEMPORAL gaps
+    "peak_end_rule": [
+        "duration_neglect",  # Both about experience evaluation
+        "recency_bias",  # End is recent
+        "salience_bias",  # Peak is salient
+    ],
+
+    # MEMORY gaps
+    "misinformation_effect": [
+        "source_confusion",  # Memory source errors
+        "memory_reconstruction_bias",  # Memory modification
+        "hindsight_bias",  # Retroactive distortion
+    ],
+    "source_confusion": [
+        "misinformation_effect",  # Memory distortion
+        "false_consensus_effect",  # Misattributing beliefs
+        "availability_bias",  # Available but misattributed
+    ],
+
+    # ATTENTION gaps
+    "inattentional_blindness": [
+        "attentional_bias",  # Attention allocation
+        "selective_perception",  # Filtering information
+        "focalism",  # Focus creates blindspots
     ],
 }

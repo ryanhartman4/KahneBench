@@ -118,3 +118,59 @@ class TestBiasInteractionMatrix:
         """Verify each primary bias has multiple interaction partners."""
         for primary_bias, secondaries in BIAS_INTERACTION_MATRIX.items():
             assert len(secondaries) >= 2, f"Primary bias {primary_bias} has too few interactions"
+
+    def test_interaction_matrix_coverage_target(self):
+        """Verify interaction matrix meets 60% coverage target."""
+        primary_biases = set(BIAS_INTERACTION_MATRIX.keys())
+        all_secondary = set()
+        for secondaries in BIAS_INTERACTION_MATRIX.values():
+            all_secondary.update(secondaries)
+
+        biases_with_interactions = primary_biases | all_secondary
+        coverage = len(biases_with_interactions) / len(BIAS_TAXONOMY)
+
+        assert coverage >= 0.60, f"Interaction coverage {coverage:.1%} below 60% target"
+
+
+class TestKTCoreField:
+    """Tests for the is_kt_core field on BiasDefinition."""
+
+    def test_kt_core_field_exists(self):
+        """Verify all biases have is_kt_core field."""
+        for bias in BIAS_TAXONOMY.values():
+            assert hasattr(bias, "is_kt_core")
+            assert isinstance(bias.is_kt_core, bool)
+
+    def test_kt_core_count_in_expected_range(self):
+        """Verify K&T core count is in expected range."""
+        kt_core = [b for b in BIAS_TAXONOMY.values() if b.is_kt_core]
+        # Should be around 25 based on analysis
+        assert len(kt_core) >= 20, f"Too few K&T core biases: {len(kt_core)}"
+        assert len(kt_core) <= 35, f"Too many K&T core biases: {len(kt_core)}"
+
+    def test_kt_core_biases_cite_kt(self):
+        """Verify K&T core biases actually cite K&T in theoretical_basis."""
+        kt_keywords = ["kahneman", "tversky", "k&t", "prospect theory"]
+        for bias in BIAS_TAXONOMY.values():
+            if bias.is_kt_core:
+                basis_lower = bias.theoretical_basis.lower()
+                has_kt = any(kw in basis_lower for kw in kt_keywords)
+                assert has_kt, (
+                    f"K&T core bias {bias.id} doesn't cite K&T: {bias.theoretical_basis}"
+                )
+
+    def test_helper_functions_exist(self):
+        """Verify get_kt_core_biases and get_extended_biases work."""
+        from kahne_bench.biases.taxonomy import get_kt_core_biases, get_extended_biases
+
+        kt_core = get_kt_core_biases()
+        extended = get_extended_biases()
+
+        # Together should equal all biases
+        assert len(kt_core) + len(extended) == len(BIAS_TAXONOMY)
+
+        # All kt_core should have is_kt_core=True
+        assert all(b.is_kt_core for b in kt_core)
+
+        # All extended should have is_kt_core=False
+        assert all(not b.is_kt_core for b in extended)

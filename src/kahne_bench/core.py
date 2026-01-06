@@ -187,6 +187,11 @@ class ContextSensitivityConfig:
 class BiasDefinition:
     """
     Complete definition of a cognitive bias with theoretical grounding.
+
+    Attributes:
+        is_kt_core: True if this bias was directly authored/documented by
+            Kahneman & Tversky. False for biases from other researchers that
+            are theoretically related to dual-process theory.
     """
     id: str
     name: str
@@ -197,6 +202,7 @@ class BiasDefinition:
     system2_override: str  # How System 2 can correct it
     classic_paradigm: str  # Famous experimental demonstration
     trigger_template: str  # Template for creating bias triggers
+    is_kt_core: bool = False  # True if directly authored by Kahneman & Tversky
 
 
 @dataclass

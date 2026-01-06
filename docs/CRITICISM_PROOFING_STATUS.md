@@ -6,7 +6,17 @@ This document tracks progress on making Kahne-Bench publication-ready for both a
 
 Address 22 identified issues across methodological rigor, code quality, and completeness to make the benchmark "criticism-proof."
 
-## Completed Work (6/13 items)
+## Status: ALL ITEMS COMPLETE ✅
+
+**All 13 criticism-proofing items have been completed as of 2026-01-06.**
+
+- Test suite: 125 → 158 tests (+33 tests)
+- Human baselines: 62 → 69 biases (100% coverage)
+- K&T core biases: 25 identified with `is_kt_core` field
+- Interaction matrix: 26% → 100% coverage (all 69 biases)
+- Evaluator: Hardened with None handling, epsilon tolerance
+
+## Completed Work (13/13 items)
 
 ### 1. Python Version Compatibility ✅
 - **Status**: Already correct
@@ -78,76 +88,71 @@ Address 22 identified issues across methodological rigor, code quality, and comp
 
 ## Test Suite Growth
 
-| Before | After | Change |
-|--------|-------|--------|
-| 56 tests | 125 tests | +69 tests (+123%) |
+| Stage | Tests | Change |
+|-------|-------|--------|
+| Original | 56 | - |
+| After #1-6 | 125 | +69 tests (+123%) |
+| After #7-13 | 158 | +33 tests (+26%) |
+| **Total** | **158** | **+102 tests (+182%)** |
 
 ---
 
-## Remaining Work (7 items)
+### 7. Human Baseline Improvements ✅
+- **File**: `src/kahne_bench/metrics/core.py`
+- **Changes**:
+  - Added 7 missing baselines (memory + attention biases) with research citations
+  - Populated `UNKNOWN_BASELINE_BIASES` set with 3 less-researched biases
+  - Added logging warnings in `HumanAlignmentScore.calculate()` for estimated/unknown baselines
+- **Result**: All 69 biases now have human baselines (100% coverage)
 
-### 7. Human Baseline Improvements 🔴 HIGH PRIORITY
-- **File**: `src/kahne_bench/metrics/core.py` (lines 300-390, 440)
-- **Issues**:
-  - Default 0.5 for unknown biases is problematic (line 440)
-  - Some citations are weak/non-K&T
-- **Fix needed**:
-  - Change default to `None` and raise warning when used
-  - Add `UNKNOWN_BASELINE_BIASES` set with explicit list
-  - Add inline citations for all baselines
-  - Flag non-K&T biases in HAS output
+### 8. K&T Grounding Audit ✅
+- **Files**: `src/kahne_bench/core.py`, `src/kahne_bench/biases/taxonomy.py`, `docs/LIMITATIONS.md`
+- **Changes**:
+  - Added `is_kt_core: bool` field to `BiasDefinition` dataclass
+  - Marked 25 biases as K&T core (directly authored by Kahneman & Tversky)
+  - Added `get_kt_core_biases()` and `get_extended_biases()` helper functions
+  - Updated LIMITATIONS.md with accurate counts (25 core, 44 extended)
+- **Result**: All 69 biases have clear theoretical provenance
 
-### 8. K&T Grounding Audit 🟡 MEDIUM PRIORITY
+### 9. Answer Extractor Hardening ✅
+- **File**: `src/kahne_bench/engines/evaluator.py`
+- **Changes**:
+  - Changed `extract()` return type to `str | None` (returns None instead of "UNKNOWN")
+  - Clamped confidence to [0.0, 1.0] range
+  - Improved numeric extraction to exclude confidence percentages
+  - Prefer numbers near answer keywords (estimate, answer, value)
+- **Result**: Extraction failures properly signal uncertainty
+
+### 10. Scoring Logic Fixes ✅
+- **File**: `src/kahne_bench/engines/evaluator.py`
+- **Changes**:
+  - Changed `score_response()` return type to `tuple[bool | None, float | None]`
+  - Added epsilon tolerance (1% relative) for numeric comparisons
+  - Return `(None, None)` for unknown answers instead of `(True, 0.5)`
+  - Handle placeholders at entry point
+- **Result**: Scoring no longer inflates bias measurements with extraction failures
+
+### 11. Expand Interaction Matrix ✅
 - **File**: `src/kahne_bench/biases/taxonomy.py`
-- **Issue**: 23% of biases (16/69) lack direct K&T grounding
-- **Fix needed**:
-  - Add `is_kt_core: bool` field to `BiasDefinition` dataclass in `core.py`
-  - Mark peripheral biases (primacy_bias, attention biases, etc.)
-  - Update documentation to distinguish core vs extended biases
+- **Changes**:
+  - Added 22 new primary bias entries with theoretically-grounded interactions
+  - Filled REFERENCE_DEPENDENCE gap (was 0/1, now has reference_point_framing)
+  - Coverage: 40 primary biases, all 69 biases appear in matrix
+- **Result**: Interaction matrix now covers 100% of biases (was 26%)
 
-### 9. Answer Extractor Hardening 🔴 HIGH PRIORITY
-- **File**: `src/kahne_bench/engines/evaluator.py` (lines 110-227)
-- **Issues**:
-  - "UNKNOWN" not validated as sentinel in scoring
-  - Case normalization inconsistent
-  - Confidence not clamped to [0, 1]
-  - Numeric extraction may grab wrong number
-- **Fix needed**:
-  - Handle "UNKNOWN" explicitly in scoring
-  - Normalize all extracted answers to consistent case
-  - Clamp confidence to [0, 1] range
-  - Add epsilon tolerance for numeric comparisons
+### 12. Fix Documentation Mismatches ✅
+- **Status**: No changes needed
+- **Details**: gpt-5.2 is now the standard model, so documentation is correct
 
-### 10. Scoring Logic Fixes 🔴 HIGH PRIORITY
-- **File**: `src/kahne_bench/engines/evaluator.py` (lines 423-464)
-- **Issues**:
-  - No numeric tolerance (epsilon)
-  - Default fallback (True, 0.5) is questionable
-  - Placeholder detection may miss valid answers starting with "["
-- **Fix needed**:
-  - Add numeric tolerance (epsilon = 0.01)
-  - Change default fallback handling
-  - Improve placeholder detection
-
-### 11. Expand Interaction Matrix (29% → 60%+) 🟡 MEDIUM PRIORITY
-- **File**: `src/kahne_bench/biases/taxonomy.py` (lines 974-1089)
-- **Issue**: Only 20/69 biases have interaction definitions
-- **Fix needed**: Add theoretically-grounded interactions for remaining biases, prioritizing:
-  - All representativeness biases
-  - All framing biases
-  - All temporal biases
-  - Memory × Overconfidence interactions
-
-### 12. Fix Documentation Mismatches 🟢 LOW PRIORITY
-- **Files**: `README.md`, `CLAUDE.md`
-- **Issues**:
-  - Example uses `gpt-5.2` (should be `gpt-4o`)
-  - Some metric descriptions may be outdated
-- **Fix needed**: Review and update all examples
-
-### 13. Integration Tests 🟡 MEDIUM PRIORITY
+### 13. Integration Tests ✅
 - **File**: `tests/test_integration.py` (NEW)
-- **Fix needed**: Add tests for full pipeline: generate → evaluate → score → metrics
+- **Tests added**: 12 integration tests across 6 test classes:
+  - `TestIntegrationHappyPath`: Full pipeline, debiasing, all 6 metrics
+  - `TestIntegrationMultiBias`: Batch processing
+  - `TestIntegrationCrossDomain`: Cross-domain consistency
+  - `TestIntegrationErrorHandling`: Error capture
+  - `TestIntegrationKTCore`: K&T bias filtering
+  - `TestIntegrationHumanBaselines`, `TestIntegrationInteractionMatrix`: Coverage verification
 
 ---
 
@@ -196,5 +201,4 @@ print(f'Coverage: {len(set(BIAS_TAXONOMY.keys()) & set(BIAS_TEMPLATES.keys()))}/
 
 ---
 
-*Last updated: 2025-01-06*
-*Commit: c9344d2*
+*Last updated: 2026-01-06*

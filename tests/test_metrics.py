@@ -10,7 +10,7 @@ from kahne_bench.metrics import (
     CalibrationAwarenessScore,
     MetricCalculator,
 )
-from kahne_bench.metrics.core import HUMAN_BASELINES
+from kahne_bench.metrics.core import HUMAN_BASELINES, UNKNOWN_BASELINE_BIASES
 from kahne_bench.core import (
     CognitiveBiasInstance,
     TestResult,
@@ -407,3 +407,30 @@ class TestMetricCalculator:
         calculator = MetricCalculator(scorer=custom_scorer)
         report = calculator.calculate_all_metrics("test-model", sample_results)
         assert report.model_id == "test-model"
+
+
+class TestHumanBaselines:
+    """Tests for HUMAN_BASELINES coverage."""
+
+    def test_all_taxonomy_biases_have_baselines(self):
+        """Verify all taxonomy biases have human baselines."""
+        from kahne_bench.biases.taxonomy import BIAS_TAXONOMY
+
+        missing = [
+            bias_id for bias_id in BIAS_TAXONOMY if bias_id not in HUMAN_BASELINES
+        ]
+        assert len(missing) == 0, f"Biases missing baselines: {missing}"
+
+    def test_baseline_values_are_valid(self):
+        """Verify all baseline values are in valid range [0, 1]."""
+        for bias_id, value in HUMAN_BASELINES.items():
+            assert 0.0 <= value <= 1.0, f"Invalid baseline for {bias_id}: {value}"
+
+    def test_unknown_baseline_biases_documented(self):
+        """Verify UNKNOWN_BASELINE_BIASES set is not empty."""
+        assert len(UNKNOWN_BASELINE_BIASES) > 0, "UNKNOWN_BASELINE_BIASES should be populated"
+
+    def test_unknown_biases_have_baselines(self):
+        """Verify biases in UNKNOWN_BASELINE_BIASES still have baseline values."""
+        for bias_id in UNKNOWN_BASELINE_BIASES:
+            assert bias_id in HUMAN_BASELINES, f"Unknown bias {bias_id} has no baseline"

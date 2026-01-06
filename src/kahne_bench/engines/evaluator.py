@@ -145,7 +145,7 @@ class AnswerExtractor:
         """
         self.llm_extractor = llm_extractor
 
-    def extract(self, response: str, expected_type: str = "option") -> str:
+    def extract(self, response: str, expected_type: str = "option") -> str | None:
         """
         Extract the final answer from an LLM response.
 
@@ -154,7 +154,7 @@ class AnswerExtractor:
             expected_type: Type of answer expected ("option", "numeric", "yes_no", "text")
 
         Returns:
-            Extracted answer string
+            Extracted answer string, or None if extraction failed
         """
         response_lower = response.lower()
 
@@ -175,7 +175,7 @@ class AnswerExtractor:
         # Fallback: look for the last mentioned option/value
         return self._fallback_extraction(response, expected_type)
 
-    def _extract_text_answer(self, response: str) -> str:
+    def _extract_text_answer(self, response: str) -> str | None:
         """Extract a text-based answer (last sentence or explicit answer)."""
         # Look for explicit answer markers
         answer_markers = ["therefore", "in conclusion", "my answer is", "final answer"]
@@ -186,19 +186,47 @@ class AnswerExtractor:
 
         # Return last sentence as fallback
         sentences = response.split(".")
-        return sentences[-2].strip() if len(sentences) > 1 else response.strip()
+        if len(sentences) > 1 and sentences[-2].strip():
+            return sentences[-2].strip()
+        elif response.strip():
+            return response.strip()
+        return None
 
-    def _fallback_extraction(self, response: str, expected_type: str) -> str:
+    def _fallback_extraction(self, response: str, expected_type: str) -> str | None:
         """Fallback extraction when patterns don't match."""
         if expected_type == "option":
             # Find last mentioned option letter
             options = re.findall(r"\b([A-D])\b", response)
-            return options[-1] if options else "UNKNOWN"
+            return options[-1] if options else None
 
         elif expected_type == "numeric":
-            # Find last number in response
-            numbers = re.findall(r"[\d,]+(?:\.\d+)?", response)
-            return numbers[-1].replace(",", "") if numbers else "UNKNOWN"
+            # Try to find numbers near answer keywords first
+            answer_context = re.search(
+                r"(?:estimate|answer|value|result|approximately|about|around)[:\s]+\$?([\d,]+(?:\.\d+)?)",
+                response,
+                re.IGNORECASE,
+            )
+            if answer_context:
+                return answer_context.group(1).replace(",", "")
+
+            # Find numbers with units (excluding confidence percentages)
+            numbers_with_units = re.findall(
+                r"\$?([\d,]+(?:\.\d+)?)\s*(?:dollars?|people|years|months|days|units?)\b",
+                response,
+                re.IGNORECASE,
+            )
+            if numbers_with_units:
+                return numbers_with_units[-1].replace(",", "")
+
+            # Exclude numbers that are part of confidence statements
+            response_no_confidence = re.sub(
+                r"\d{1,3}\s*%?\s*(?:confident|confidence|certain|sure)",
+                "",
+                response,
+                flags=re.IGNORECASE,
+            )
+            numbers = re.findall(r"[\d,]+(?:\.\d+)?", response_no_confidence)
+            return numbers[-1].replace(",", "") if numbers else None
 
         elif expected_type == "yes_no":
             # Check for presence of yes/no keywords
@@ -206,12 +234,16 @@ class AnswerExtractor:
                 return "yes"
             elif "no" in response.lower() or "reject" in response.lower():
                 return "no"
-            return "UNKNOWN"
+            return None
 
-        return "UNKNOWN"
+        return None
 
     def extract_confidence(self, response: str) -> float | None:
-        """Extract stated confidence level from response."""
+        """Extract stated confidence level from response.
+
+        Returns:
+            Confidence value clamped to [0.0, 1.0], or None if not found.
+        """
         patterns = [
             r"(\d{1,3})\s*%?\s*(?:confident|confidence|certain|sure)",
             r"(?:confidence|certainty)[:\s]+(\d{1,3})\s*%?",
@@ -221,7 +253,8 @@ class AnswerExtractor:
             match = re.search(pattern, response, re.IGNORECASE)
             if match:
                 conf = float(match.group(1))
-                return conf / 100 if conf > 1 else conf
+                normalized = conf / 100 if conf > 1 else conf
+                return max(0.0, min(1.0, normalized))  # Clamp to [0, 1]
 
         return None
 
@@ -425,7 +458,7 @@ class BiasEvaluator:
         result: TestResult,
         rational_answer: str,
         biased_answer: str,
-    ) -> tuple[bool, float]:
+    ) -> tuple[bool | None, float | None]:
         """
         Score a single response for bias presence.
 
@@ -435,33 +468,59 @@ class BiasEvaluator:
             biased_answer: The expected biased response
 
         Returns:
-            Tuple of (is_biased, bias_score)
+            Tuple of (is_biased, bias_score) where:
+            - is_biased: True if biased, False if rational, None if unknown
+            - bias_score: 0.0 for rational, 1.0 for biased, 0-1 for partial, None if unknown
         """
-        extracted = result.extracted_answer.lower()
-        rational = rational_answer.lower()
-        biased = biased_answer.lower()
+        # Handle placeholder expected answers at entry point
+        if rational_answer.startswith("[") or biased_answer.startswith("["):
+            return None, None
 
-        # Simple matching for option/yes_no answers
+        # Handle extraction failures
+        if result.extracted_answer is None:
+            return None, None
+
+        extracted = result.extracted_answer.lower().strip()
+        rational = rational_answer.lower().strip()
+        biased = biased_answer.lower().strip()
+
+        # Numeric tolerance (1% relative epsilon)
+        EPSILON = 0.01
+
+        # Try numeric comparison FIRST (handles "100" vs "100.0" cases)
+        try:
+            extracted_num = float(extracted.replace(",", "").replace("$", ""))
+            rational_num = float(rational.replace(",", "").replace("$", ""))
+            biased_num = float(biased.replace(",", "").replace("$", ""))
+
+            # Check if within epsilon of rational answer
+            if abs(extracted_num - rational_num) <= EPSILON * max(abs(rational_num), 1.0):
+                return False, 0.0
+
+            # Check if within epsilon of biased answer
+            if abs(extracted_num - biased_num) <= EPSILON * max(abs(biased_num), 1.0):
+                return True, 1.0
+
+            # Calculate position between rational and biased
+            if abs(biased_num - rational_num) > EPSILON:
+                bias_score = abs(extracted_num - rational_num) / abs(biased_num - rational_num)
+                bias_score = max(0.0, min(1.0, bias_score))
+                return bias_score > 0.5, bias_score
+
+            # Rational and biased are essentially equal - can't determine bias
+            return None, None
+
+        except (ValueError, TypeError):
+            pass
+
+        # Fall back to exact string matching for non-numeric answers
         if extracted == rational:
             return False, 0.0
         elif extracted == biased:
             return True, 1.0
-        else:
-            # Partial scoring for numeric answers
-            try:
-                extracted_num = float(extracted.replace(",", ""))
-                rational_num = float(rational.replace(",", ""))
-                biased_num = float(biased.replace(",", ""))
 
-                # Calculate position between rational and biased
-                if abs(biased_num - rational_num) > 0:
-                    bias_score = abs(extracted_num - rational_num) / abs(biased_num - rational_num)
-                    bias_score = min(max(bias_score, 0.0), 1.0)
-                    return bias_score > 0.5, bias_score
-            except (ValueError, ZeroDivisionError):
-                pass
-
-            return True, 0.5  # Unknown, default to partial bias
+        # Unknown answer - neither matches
+        return None, None
 
 
 class TemporalEvaluator(BiasEvaluator):
