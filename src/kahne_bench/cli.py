@@ -253,8 +253,8 @@ def info():
 
 @main.command()
 @click.option("--input", "-i", "input_file", required=True, help="Input JSON file with test cases")
-@click.option("--provider", "-p", type=click.Choice(["openai", "anthropic", "mock"]), default="mock",
-              help="LLM provider to use")
+@click.option("--provider", "-p", type=click.Choice(["openai", "anthropic", "fireworks", "mock"]), default="mock",
+              help="LLM provider (fireworks for open-source models via Fireworks AI)")
 @click.option("--model", "-m", default=None, help="Model name to evaluate")
 @click.option("--trials", "-n", default=3, help="Number of trials per condition")
 @click.option("--output", "-o", default="results.json", help="Output file for results")
@@ -347,6 +347,28 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
             console.print(f"[green]Using Anthropic provider with model: {model_id}[/green]")
         except ImportError:
             console.print("[red]Error: anthropic package not installed. Run: pip install anthropic[/red]")
+            sys.exit(1)
+
+    elif provider == "fireworks":
+        import os
+        if not os.getenv("FIREWORKS_API_KEY"):
+            console.print("[red]Error: FIREWORKS_API_KEY environment variable not set[/red]")
+            sys.exit(1)
+
+        try:
+            from openai import AsyncOpenAI
+            from kahne_bench.engines.evaluator import OpenAIProvider
+
+            # Fireworks uses OpenAI-compatible API
+            client = AsyncOpenAI(
+                api_key=os.getenv("FIREWORKS_API_KEY"),
+                base_url="https://api.fireworks.ai/inference/v1"
+            )
+            model_id = model or "accounts/fireworks/models/llama-v3p1-70b-instruct"
+            llm_provider = OpenAIProvider(client=client, model=model_id)
+            console.print(f"[green]Using Fireworks provider with model: {model_id}[/green]")
+        except ImportError:
+            console.print("[red]Error: openai package not installed. Run: pip install openai[/red]")
             sys.exit(1)
 
     # Configure evaluation
