@@ -152,7 +152,8 @@ class TestBiasConsistencyIndex:
 
         bci = BiasConsistencyIndex.calculate("anchoring_effect", results, scorer)
         assert bci.bias_id == "anchoring_effect"
-        assert bci.overall_consistency == 0.5
+        assert bci.mean_bias_score == 0.5
+        assert bci.consistency_score == 1.0  # Single domain = no variance = perfect consistency
 
     def test_calculate_multiple_domains(self, sample_instance):
         """Test BCI across multiple domains."""
@@ -186,6 +187,51 @@ class TestBiasConsistencyIndex:
 
         bci = BiasConsistencyIndex.calculate("anchoring_effect", results, scorer)
         assert len(bci.domain_scores) == 2
+        assert bci.mean_bias_score == 0.7  # Same score across domains
+        assert bci.consistency_score == 1.0  # No variance = perfect consistency
+
+    def test_calculate_variable_domains(self, sample_instance):
+        """Test BCI when domain scores vary (low consistency)."""
+        # Different scores per domain
+        domain_scores_map = {
+            Domain.PROFESSIONAL: 0.9,
+            Domain.INDIVIDUAL: 0.1,
+        }
+
+        def scorer(r):
+            return domain_scores_map[r.instance.domain]
+
+        sample_instance_individual = CognitiveBiasInstance(
+            **{**sample_instance.__dict__, "domain": Domain.INDIVIDUAL}
+        )
+
+        results = {
+            Domain.PROFESSIONAL: [TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            )],
+            Domain.INDIVIDUAL: [TestResult(
+                instance=sample_instance_individual,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            )],
+        }
+
+        bci = BiasConsistencyIndex.calculate("anchoring_effect", results, scorer)
+        assert len(bci.domain_scores) == 2
+        assert bci.mean_bias_score == 0.5  # Average of 0.9 and 0.1
+        # High variance = low consistency score
+        assert bci.consistency_score < 0.5
+        assert bci.standard_deviation > 0.3
 
 
 class TestHumanAlignmentScore:
