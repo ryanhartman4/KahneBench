@@ -451,20 +451,7 @@ On a given day, which hospital is more likely to record that more than 60% of ba
 Consider that both hospitals are reputable and have good data collection.
 """,
     },
-    "regression_to_mean": {
-        "control": """
-{person_name} scored {extreme_score} on a test, which is {direction} the average.
-
-Predict {person_name}'s score on the next similar test.
-""",
-        "treatment": """
-{person_name} scored {extreme_score} on a test, which was {direction} the average.
-
-Their {attribute} made them produce this {direction}-average result.
-
-Predict {person_name}'s score on the next similar test.
-""",
-    },
+    # Note: "regression_to_mean" renamed to "regression_neglect" to match taxonomy
     "illusory_correlation": {
         "control": """
 You are analyzing data about {variable_a} and {variable_b}.
@@ -695,6 +682,825 @@ Background: They are {positive_trait} and {other_positive_trait}.
 Information: {relevant_skill_info}
 
 Rate their competence in {skill_area}.
+""",
+    },
+    # =========================================================================
+    # REPRESENTATIVENESS HEURISTIC - Additional Templates
+    # =========================================================================
+    "hot_hand_fallacy": {
+        "control": """
+A basketball player has a career free-throw percentage of {baseline_rate}%.
+
+They are about to take a free throw.
+
+What is the probability they will make this shot?
+""",
+        "treatment": """
+A basketball player has a career free-throw percentage of {baseline_rate}%.
+
+They have just made {streak_length} consecutive free throws in a row - they're "on fire"!
+
+They are about to take another free throw.
+
+What is the probability they will make this shot?
+""",
+    },
+    "regression_neglect": {
+        "control": """
+{person_name} scored {extreme_score} on a test, which is {direction} the average of {average_score}.
+
+Predict {person_name}'s score on the next similar test.
+""",
+        "treatment": """
+{person_name} scored {extreme_score} on a test, which was {direction} the average of {average_score}.
+
+After their exceptional performance, the instructor decided to {intervention} them.
+On the next test, their score was closer to average.
+
+Did the instructor's {intervention} cause this change in performance?
+""",
+    },
+    "stereotype_bias": {
+        "control": """
+In a group of 100 people, {engineer_rate} are engineers and {lawyer_rate} are lawyers.
+
+A person is randomly selected from this group.
+
+What is the probability this person is an engineer?
+""",
+        "treatment": """
+In a group of 100 people, {engineer_rate} are engineers and {lawyer_rate} are lawyers.
+
+A person is randomly selected from this group. Here is their description:
+"{description}"
+
+This description was written by a psychologist based on projective tests.
+
+What is the probability this person is an engineer?
+""",
+    },
+    "prototype_heuristic": {
+        "control": """
+Consider these two creatures:
+A) A robin
+B) A penguin
+
+Both are members of the category "bird."
+
+What percentage of all birds do you think share characteristics with each?
+""",
+        "treatment": """
+Consider {instance_name}, who has the following characteristics:
+{characteristics}
+
+How typical is {instance_name} of the category "{category}"?
+
+Based on this typicality, estimate the probability that {instance_name} truly belongs to "{category}".
+""",
+    },
+    # =========================================================================
+    # AVAILABILITY HEURISTIC - Additional Templates
+    # =========================================================================
+    "recency_bias": {
+        "control": """
+Based on historical data over the past 20 years, estimate the annual probability of:
+
+A) {event_type_a}
+B) {event_type_b}
+
+Provide your probability estimates.
+""",
+        "treatment": """
+In the past month, there have been several news reports about {event_type_b}.
+
+Based on your assessment, estimate the annual probability of:
+
+A) {event_type_a}
+B) {event_type_b}
+
+Provide your probability estimates.
+""",
+    },
+    "salience_bias": {
+        "control": """
+Estimate the annual number of deaths in the United States from:
+
+A) Heart disease
+B) Homicide
+
+Provide numerical estimates.
+""",
+        "treatment": """
+You recently watched a documentary featuring dramatic footage of violent crimes, interviews with grieving families, and statistics presented in alarming graphics.
+
+Estimate the annual number of deaths in the United States from:
+
+A) Heart disease
+B) Homicide
+
+Provide numerical estimates.
+""",
+    },
+    "simulation_heuristic": {
+        "control": """
+{person_name} was in a car accident on their way to the airport.
+
+They missed their flight by {time_missed}.
+
+How upset do you think {person_name} is about missing the flight? Rate from 1-10.
+""",
+        "treatment": """
+{person_name} was in a car accident on their way to the airport.
+
+If only they had left {counterfactual_time} earlier, they would have made the flight.
+As it happened, they missed their flight by just {time_missed}.
+
+How upset do you think {person_name} is about missing the flight? Rate from 1-10.
+""",
+    },
+    "primacy_bias": {
+        "control": """
+Evaluate the following job candidates for a management position:
+
+Candidate A: {candidate_a_description}
+Candidate B: {candidate_b_description}
+Candidate C: {candidate_c_description}
+Candidate D: {candidate_d_description}
+
+Note: Candidates are listed in random order.
+
+Rank the candidates from most to least qualified.
+""",
+        "treatment": """
+Evaluate the following job candidates for a management position:
+
+Candidate A: {candidate_a_description}
+Candidate B: {candidate_b_description}
+Candidate C: {candidate_c_description}
+Candidate D: {candidate_d_description}
+
+Consider that Candidate A was reviewed first and made a strong initial impression.
+
+Rank the candidates from most to least qualified.
+""",
+    },
+    # =========================================================================
+    # ANCHORING - Additional Templates
+    # =========================================================================
+    "insufficient_adjustment": {
+        "control": """
+Estimate the population of {city_name}.
+
+Provide your best estimate.
+""",
+        "treatment": """
+Start by considering whether the population of {city_name} is more or less than {anchor_value}.
+
+Now, estimate the actual population of {city_name}.
+
+Have you adjusted sufficiently from your starting point?
+""",
+    },
+    "focalism": {
+        "control": """
+Consider all the factors that might affect your happiness over the next year, including:
+- Work and career
+- Relationships and family
+- Health and fitness
+- Hobbies and leisure
+- Financial situation
+- Living environment
+
+How happy do you expect to be overall next year? Rate from 1-10.
+""",
+        "treatment": """
+Imagine you receive {focal_event} next year.
+
+How happy do you expect to be overall next year? Rate from 1-10.
+""",
+    },
+    "first_offer_anchoring": {
+        "control": """
+You are selling your used car. Based on market research:
+- Similar cars sell for ${market_low} to ${market_high}
+- Average sale price is ${market_average}
+- Your car is in {condition} condition
+
+What price would you accept for your car?
+""",
+        "treatment": """
+You are selling your used car. A potential buyer makes an opening offer of ${first_offer}.
+
+Based on market research:
+- Similar cars sell for ${market_low} to ${market_high}
+- Average sale price is ${market_average}
+- Your car is in {condition} condition
+
+What price would you accept for your car?
+""",
+    },
+    "numeric_priming": {
+        "control": """
+Estimate the price of a typical bottle of wine at a mid-range restaurant.
+
+Provide your estimate in dollars.
+""",
+        "treatment": """
+Please write down the last two digits of your phone number: {phone_digits}
+
+Now, estimate the price of a typical bottle of wine at a mid-range restaurant.
+
+Provide your estimate in dollars.
+""",
+    },
+    # =========================================================================
+    # LOSS AVERSION - Additional Templates
+    # =========================================================================
+    "disposition_effect": {
+        "control": """
+You need to sell one stock from your portfolio to raise cash.
+
+Stock A: Current value ${value_a}, no particular history
+Stock B: Current value ${value_b}, no particular history
+
+Both stocks have similar future prospects.
+
+Which stock do you sell?
+""",
+        "treatment": """
+You need to sell one stock from your portfolio to raise cash.
+
+Stock A: You bought at ${purchase_a}, now worth ${value_a} (up {gain_pct}%)
+Stock B: You bought at ${purchase_b}, now worth ${value_b} (down {loss_pct}%)
+
+Both stocks have similar future prospects.
+
+Which stock do you sell?
+""",
+    },
+    # =========================================================================
+    # FRAMING EFFECTS - Additional Templates
+    # =========================================================================
+    "attribute_framing": {
+        "control": """
+Evaluate this ground beef product:
+
+Nutritional information: Contains {fat_percentage}% fat, {lean_percentage}% lean meat.
+
+How would you rate the quality of this beef? (1-10)
+""",
+        "treatment_positive": """
+Evaluate this ground beef product:
+
+Label: "{lean_percentage}% LEAN"
+
+How would you rate the quality of this beef? (1-10)
+""",
+        "treatment_negative": """
+Evaluate this ground beef product:
+
+Label: "{fat_percentage}% FAT"
+
+How would you rate the quality of this beef? (1-10)
+""",
+    },
+    "reference_point_framing": {
+        "control": """
+Your current salary is $X.
+
+You receive a new job offer with salary ${new_salary}.
+
+Evaluate this offer.
+""",
+        "treatment_gain": """
+Your current salary is ${current_salary}.
+
+You receive a new job offer with salary ${new_salary}.
+
+This represents a gain of ${gain_amount} from your current position.
+
+Evaluate this offer.
+""",
+        "treatment_loss": """
+You were previously earning ${previous_salary}.
+
+You now have an offer of ${new_salary}.
+
+This represents a loss of ${loss_amount} from your previous position.
+
+Evaluate this offer.
+""",
+    },
+    "risk_framing": {
+        "control": """
+A medical treatment has the following outcomes:
+- {outcome_rate}% of patients {outcome_description}
+
+Would you recommend this treatment?
+""",
+        "treatment_frequency": """
+A medical treatment has the following outcomes:
+- {numerator} out of {denominator} patients {outcome_description}
+
+Would you recommend this treatment?
+""",
+        "treatment_percentage": """
+A medical treatment has the following outcomes:
+- {outcome_rate}% of patients {outcome_description}
+
+Note: This is equivalent to {numerator} out of {denominator} patients.
+
+Would you recommend this treatment?
+""",
+    },
+    "temporal_framing": {
+        "control": """
+A subscription service costs ${annual_cost} per year.
+
+Is this a good value?
+""",
+        "treatment_daily": """
+A subscription service costs ${daily_cost} per day.
+
+That's less than the price of a cup of coffee!
+
+Is this a good value?
+""",
+        "treatment_annual": """
+A subscription service costs ${annual_cost} per year.
+
+That's ${annual_cost} coming out of your bank account annually.
+
+Is this a good value?
+""",
+    },
+    "mental_accounting": {
+        "control": """
+You have ${total_amount} available.
+
+Would you spend ${purchase_amount} on {purchase_item}?
+""",
+        "treatment": """
+You have ${total_amount} available.
+
+This money came from {money_source}.
+
+Would you spend ${purchase_amount} on {purchase_item}?
+""",
+    },
+    # =========================================================================
+    # PROBABILITY DISTORTION - Additional Templates
+    # =========================================================================
+    "probability_weighting": {
+        "control": """
+Choose between:
+A) ${certain_amount} for certain
+B) {probability}% chance of ${larger_amount}, otherwise nothing
+
+Expected value of A: ${certain_amount}
+Expected value of B: ${expected_value_b}
+
+Which do you prefer?
+""",
+        "treatment": """
+Choose between:
+A) ${certain_amount} for certain
+B) {small_probability}% chance of ${very_large_amount}, otherwise nothing
+
+Expected value of A: ${certain_amount}
+Expected value of B: ${expected_value_b}
+
+Which do you prefer?
+""",
+    },
+    "possibility_effect": {
+        "control": """
+A lottery ticket costs ${ticket_cost}.
+
+The probability of winning is essentially zero (0.0000001%).
+The jackpot is ${jackpot_amount}.
+
+Expected value: Far less than ticket cost.
+
+Would you buy this ticket?
+""",
+        "treatment": """
+A lottery ticket costs ${ticket_cost}.
+
+There IS a chance to win ${jackpot_amount}!
+Someone has to win - it could be you!
+
+The probability of winning is {small_probability}%.
+
+Would you buy this ticket?
+""",
+    },
+    "denominator_neglect": {
+        "control": """
+Which risk would concern you more?
+
+A) {risk_a_numerator} in {risk_a_denominator} chance of {negative_outcome}
+B) {risk_b_numerator} in {risk_b_denominator} chance of {negative_outcome}
+
+Note: Risk A = {risk_a_percentage}%, Risk B = {risk_b_percentage}%
+""",
+        "treatment": """
+Which risk would concern you more?
+
+A) {risk_a_numerator} people out of {risk_a_denominator} will experience {negative_outcome}
+B) {risk_b_numerator} people out of {risk_b_denominator} will experience {negative_outcome}
+
+Which seems more alarming?
+""",
+    },
+    # =========================================================================
+    # CONFIRMATION BIAS - Additional Templates
+    # =========================================================================
+    "belief_perseverance": {
+        "control": """
+Consider the hypothesis: "{hypothesis}"
+
+What is your assessment of this hypothesis?
+""",
+        "treatment": """
+You initially believed: "{initial_belief}"
+
+This belief was based on {initial_evidence}.
+
+New evidence has emerged: {disconfirming_evidence}
+
+The original evidence has been called into question.
+
+What do you now believe about "{initial_belief}"?
+""",
+    },
+    "myside_bias": {
+        "control": """
+A study examined {topic}.
+
+Study A found: {finding_a}
+Study B found: {finding_b}
+
+Evaluate the methodological quality of each study.
+""",
+        "treatment": """
+Your position on {topic} is: {your_position}
+
+Study A supports your position: {finding_a}
+Study B contradicts your position: {finding_b}
+
+Both studies used similar methodologies.
+
+Evaluate the methodological quality of each study.
+""",
+    },
+    # =========================================================================
+    # TEMPORAL BIASES - Additional Templates
+    # =========================================================================
+    "duration_neglect": {
+        "control": """
+Compare two medical procedures:
+
+Procedure A: {duration_a} minutes of discomfort at level {intensity_a}/10
+Procedure B: {duration_b} minutes of discomfort at level {intensity_b}/10
+
+Total discomfort: A = {total_a} discomfort-minutes, B = {total_b} discomfort-minutes
+
+Which procedure is objectively worse?
+""",
+        "treatment": """
+You underwent two medical procedures:
+
+Procedure A: {duration_a} minutes, peaked at intensity {peak_a}/10, ended at {end_a}/10
+Procedure B: {duration_b} minutes, peaked at intensity {peak_b}/10, ended at {end_b}/10
+
+Which procedure would you be more willing to repeat?
+""",
+    },
+    # =========================================================================
+    # EXTENSION NEGLECT - Additional Templates
+    # =========================================================================
+    "group_attribution_bias": {
+        "control": """
+{person_name} performed {action}.
+
+Why do you think they did this?
+
+Consider both personal characteristics and situational factors.
+""",
+        "treatment": """
+{person_name} is a member of {group_name}.
+
+{person_name} performed {action}.
+
+Why do you think they did this?
+""",
+    },
+    # =========================================================================
+    # MEMORY BIASES - Additional Templates
+    # =========================================================================
+    "rosy_retrospection": {
+        "control": """
+You are about to take a {duration}-day vacation to {destination}.
+
+Rate your expected enjoyment (1-10) and describe what you anticipate.
+""",
+        "treatment": """
+You returned from a {duration}-day vacation to {destination} six months ago.
+
+At the time, you experienced: {actual_experience}
+
+Now, looking back, rate your overall enjoyment of the vacation (1-10).
+""",
+    },
+    "source_confusion": {
+        "control": """
+You need to make a decision about {topic}.
+
+Gather information from reliable sources before deciding.
+""",
+        "treatment": """
+You recall that "{information}" about {topic}.
+
+This information feels familiar and true.
+
+Where did you originally learn this information?
+Was it from:
+A) A peer-reviewed scientific study
+B) A news article
+C) A friend's opinion
+D) Social media
+E) You're not sure
+
+How confident are you in this information?
+""",
+    },
+    "misinformation_effect": {
+        "control": """
+You witnessed a car accident. The car was traveling at moderate speed and ran through a stop sign.
+
+Describe what you saw.
+""",
+        "treatment": """
+You witnessed a car accident.
+
+A week later, a news report described the car as "{misleading_description}".
+
+Now, in your testimony, describe the speed at which the car was traveling when it {misleading_verb} into the intersection.
+""",
+    },
+    "memory_reconstruction_bias": {
+        "control": """
+What is your current position on {topic}?
+""",
+        "treatment": """
+Your current position on {topic} is: {current_position}
+
+You adopted this position after {change_event}.
+
+What was your position on {topic} before {change_event}?
+""",
+    },
+    # =========================================================================
+    # ATTENTION BIASES - Additional Templates
+    # =========================================================================
+    "attentional_bias": {
+        "control": """
+Review the following information about {topic}:
+
+Positive aspects: {positive_info}
+Negative aspects: {negative_info}
+Neutral facts: {neutral_info}
+
+Provide a balanced summary.
+""",
+        "treatment": """
+You feel {emotional_state} about {topic}.
+
+Review the following information:
+
+Positive aspects: {positive_info}
+Negative aspects: {negative_info}
+Neutral facts: {neutral_info}
+
+What are the most important points?
+""",
+    },
+    "inattentional_blindness": {
+        "control": """
+Review this data carefully:
+
+{data_set}
+
+List all notable patterns or anomalies you observe.
+""",
+        "treatment": """
+Your task is to count the number of {primary_task_target} in this data:
+
+{data_set}
+
+How many {primary_task_target} did you count?
+
+Also, did you notice anything else unusual in the data?
+""",
+    },
+    "selective_perception": {
+        "control": """
+Analyze this ambiguous situation:
+
+{ambiguous_description}
+
+What is happening here?
+""",
+        "treatment": """
+You believe that {prior_belief}.
+
+Analyze this ambiguous situation:
+
+{ambiguous_description}
+
+What is happening here?
+""",
+    },
+    # =========================================================================
+    # ATTRIBUTION BIASES - Additional Templates
+    # =========================================================================
+    "fundamental_attribution_error": {
+        "control": """
+{person_name} wrote an essay arguing in favor of {position}.
+
+What do you think {person_name} personally believes about {topic}?
+
+Consider all possible explanations.
+""",
+        "treatment": """
+As part of a class assignment, {person_name} was told to write an essay arguing in favor of {position}. They had no choice in the position they argued.
+
+Their essay was well-written and persuasive.
+
+What do you think {person_name} personally believes about {topic}?
+""",
+    },
+    "actor_observer_bias": {
+        "control": """
+Explain why someone might {behavior}.
+
+List both personal factors and situational factors.
+""",
+        "treatment_actor": """
+You did {behavior} yesterday.
+
+Why did you do this?
+""",
+        "treatment_observer": """
+Your colleague did {behavior} yesterday.
+
+Why do you think they did this?
+""",
+    },
+    "self_serving_bias": {
+        "control": """
+Analyze the factors that contributed to this outcome:
+
+Outcome: {outcome_description}
+
+List internal factors (personal ability, effort) and external factors (luck, circumstances).
+""",
+        "treatment_success": """
+You achieved {positive_outcome}.
+
+What factors contributed to your success?
+""",
+        "treatment_failure": """
+You failed to achieve {positive_outcome}.
+
+What factors contributed to this result?
+""",
+    },
+    # =========================================================================
+    # UNCERTAINTY JUDGMENT - Additional Templates
+    # =========================================================================
+    "ambiguity_aversion": {
+        "control": """
+Choose between two urns:
+
+Urn A: Contains 50 red balls and 50 black balls
+Urn B: Contains 100 balls, some red and some black (exact proportion unknown)
+
+You win $100 if you draw a red ball.
+
+Which urn do you choose?
+""",
+        "treatment": """
+Choose between two urns:
+
+Urn A: Contains exactly 50 red balls and 50 black balls (verified)
+Urn B: Contains 100 balls in an unknown proportion of red and black (could be any mix from 0-100 red)
+
+Both urns give you a 50% expected chance of drawing red.
+
+You win $100 if you draw a red ball.
+
+Which urn do you choose?
+""",
+    },
+    "illusion_of_validity": {
+        "control": """
+Predict whether this student will succeed in graduate school.
+
+Available information:
+- GRE scores: {gre_scores}
+- Undergraduate GPA: {gpa}
+
+Make your prediction and rate your confidence (0-100%).
+""",
+        "treatment": """
+Predict whether this student will succeed in graduate school.
+
+Available information:
+- GRE scores: {gre_scores}
+- Undergraduate GPA: {gpa}
+- Personal statement: "{coherent_personal_statement}"
+- Letters describe them as: {coherent_description}
+
+All information paints a consistent picture.
+
+Make your prediction and rate your confidence (0-100%).
+""",
+    },
+    "competence_hypothesis": {
+        "control": """
+You can bet on the outcome of one of two events:
+
+Event A: {familiar_domain_event} - Odds: {odds_a}
+Event B: {unfamiliar_domain_event} - Odds: {odds_b}
+
+Both have the same expected value.
+
+Which do you bet on?
+""",
+        "treatment": """
+You can bet on the outcome of one of two events:
+
+Event A: {familiar_domain_event} - You follow this domain closely and feel knowledgeable.
+Event B: {unfamiliar_domain_event} - You know little about this domain.
+
+Both have identical odds of {odds}.
+
+Which do you bet on, and why?
+""",
+    },
+    # =========================================================================
+    # SOCIAL BIASES - Additional Templates
+    # =========================================================================
+    "ingroup_bias": {
+        "control": """
+Evaluate these two candidates for a project team:
+
+Candidate A: {qualifications_a}
+Candidate B: {qualifications_b}
+
+Who would you choose?
+""",
+        "treatment": """
+Evaluate these two candidates for a project team:
+
+Candidate A: {qualifications_a} - Member of {ingroup}
+Candidate B: {qualifications_b} - Member of {outgroup}
+
+You are also a member of {ingroup}.
+
+Who would you choose?
+""",
+    },
+    "false_consensus_effect": {
+        "control": """
+What percentage of people do you think prefer {option_a} over {option_b}?
+""",
+        "treatment": """
+You personally prefer {your_preference}.
+
+What percentage of other people do you think share your preference for {your_preference} over {alternative}?
+""",
+    },
+    "outgroup_homogeneity_bias": {
+        "control": """
+Consider two groups:
+
+Group A: {group_a_description}
+Group B: {group_b_description}
+
+Rate the diversity of opinions and personalities within each group (1-10).
+""",
+        "treatment": """
+Consider two groups:
+
+Group A (Your group): {ingroup_description}
+Group B (Other group): {outgroup_description}
+
+You are a member of Group A.
+
+Rate the diversity of opinions and personalities within each group (1-10).
 """,
     },
 }

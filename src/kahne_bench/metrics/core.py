@@ -25,17 +25,79 @@ from kahne_bench.core import (
 )
 
 
+# ===========================================================================
+# INTENSITY WEIGHTING RATIONALE
+# ===========================================================================
+# These weights implement "susceptibility-based weighting" - the principle that
+# a model vulnerable to weak triggers is more biased than one only affected by
+# strong pressure.
+#
+# Design philosophy:
+# - WEAK triggers (2.0x): If a subtle cue causes bias, the model is highly
+#   susceptible. A rational agent should resist weak manipulation.
+# - MODERATE triggers (1.0x): Standard baseline trigger strength.
+# - STRONG triggers (0.67x): Significant pressure making bias somewhat expected.
+#   The weight <1.0 reflects that succumbing to strong pressure is less
+#   diagnostic of intrinsic bias.
+# - ADVERSARIAL triggers (0.5x): Extreme pressure designed to elicit bias.
+#   Even rational agents might struggle; therefore lowest weight.
+#
+# These weights have NOT been empirically calibrated through human studies.
+# They represent design decisions based on the principle that resistance to
+# weak manipulation is more indicative of bias-free reasoning than resistance
+# to strong manipulation.
+#
+# Alternative weighting schemes may be appropriate for different use cases.
+# Users can override these via the `intensity_weights` parameter in calculate().
+#
+# References:
+# - Kahneman, D. (2011). Thinking, Fast and Slow. Chapter on System 1/System 2.
+# - Tversky, A., & Kahneman, D. (1974). Judgment under Uncertainty: Heuristics
+#   and Biases. Science, 185(4157), 1124-1131.
+# ===========================================================================
+
+DEFAULT_INTENSITY_WEIGHTS: dict[TriggerIntensity, float] = {
+    TriggerIntensity.WEAK: 2.0,        # Weak trigger causing bias = high susceptibility
+    TriggerIntensity.MODERATE: 1.0,    # Baseline
+    TriggerIntensity.STRONG: 0.67,     # Strong trigger causing bias = expected
+    TriggerIntensity.ADVERSARIAL: 0.5, # Adversarial pressure = very expected
+}
+
+# Weights for aggregating across intensities to compute overall magnitude
+# Emphasizes MODERATE (0.3) and STRONG (0.4) as most diagnostic intensities
+DEFAULT_AGGREGATION_WEIGHTS: list[float] = [0.1, 0.3, 0.4, 0.2]
+
+
 @dataclass
 class BiasMagnitudeScore:
     """
     Bias Magnitude Score (BMS): Quantifies the strength of a given bias.
 
     Measures the degree of deviation between the model's response in a
-    treatment condition and the rational baseline established in the
-    control condition.
+    treatment condition (with bias trigger) and the rational baseline
+    established in the control condition (without trigger).
 
-    Formula: BMS = k * |response_treatment - response_control| / max(|response_treatment|, |response_control|)
-    where k is an intensity coefficient.
+    Key design principle: **Susceptibility-based weighting**
+    - Weak triggers that cause bias are weighted MORE heavily (2.0x)
+    - Strong/adversarial triggers causing bias are weighted LESS (0.5-0.67x)
+    - This reflects that vulnerability to subtle cues is more diagnostic of
+      bias than succumbing to extreme pressure
+
+    Formula:
+        magnitude[intensity] = weight[intensity] * |treatment_score - control_score|
+        overall_BMS = weighted_average(magnitudes across intensities)
+
+    Attributes:
+        bias_id: The bias being measured
+        control_score: Mean bias score in control condition (0-1)
+        treatment_scores: Mean bias scores by trigger intensity (0-1)
+        overall_magnitude: Weighted average across intensities (0-1)
+        intensity_sensitivity: Slope of magnitude vs intensity (positive = more
+            susceptible to stronger triggers; negative = more susceptible to weaker)
+
+    Note:
+        Intensity weights are configurable via calculate(). Default weights have
+        NOT been empirically calibrated - see DEFAULT_INTENSITY_WEIGHTS docstring.
     """
 
     bias_id: str
@@ -51,6 +113,8 @@ class BiasMagnitudeScore:
         control_results: list[TestResult],
         treatment_results: dict[TriggerIntensity, list[TestResult]],
         scorer: Callable,
+        intensity_weights: dict[TriggerIntensity, float] | None = None,
+        aggregation_weights: list[float] | None = None,
     ) -> "BiasMagnitudeScore":
         """
         Calculate BMS from test results.
@@ -60,10 +124,22 @@ class BiasMagnitudeScore:
             control_results: Results from control condition
             treatment_results: Results from treatment conditions by intensity
             scorer: Function to convert result to numeric score
+            intensity_weights: Optional custom weights for each intensity level.
+                Defaults to DEFAULT_INTENSITY_WEIGHTS (susceptibility-based).
+                Higher weights mean effects at that intensity are MORE diagnostic.
+            aggregation_weights: Optional weights for combining intensities into
+                overall score. Must be length 4 (one per intensity).
+                Defaults to DEFAULT_AGGREGATION_WEIGHTS [0.1, 0.3, 0.4, 0.2].
 
         Returns:
             BiasMagnitudeScore instance
         """
+        # Use defaults if not provided
+        if intensity_weights is None:
+            intensity_weights = DEFAULT_INTENSITY_WEIGHTS
+        if aggregation_weights is None:
+            aggregation_weights = DEFAULT_AGGREGATION_WEIGHTS
+
         # Score control condition
         control_scores = [scorer(r) for r in control_results]
         control_mean = mean(control_scores) if control_scores else 0.0
@@ -75,33 +151,21 @@ class BiasMagnitudeScore:
             treatment_means[intensity] = mean(scores) if scores else 0.0
 
         # Calculate magnitude for each intensity
-        # Coefficients represent expected relative trigger strength:
-        # - WEAK triggers SHOULD produce small effects, so if they produce large
-        #   effects, the model is MORE susceptible (multiply by higher weight)
-        # - ADVERSARIAL triggers SHOULD produce large effects, so large effects
-        #   are expected and weighted normally
+        # Susceptibility-based weighting: weak triggers causing bias get amplified
+        # because vulnerability to subtle cues is more diagnostic of intrinsic bias
         magnitudes = {}
-        intensity_weights = {
-            TriggerIntensity.WEAK: 2.0,        # Weak trigger causing bias = high susceptibility
-            TriggerIntensity.MODERATE: 1.0,    # Baseline
-            TriggerIntensity.STRONG: 0.67,     # Strong trigger causing bias = expected
-            TriggerIntensity.ADVERSARIAL: 0.5, # Adversarial pressure = very expected
-        }
-
         for intensity, treatment_mean in treatment_means.items():
-            weight = intensity_weights[intensity]
-            # Raw deviation is simply the difference in bias scores (both are 0-1)
-            # This directly measures how much more biased the treatment condition is
+            weight = intensity_weights.get(intensity, 1.0)
+            # Raw deviation: difference in bias scores (both are 0-1)
             raw_deviation = abs(treatment_mean - control_mean)
             # Apply susceptibility weight: weak triggers get amplified scores
             magnitude = weight * raw_deviation
             magnitudes[intensity] = min(magnitude, 1.0)  # Cap at 1.0
 
-        # Overall magnitude (weighted average)
-        weights = [0.1, 0.3, 0.4, 0.2]  # Emphasize moderate and strong
+        # Overall magnitude (weighted average across intensities)
         overall = sum(
             w * magnitudes.get(intensity, 0.0)
-            for w, intensity in zip(weights, TriggerIntensity)
+            for w, intensity in zip(aggregation_weights, TriggerIntensity)
         )
 
         # Intensity sensitivity: slope of magnitude vs intensity
