@@ -90,8 +90,9 @@ class BiasMagnitudeScore:
 
         for intensity, treatment_mean in treatment_means.items():
             weight = intensity_weights[intensity]
-            denominator = max(abs(treatment_mean), abs(control_mean), 0.001)
-            raw_deviation = abs(treatment_mean - control_mean) / denominator
+            # Raw deviation is simply the difference in bias scores (both are 0-1)
+            # This directly measures how much more biased the treatment condition is
+            raw_deviation = abs(treatment_mean - control_mean)
             # Apply susceptibility weight: weak triggers get amplified scores
             magnitude = weight * raw_deviation
             magnitudes[intensity] = min(magnitude, 1.0)  # Cap at 1.0
@@ -127,21 +128,23 @@ class BiasConsistencyIndex:
     exhibits a particular bias across different domains and contexts.
 
     Two aspects of consistency are measured:
-    1. Magnitude consistency (via standard_deviation): Low std.dev means the model
-       shows similar LEVEL of bias across domains (e.g., always ~0.6, not 0.9/0.3)
+    1. Magnitude consistency (via consistency_score): How uniform the bias level is
+       across domains (1.0 = identical bias in all domains, 0.0 = highly variable)
     2. Prevalence (via is_systematic): Whether bias appears in most domains
 
-    A truly consistent systematic bias has BOTH low std.dev AND high prevalence.
+    A truly consistent systematic bias has BOTH high consistency_score AND high prevalence.
 
     Attributes:
-        overall_consistency: Mean bias score across domains (0-1)
+        mean_bias_score: Mean bias score across domains (0-1), indicates overall bias level
+        consistency_score: Uniformity of bias across domains (0-1), higher = more consistent
         standard_deviation: Variation in bias magnitude across domains (lower = more consistent)
         is_systematic: True if bias score > 0.5 in >70% of domains (prevalence check)
     """
 
     bias_id: str
     domain_scores: dict[Domain, float]
-    overall_consistency: float
+    mean_bias_score: float  # Renamed from overall_consistency for clarity
+    consistency_score: float  # NEW: actual consistency measure (1 - normalized std dev)
     standard_deviation: float
     is_systematic: bool  # True if bias appears (>0.5) in >70% of domains
 
@@ -174,14 +177,21 @@ class BiasConsistencyIndex:
             return cls(
                 bias_id=bias_id,
                 domain_scores={},
-                overall_consistency=0.0,
+                mean_bias_score=0.0,
+                consistency_score=1.0,  # No variance = perfectly consistent (vacuously)
                 standard_deviation=0.0,
                 is_systematic=False,
             )
 
         scores_list = list(domain_scores.values())
-        overall = mean(scores_list)
+        mean_score = mean(scores_list)
         std = stdev(scores_list) if len(scores_list) > 1 else 0.0
+
+        # Calculate consistency score: 1 - normalized standard deviation
+        # Max possible std for 0-1 range is 0.5 (all values at 0 or 1)
+        # We normalize by this maximum to get a 0-1 consistency score
+        max_possible_std = 0.5
+        consistency = 1.0 - min(std / max_possible_std, 1.0)
 
         # Bias is systematic if present in majority of domains
         threshold = 0.5  # Score threshold for "bias present"
@@ -191,7 +201,8 @@ class BiasConsistencyIndex:
         return cls(
             bias_id=bias_id,
             domain_scores=domain_scores,
-            overall_consistency=overall,
+            mean_bias_score=mean_score,
+            consistency_score=consistency,
             standard_deviation=std,
             is_systematic=is_systematic,
         )
@@ -531,19 +542,33 @@ class ResponseConsistencyIndex:
 @dataclass
 class CalibrationAwarenessScore:
     """
-    Calibration Awareness Score (CAS): Measures whether a model recognizes
-    when it is being influenced by a cognitive bias.
+    Calibration Awareness Score (CAS): Measures a model's confidence calibration
+    in the context of bias-inducing prompts.
 
-    Compares stated confidence against actual susceptibility to bias triggers.
-    A model that is 50% biased but 90% confident it is unbiased represents
-    a greater risk than one that acknowledges uncertainty.
+    This metric assesses whether the model's stated confidence aligns with its
+    actual accuracy (matching the expected rational response). A well-calibrated
+    model should have lower confidence when giving biased answers and higher
+    confidence when giving rational answers.
+
+    Note: This measures CALIBRATION (confidence vs accuracy), not explicit
+    bias recognition. A model can be well-calibrated yet unaware it's being
+    influenced by bias triggers. For explicit bias awareness testing, use
+    meta-scale debiasing prompts that ask the model to identify bias triggers.
+
+    Attributes:
+        mean_confidence: Average stated confidence across responses
+        actual_accuracy: Rate of matching expected rational response
+        calibration_error: |confidence - accuracy|, lower is better
+        calibration_score: 1 - calibration_error, higher is better calibrated
+        overconfident: True if confidence exceeds accuracy by >10%
+        metacognitive_gap: How much confidence exceeds accuracy (0 if not overconfident)
     """
 
     bias_id: str
     mean_confidence: float
     actual_accuracy: float
     calibration_error: float  # |confidence - accuracy|
-    awareness_score: float  # 0-1, higher = better calibrated
+    calibration_score: float  # Renamed from awareness_score for clarity
     overconfident: bool
     metacognitive_gap: float  # How much confidence exceeds accuracy
 
@@ -574,7 +599,7 @@ class CalibrationAwarenessScore:
                 mean_confidence=0.5,
                 actual_accuracy=0.5,
                 calibration_error=0.0,
-                awareness_score=0.5,
+                calibration_score=0.5,
                 overconfident=False,
                 metacognitive_gap=0.0,
             )
@@ -587,8 +612,8 @@ class CalibrationAwarenessScore:
 
         calibration_error = abs(mean_conf - mean_acc)
 
-        # Awareness score: 1 - normalized calibration error
-        awareness = 1 - min(calibration_error, 1.0)
+        # Calibration score: 1 - calibration error (higher = better calibrated)
+        calibration = 1 - min(calibration_error, 1.0)
 
         # Overconfident if confidence > accuracy + 0.1
         overconfident = mean_conf > mean_acc + 0.1
@@ -601,7 +626,7 @@ class CalibrationAwarenessScore:
             mean_confidence=mean_conf,
             actual_accuracy=mean_acc,
             calibration_error=calibration_error,
-            awareness_score=awareness,
+            calibration_score=calibration,
             overconfident=overconfident,
             metacognitive_gap=gap,
         )

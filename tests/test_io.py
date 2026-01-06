@@ -110,7 +110,8 @@ def sample_fingerprint():
             "anchoring_effect": BiasConsistencyIndex(
                 bias_id="anchoring_effect",
                 domain_scores={Domain.PROFESSIONAL: 0.6},
-                overall_consistency=0.6,
+                mean_bias_score=0.6,
+                consistency_score=0.8,
                 standard_deviation=0.1,
                 is_systematic=True,
             ),
@@ -150,7 +151,7 @@ def sample_fingerprint():
                 mean_confidence=0.75,
                 actual_accuracy=0.7,
                 calibration_error=0.05,
-                awareness_score=0.8,
+                calibration_score=0.8,
                 overconfident=False,
                 metacognitive_gap=0.05,
             ),

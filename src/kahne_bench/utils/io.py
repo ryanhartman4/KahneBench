@@ -258,7 +258,8 @@ def export_fingerprint_to_json(
         "consistency_indices": {
             bias_id: {
                 "domain_scores": {k.value: v for k, v in bci.domain_scores.items()},
-                "overall_consistency": bci.overall_consistency,
+                "mean_bias_score": bci.mean_bias_score,
+                "consistency_score": bci.consistency_score,
                 "standard_deviation": bci.standard_deviation,
                 "is_systematic": bci.is_systematic,
             }
@@ -298,7 +299,7 @@ def export_fingerprint_to_json(
                 "mean_confidence": cas.mean_confidence,
                 "actual_accuracy": cas.actual_accuracy,
                 "calibration_error": cas.calibration_error,
-                "awareness_score": cas.awareness_score,
+                "calibration_score": cas.calibration_score,
                 "overconfident": cas.overconfident,
                 "metacognitive_gap": cas.metacognitive_gap,
             }
@@ -338,7 +339,8 @@ def export_fingerprint_to_csv(
         # Consistency
         if bias_id in report.consistency_indices:
             bci = report.consistency_indices[bias_id]
-            row["consistency_overall"] = bci.overall_consistency
+            row["mean_bias_score"] = bci.mean_bias_score
+            row["consistency_score"] = bci.consistency_score
             row["is_systematic"] = bci.is_systematic
 
         # Mitigation
@@ -362,7 +364,7 @@ def export_fingerprint_to_csv(
         # Calibration
         if bias_id in report.calibration_scores:
             cas = report.calibration_scores[bias_id]
-            row["calibration_awareness"] = cas.awareness_score
+            row["calibration_score"] = cas.calibration_score
             row["is_overconfident"] = cas.overconfident
 
         rows.append(row)
