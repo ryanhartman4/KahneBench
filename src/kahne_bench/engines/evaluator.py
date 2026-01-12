@@ -48,12 +48,26 @@ class OpenAIProvider:
         max_tokens: int = 1024,
         temperature: float = 0.0,
     ) -> str:
-        response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=max_tokens,
-            temperature=temperature,
+        # Newer models (gpt-5.x, o3, o1) use max_completion_tokens instead of max_tokens
+        uses_completion_tokens = any(
+            self.model.startswith(prefix)
+            for prefix in ("gpt-5", "o3", "o1", "chatgpt-")
         )
+
+        if uses_completion_tokens:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                max_completion_tokens=max_tokens,
+                temperature=temperature,
+            )
+        else:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
         return response.choices[0].message.content or ""
 
 
