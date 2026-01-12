@@ -72,13 +72,23 @@ cat fingerprint.json
 
 ## Generate Commands
 
+**Important:** By default, generate creates instances for all 5 domains × 3 instances each.
+Use `--domain` and `--instances` to control test size.
+
 ```bash
-# Single bias, quick test
+# Single bias, single domain, 1 instance (minimal test: 1 instance)
+PYTHONPATH=src uv run kahne-bench generate \
+  --bias anchoring_effect \
+  --domain professional \
+  --instances 1 \
+  -o test_cases.json
+
+# Single bias, all defaults (5 domains × 3 instances = 15 instances)
 PYTHONPATH=src uv run kahne-bench generate \
   --bias anchoring_effect \
   -o test_cases.json
 
-# Core tier (15 foundational biases)
+# Core tier, controlled size (15 biases × 1 domain × 1 instance = 15 instances)
 PYTHONPATH=src uv run kahne-bench generate \
   --bias anchoring_effect \
   --bias availability_bias \
@@ -95,10 +105,14 @@ PYTHONPATH=src uv run kahne-bench generate \
   --bias present_bias \
   --bias hindsight_bias \
   --bias gambler_fallacy \
+  --domain professional \
+  --instances 1 \
   -o core_tests.json
 
-# All biases (omit --bias to generate all 69)
+# All 69 biases, controlled size (69 × 1 domain × 1 instance = 69 instances)
 PYTHONPATH=src uv run kahne-bench generate \
+  --domain professional \
+  --instances 1 \
   -o all_tests.json
 
 # Multiple specific biases
@@ -107,6 +121,8 @@ PYTHONPATH=src uv run kahne-bench generate \
   --bias loss_aversion \
   --bias confirmation_bias \
   --bias overconfidence_effect \
+  --domain professional \
+  --instances 1 \
   -o test_cases.json
 ```
 
@@ -134,20 +150,20 @@ PYTHONPATH=src uv run kahne-bench evaluate \
 
 ### Fingerprint File (cognitive profile)
 
-```json
+```
 {
   "model_id": "gpt-5.2-2025-12-11",
   "summary": {
-    "overall_bias_susceptibility": 0.15,  // 0-1, lower is better
+    "overall_bias_susceptibility": 0.15,      <-- 0-1, lower is better
     "most_susceptible_biases": ["anchoring_effect", "availability_bias"],
     "most_resistant_biases": ["confirmation_bias", "loss_aversion"]
   },
-  "magnitude_scores": { ... },      // BMS: Strength of bias per trigger
-  "consistency_indices": { ... },   // BCI: Cross-domain consistency
-  "mitigation_potentials": { ... }, // BMP: How well debiasing works
-  "human_alignments": { ... },      // HAS: Comparison to human baselines
-  "response_consistencies": { ... }, // RCI: Trial-to-trial variance
-  "calibration_scores": { ... }     // CAS: Metacognitive accuracy
+  "magnitude_scores": { ... },                <-- BMS: Strength of bias per trigger
+  "consistency_indices": { ... },             <-- BCI: Cross-domain consistency
+  "mitigation_potentials": { ... },           <-- BMP: How well debiasing works
+  "human_alignments": { ... },                <-- HAS: Comparison to human baselines
+  "response_consistencies": { ... },          <-- RCI: Trial-to-trial variance
+  "calibration_scores": { ... }               <-- CAS: Metacognitive accuracy
 }
 ```
 
@@ -164,10 +180,10 @@ PYTHONPATH=src uv run kahne-bench evaluate \
 ### Results File (raw data)
 
 Each evaluation produces a result object:
-```json
+```
 {
   "bias_id": "anchoring_effect",
-  "condition": "treatment_weak",  // control, treatment_weak/moderate/strong, debiasing_0/1/2
+  "condition": "treatment_weak",     <-- control, treatment_weak/moderate/strong, debiasing_0/1/2
   "prompt_used": "...",
   "model_response": "...",
   "extracted_answer": "100",
@@ -179,11 +195,13 @@ Each evaluation produces a result object:
 ## Example: Full Benchmark Run
 
 ```bash
-# 1. Generate test cases (single bias for quick test)
+# 1. Generate test cases (3 biases × 1 domain × 1 instance = 3 instances)
 PYTHONPATH=src uv run kahne-bench generate \
   --bias anchoring_effect \
   --bias loss_aversion \
   --bias confirmation_bias \
+  --domain professional \
+  --instances 1 \
   -o test_cases.json
 
 # 2. Run on your model
@@ -209,11 +227,13 @@ print(f\"Most Resistant: {data['summary']['most_resistant_biases'][:3]}\")
 ## Comparing Models
 
 ```bash
-# First generate tests once
+# First generate tests once (3 biases × 1 domain × 1 instance = 3 instances)
 PYTHONPATH=src uv run kahne-bench generate \
   --bias anchoring_effect \
   --bias loss_aversion \
   --bias confirmation_bias \
+  --domain professional \
+  --instances 1 \
   -o test_cases.json
 
 # Run same tests on multiple models
@@ -266,10 +286,14 @@ Add `--trials 1` to reduce API calls during testing.
 
 ## Cost Estimation
 
-| Tier | Biases | Calls/Model | Est. Cost (GPT-5.2) |
-|------|--------|-------------|---------------------|
-| Single bias | 1 | ~21 | ~$0.50 |
-| Core | 15 | ~315 | ~$8-15 |
-| Extended | 69 | ~1,450 | ~$35-70 |
+**Assumptions:** 1 domain, 1 instance per bias, 3 trials, 7 conditions per instance (1 control + 3 intensities + 3 debiasing).
+
+| Scope | Biases | Instances | Calls/Model | Est. Cost (GPT-5.2) |
+|-------|--------|-----------|-------------|---------------------|
+| Single bias | 1 | 1 | 21 | ~$0.50 |
+| Core tier | 15 | 15 | 315 | ~$8-15 |
+| Extended | 69 | 69 | 1,449 | ~$35-70 |
+
+**Formula:** `Calls = instances × 7 conditions × trials`
 
 *Costs vary by model. Fireworks models are ~10x cheaper than OpenAI/Anthropic.*
