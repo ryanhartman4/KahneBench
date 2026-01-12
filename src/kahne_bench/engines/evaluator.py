@@ -80,6 +80,62 @@ class AnthropicProvider:
 
 
 @dataclass
+class XAIProvider:
+    """xAI Grok API provider implementation.
+
+    Uses the xai-sdk package. The SDK is synchronous, so we wrap calls
+    with asyncio.to_thread() to maintain async compatibility.
+    """
+
+    client: Any  # xai_sdk.Client
+    model: str = "grok-4-1-fast-reasoning"
+
+    async def complete(
+        self,
+        prompt: str,
+        max_tokens: int = 1024,
+        temperature: float = 0.0,
+    ) -> str:
+        def _sync_complete() -> str:
+            from xai_sdk.chat import user, system
+
+            chat = self.client.chat.create(model=self.model)
+            chat.append(system("You are a helpful assistant."))
+            chat.append(user(prompt))
+            response = chat.sample()
+            return response.content
+
+        return await asyncio.to_thread(_sync_complete)
+
+
+@dataclass
+class GeminiProvider:
+    """Google Gemini API provider implementation.
+
+    Uses the google-genai package. The SDK is synchronous, so we wrap calls
+    with asyncio.to_thread() to maintain async compatibility.
+    """
+
+    client: Any  # google.genai.Client
+    model: str = "gemini-3-pro-preview"
+
+    async def complete(
+        self,
+        prompt: str,
+        max_tokens: int = 1024,
+        temperature: float = 0.0,
+    ) -> str:
+        def _sync_complete() -> str:
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=prompt,
+            )
+            return response.text
+
+        return await asyncio.to_thread(_sync_complete)
+
+
+@dataclass
 class EvaluationConfig:
     """Configuration for bias evaluation runs."""
 

@@ -253,8 +253,8 @@ def info():
 
 @main.command()
 @click.option("--input", "-i", "input_file", required=True, help="Input JSON file with test cases")
-@click.option("--provider", "-p", type=click.Choice(["openai", "anthropic", "fireworks", "mock"]), default="mock",
-              help="LLM provider (fireworks for open-source models via Fireworks AI)")
+@click.option("--provider", "-p", type=click.Choice(["openai", "anthropic", "fireworks", "xai", "gemini", "mock"]), default="mock",
+              help="LLM provider (fireworks for open-source models, xai for Grok, gemini for Google)")
 @click.option("--model", "-m", default=None, help="Model name to evaluate")
 @click.option("--trials", "-n", default=3, help="Number of trials per condition")
 @click.option("--output", "-o", default="results.json", help="Output file for results")
@@ -369,6 +369,45 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
             console.print(f"[green]Using Fireworks provider with model: {model_id}[/green]")
         except ImportError:
             console.print("[red]Error: openai package not installed. Run: pip install openai[/red]")
+            sys.exit(1)
+
+    elif provider == "xai":
+        import os
+        if not os.getenv("XAI_API_KEY"):
+            console.print("[red]Error: XAI_API_KEY environment variable not set[/red]")
+            sys.exit(1)
+
+        try:
+            from xai_sdk import Client
+            from kahne_bench.engines.evaluator import XAIProvider
+
+            client = Client(
+                api_key=os.getenv("XAI_API_KEY"),
+                timeout=3600,  # Extended timeout for reasoning models
+            )
+            model_id = model or "grok-4-1-fast-reasoning"
+            llm_provider = XAIProvider(client=client, model=model_id)
+            console.print(f"[green]Using xAI provider with model: {model_id}[/green]")
+        except ImportError:
+            console.print("[red]Error: xai-sdk package not installed. Run: pip install xai-sdk[/red]")
+            sys.exit(1)
+
+    elif provider == "gemini":
+        import os
+        if not os.getenv("GOOGLE_API_KEY"):
+            console.print("[red]Error: GOOGLE_API_KEY environment variable not set[/red]")
+            sys.exit(1)
+
+        try:
+            from google import genai
+            from kahne_bench.engines.evaluator import GeminiProvider
+
+            client = genai.Client()
+            model_id = model or "gemini-3-pro-preview"
+            llm_provider = GeminiProvider(client=client, model=model_id)
+            console.print(f"[green]Using Gemini provider with model: {model_id}[/green]")
+        except ImportError:
+            console.print("[red]Error: google-genai package not installed. Run: pip install google-genai[/red]")
             sys.exit(1)
 
     # Configure evaluation

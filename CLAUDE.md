@@ -30,7 +30,7 @@ PYTHONPATH=src uv run pytest -v
 PYTHONPATH=src uv run python examples/basic_usage.py
 
 # Run OpenAI evaluation (requires OPENAI_API_KEY)
-PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-4o --tier core
+PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-5.2 --tier core
 ```
 
 ### CLI Commands
@@ -52,7 +52,7 @@ PYTHONPATH=src uv run kahne-bench generate --bias anchoring_effect --domain INDI
 PYTHONPATH=src uv run kahne-bench generate-compound --primary anchoring_effect --secondary availability_bias
 
 # Run full evaluation pipeline (requires API key)
-PYTHONPATH=src uv run kahne-bench evaluate -i test_cases.json -p openai -m gpt-4o
+PYTHONPATH=src uv run kahne-bench evaluate -i test_cases.json -p openai -m gpt-5.2
 
 # Generate cognitive fingerprint report
 PYTHONPATH=src uv run kahne-bench report fingerprint.json
@@ -91,8 +91,131 @@ async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float
 ```
 
 **Built-in Providers** (`engines/evaluator.py`):
-- `OpenAIProvider`: Uses AsyncOpenAI client, configurable model (default: gpt-4o)
-- `AnthropicProvider`: Uses AsyncAnthropic client (default: claude-sonnet-4-20250514)
+- `OpenAIProvider`: Uses AsyncOpenAI client, configurable model
+- `AnthropicProvider`: Uses AsyncAnthropic client
+
+## Frontier Models (January 2026)
+
+This section tracks the models to benchmark. Models with extended thinking/reasoning capabilities are tested twice: once with minimal reasoning budget and once with full reasoning.
+
+### Models to Benchmark
+
+| # | Model | Provider | Model ID | Reasoning Variants |
+|---|-------|----------|----------|-------------------|
+| 1 | **Claude Opus 4.5** | Anthropic | `claude-opus-4-5-20251101` | 0 thinking budget, full thinking budget |
+| 2 | **GPT-5.2** | OpenAI | `gpt-5.2-2025-12-11` | No reasoning effort, high reasoning effort |
+| 3 | **GLM 4.7** | Fireworks | `accounts/fireworks/models/glm-4p7` | - |
+| 4 | **MiniMax M2P1** | Fireworks | `accounts/fireworks/models/minimax-m2p1` | - |
+| 5 | **Gemini 3 Pro** | Google | `gemini-3-pro-preview` | - |
+| 6 | **Claude Sonnet 4.5** | Anthropic | `claude-sonnet-4-5-20250929` | - |
+| 7 | **DeepSeek V3.2** | Fireworks | `accounts/fireworks/models/deepseek-v3p2` | - |
+| 8 | **Kimi K2** | Fireworks | `accounts/fireworks/models/kimi-k2-thinking` | - |
+| 9 | **Grok 4.1 Fast** | xAI | `grok-4-1-fast-reasoning` | - |
+
+### Provider Support Status
+
+| Provider | CLI Flag | Status | API Compatibility | Models |
+|----------|----------|--------|-------------------|--------|
+| Anthropic | `-p anthropic` | ✅ Ready | Native SDK | `claude-opus-4-5-20251101`, `claude-sonnet-4-5-20250929` |
+| OpenAI | `-p openai` | ✅ Ready | Native SDK | `gpt-5.2-2025-12-11` |
+| Fireworks | `-p fireworks` | ✅ Ready | OpenAI-compatible | `glm-4p7`, `minimax-m2p1`, `deepseek-v3p2`, `kimi-k2-thinking` |
+| xAI | `-p xai` | ✅ Ready | Native SDK (`xai-sdk`) | `grok-4-1-fast-reasoning` |
+| Google | `-p gemini` | ✅ Ready | Native SDK (`google-genai`) | `gemini-3-pro-preview` |
+
+### API Configuration
+
+```python
+# Fireworks (GLM, MiniMax, DeepSeek, Kimi) - OpenAI-compatible
+from openai import AsyncOpenAI
+client = AsyncOpenAI(
+    api_key=os.getenv("FIREWORKS_API_KEY"),
+    base_url="https://api.fireworks.ai/inference/v1"
+)
+provider = OpenAIProvider(client=client, model="accounts/fireworks/models/glm-4p7")
+
+# xAI Grok - Native SDK (pip install xai-sdk)
+from xai_sdk import Client
+from xai_sdk.chat import user, system
+
+client = Client(
+    api_key=os.getenv("XAI_API_KEY"),
+    timeout=3600,  # Extended timeout for reasoning models
+)
+chat = client.chat.create(model="grok-4-1-fast-reasoning")
+chat.append(system("You are a helpful assistant."))
+chat.append(user(prompt))
+response = chat.sample()
+# response.content contains the answer
+
+# Google Gemini - Native SDK (pip install google-genai)
+from google import genai
+
+client = genai.Client()  # Uses GOOGLE_API_KEY env var
+response = client.models.generate_content(
+    model="gemini-3-pro-preview",
+    contents=prompt,
+)
+# response.text contains the answer
+```
+
+### Environment Variables
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."    # Claude Opus 4.5, Claude Sonnet 4.5
+export OPENAI_API_KEY="sk-..."           # GPT-5.2
+export FIREWORKS_API_KEY="fw_..."        # GLM 4.7, MiniMax, DeepSeek V3.2, Kimi K2
+export GOOGLE_API_KEY="..."              # Gemini 3 Pro (after implementing)
+export XAI_API_KEY="xai-..."             # Grok 4.1 Fast
+```
+
+### Recommended Evaluation Commands
+
+```bash
+# Claude Opus 4.5 (no thinking)
+PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-opus-4-5-20251101 --trials 3
+
+# Claude Opus 4.5 (full thinking) - requires extended_thinking support
+PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-opus-4-5-20251101 --extended-thinking --trials 3
+
+# GPT-5.2 (no reasoning)
+PYTHONPATH=src uv run kahne-bench evaluate -p openai -m gpt-5.2-2025-12-11 --trials 3
+
+# GPT-5.2 (high reasoning) - requires reasoning_effort support
+PYTHONPATH=src uv run kahne-bench evaluate -p openai -m gpt-5.2-2025-12-11 --reasoning-effort high --trials 3
+
+# Claude Sonnet 4.5
+PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-sonnet-4-5-20250929 --trials 3
+
+# GLM 4.7 (via Fireworks)
+PYTHONPATH=src uv run kahne-bench evaluate -p fireworks \
+    -m accounts/fireworks/models/glm-4p7 --trials 3
+
+# MiniMax M2P1 (via Fireworks)
+PYTHONPATH=src uv run kahne-bench evaluate -p fireworks \
+    -m accounts/fireworks/models/minimax-m2p1 --trials 3
+
+# DeepSeek V3.2 (via Fireworks)
+PYTHONPATH=src uv run kahne-bench evaluate -p fireworks \
+    -m accounts/fireworks/models/deepseek-v3p2 --trials 3
+
+# Kimi K2 (via Fireworks)
+PYTHONPATH=src uv run kahne-bench evaluate -p fireworks \
+    -m accounts/fireworks/models/kimi-k2-thinking --trials 3
+
+# Grok 4.1 Fast Reasoning (via xAI)
+PYTHONPATH=src uv run kahne-bench evaluate -p xai -m grok-4-1-fast-reasoning --trials 3
+```
+
+### Model Notes
+
+| Model | Notes |
+|-------|-------|
+| Claude Opus 4.5 | Extended thinking available via `budget_tokens` parameter |
+| GPT-5.2 | Reasoning effort available via `reasoning_effort` parameter (low/medium/high) |
+| Kimi K2 | Thinking model - includes chain-of-thought by default |
+| Grok 4.1 Fast | Uses `xai-sdk`; sync SDK wrapped with `asyncio.to_thread()` |
+| DeepSeek V3.2 | MoE architecture, cost-effective |
+| Gemini 3 Pro | Uses `google-genai`; sync SDK wrapped with `asyncio.to_thread()` |
 
 **CognitiveBiasInstance** (`core.py`): Central test case type containing:
 - Control prompt (baseline, no bias trigger)
