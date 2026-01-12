@@ -2,7 +2,7 @@
 Kahne-Bench: A Cognitive Bias Benchmark Framework
 
 Based on the dual-process theory of Kahneman and Tversky, this framework
-evaluates LLMs for systematic cognitive biases across 50 distinct bias types.
+evaluates LLMs for systematic cognitive biases across 69 distinct bias types.
 """
 
 from kahne_bench.core import (

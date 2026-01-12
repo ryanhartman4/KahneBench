@@ -5,7 +5,6 @@ Tests bias interactions and compounding effects using the Bias Interaction Matri
 """
 
 from dataclasses import dataclass
-from typing import Sequence
 
 from kahne_bench.core import (
     CognitiveBiasInstance,
@@ -13,7 +12,7 @@ from kahne_bench.core import (
     TestScale,
     TriggerIntensity,
 )
-from kahne_bench.biases import BIAS_TAXONOMY, BIAS_INTERACTION_MATRIX, get_bias_by_id
+from kahne_bench.biases import BIAS_INTERACTION_MATRIX, get_bias_by_id
 from kahne_bench.engines.generator import TestCaseGenerator, DOMAIN_SCENARIOS
 
 
@@ -166,7 +165,7 @@ What is your decision?
         elif compound.interaction_type == "competing":
             return "inconsistent response due to conflicting bias pressures"
         else:  # cascading
-            return f"error in first judgment cascades through subsequent decisions"
+            return "error in first judgment cascades through subsequent decisions"
 
     def _build_amplifying_scenario(
         self, primary, secondaries, scenario

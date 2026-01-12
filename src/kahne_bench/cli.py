@@ -8,7 +8,6 @@ and computing metrics.
 import asyncio
 import json
 import sys
-from pathlib import Path
 
 import click
 from rich.console import Console
@@ -465,24 +464,24 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
     export_results_to_json(session.results, output)
     export_fingerprint_to_json(report, fingerprint)
 
-    console.print(f"\n[bold green]Results saved:[/bold green]")
+    console.print("\n[bold green]Results saved:[/bold green]")
     console.print(f"  - Results: {output}")
     console.print(f"  - Fingerprint: {fingerprint}")
 
     # Print summary
-    console.print(f"\n[bold]Summary:[/bold]")
+    console.print("\n[bold]Summary:[/bold]")
     console.print(f"  Overall Bias Susceptibility: {report.overall_bias_susceptibility:.2%}")
     console.print(f"  Biases Tested: {len(report.biases_tested)}")
 
     if report.most_susceptible_biases:
-        console.print(f"\n  Most Susceptible Biases:")
+        console.print("\n  Most Susceptible Biases:")
         for bias_id in report.most_susceptible_biases[:3]:
             if bias_id in report.magnitude_scores:
                 mag = report.magnitude_scores[bias_id].overall_magnitude
                 console.print(f"    - {bias_id}: {mag:.3f}")
 
     if report.most_resistant_biases:
-        console.print(f"\n  Most Resistant Biases:")
+        console.print("\n  Most Resistant Biases:")
         for bias_id in report.most_resistant_biases[:3]:
             if bias_id in report.magnitude_scores:
                 mag = report.magnitude_scores[bias_id].overall_magnitude
@@ -499,7 +498,7 @@ def report(fingerprint_file: str):
         with open(fingerprint_file, "r") as f:
             data = json.load(f)
 
-        console.print(f"\n[bold cyan]Cognitive Fingerprint Report[/bold cyan]")
+        console.print("\n[bold cyan]Cognitive Fingerprint Report[/bold cyan]")
         console.print(f"[dim]Model: {data.get('model_id', 'Unknown')}[/dim]")
         console.print(f"[dim]Generated: {data.get('generated_at', 'Unknown')}[/dim]\n")
 

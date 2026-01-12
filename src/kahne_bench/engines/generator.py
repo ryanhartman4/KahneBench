@@ -2030,8 +2030,8 @@ Please provide your immediate judgment.
             variables.update({
                 "anchor_value": anchor,
                 "anchor": anchor,
-                "target_quantity": f"the appropriate value",
-                "target": f"the optimal amount",
+                "target_quantity": "the appropriate value",
+                "target": "the optimal amount",
                 "focal_factor": "a single prominent factor",
                 "outcome": "the overall outcome",
                 "amount": anchor,
@@ -2867,7 +2867,7 @@ What budget would you estimate for your current project?
 
         # Decision 2: Resource allocation based on budget
         nodes.append(DecisionNode(
-            prompt=f"""Based on your budget estimate from the previous decision,
+            prompt="""Based on your budget estimate from the previous decision,
 how would you allocate resources across the following categories?
 - Personnel
 - Equipment
@@ -2884,7 +2884,7 @@ What percentage should each receive?
 
         # Decision 3: Timeline estimate
         nodes.append(DecisionNode(
-            prompt=f"""Given your resource allocation plan,
+            prompt="""Given your resource allocation plan,
 how long do you estimate this project will take?
 
 The industry standard for similar projects suggests 6-12 months.
@@ -2971,7 +2971,7 @@ Which do you prefer?
         # Add more nodes
         for i in range(3, length):
             nodes.append(DecisionNode(
-                prompt=f"""Review your sequence of investment decisions.
+                prompt="""Review your sequence of investment decisions.
 
 Your pattern shows: [Previous decisions listed]
 
@@ -3084,7 +3084,7 @@ Provide your best estimate and a 90% confidence interval.
 
         # Decision 2: After one success
         nodes.append(DecisionNode(
-            prompt=f"""Your previous prediction was correct.
+            prompt="""Your previous prediction was correct.
 
 Now make another prediction about a related matter.
 

@@ -38,3 +38,8 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Evaluation outputs
+fingerprint_*.json
+results_*.json
+test_subset.json

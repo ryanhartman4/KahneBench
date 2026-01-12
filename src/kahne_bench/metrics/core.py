@@ -12,20 +12,19 @@ Implements the six advanced metrics defined in the framework:
 
 import logging
 from collections import defaultdict
-
-logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from statistics import mean, stdev
-from typing import Callable, Sequence
+from typing import Callable
 
 import numpy as np
 
 from kahne_bench.core import (
-    CognitiveBiasInstance,
     Domain,
     TestResult,
     TriggerIntensity,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # ===========================================================================

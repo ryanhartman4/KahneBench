@@ -4,12 +4,9 @@ Data import/export utilities for Kahne-Bench.
 Supports JSON and CSV formats for test instances, results, and metrics.
 """
 
-import csv
 import json
-from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 

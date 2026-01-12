@@ -17,7 +17,6 @@ from kahne_bench.core import (
     CognitiveBiasInstance,
     EvaluationSession,
     TestResult,
-    TestScale,
     TriggerIntensity,
     TemporalCondition,
 )

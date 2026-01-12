@@ -16,6 +16,29 @@ Kahne-Bench provides systematic evaluation of 69 cognitive biases across 5 ecolo
 - **Benchmark Tiers**: Core (15), Extended (69), and Interaction tiers
 - **Data Export**: JSON, CSV, and human-readable reports
 
+## Limitations (Read Before Use)
+
+Kahne-Bench is a research framework, not a validated psychometric instrument. Results are best used for relative comparisons between models, not absolute claims about human-like bias.
+
+- No direct human validation data for these exact prompts; baselines are literature-derived and may be outdated or population-biased.
+- Metric weights (e.g., BMS intensity weights) are design choices, not empirically calibrated.
+- Template-based prompts and heuristic answer extraction can misclassify or miss responses.
+- Some expected answers are placeholders or context-dependent, which can yield neutral scores.
+
+See `docs/LIMITATIONS.md` for full details.
+
+## Reproducibility Checklist
+
+- [ ] Record benchmark tier and exact bias list (core/extended/interaction).
+- [ ] Fix random seeds for generation and any shuffling.
+- [ ] Export and version the generated instances JSON used in the run.
+- [ ] Log model ID, provider, temperature, max_tokens, and number of trials.
+- [ ] Record prompt variants (control/treatment intensities/debiasing).
+- [ ] Capture code version (git commit) and config file or CLI args.
+- [ ] Report runtime environment (Python version, dependency lockfile hash).
+- [ ] Publish results and fingerprint JSON or CSV alongside the above metadata.
+
+
 ## Installation
 
 ```bash
