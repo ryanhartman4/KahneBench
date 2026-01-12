@@ -46,14 +46,7 @@ cat fingerprint.json
 
 ## Test Scope Options
 
-### Benchmark Tiers
-```bash
---tier core       # 15 foundational biases (quick, ~5 min)
---tier extended   # All 69 biases (comprehensive, ~30 min)
---tier interaction # Bias pairs for compound effects
-```
-
-### Specific Biases
+### Specific Biases (use with `generate`)
 ```bash
 --bias anchoring_effect
 --bias loss_aversion
@@ -61,7 +54,7 @@ cat fingerprint.json
 # Can specify multiple --bias flags
 ```
 
-### Domains
+### Domains (use with `generate`)
 ```bash
 --domain individual    # Personal finance, consumer choice
 --domain professional  # Managerial, medical, legal
@@ -70,7 +63,7 @@ cat fingerprint.json
 --domain risk          # Policy, technology decisions
 ```
 
-### Trials (for statistical significance)
+### Trials (use with `evaluate`)
 ```bash
 --trials 1   # Quick test
 --trials 3   # Default, good balance
@@ -85,15 +78,28 @@ PYTHONPATH=src uv run kahne-bench generate \
   --bias anchoring_effect \
   -o test_cases.json
 
-# Core tier (15 biases)
+# Core tier (15 foundational biases)
 PYTHONPATH=src uv run kahne-bench generate \
-  --tier core \
-  -o test_cases.json
+  --bias anchoring_effect \
+  --bias availability_bias \
+  --bias base_rate_neglect \
+  --bias conjunction_fallacy \
+  --bias gain_loss_framing \
+  --bias loss_aversion \
+  --bias endowment_effect \
+  --bias status_quo_bias \
+  --bias certainty_effect \
+  --bias overconfidence_effect \
+  --bias confirmation_bias \
+  --bias sunk_cost_fallacy \
+  --bias present_bias \
+  --bias hindsight_bias \
+  --bias gambler_fallacy \
+  -o core_tests.json
 
-# Extended tier (69 biases)
+# All biases (omit --bias to generate all 69)
 PYTHONPATH=src uv run kahne-bench generate \
-  --tier extended \
-  -o test_cases.json
+  -o all_tests.json
 
 # Multiple specific biases
 PYTHONPATH=src uv run kahne-bench generate \
@@ -173,12 +179,16 @@ Each evaluation produces a result object:
 ## Example: Full Benchmark Run
 
 ```bash
-# 1. Generate core tier tests
-PYTHONPATH=src uv run kahne-bench generate --tier core -o core_tests.json
+# 1. Generate test cases (single bias for quick test)
+PYTHONPATH=src uv run kahne-bench generate \
+  --bias anchoring_effect \
+  --bias loss_aversion \
+  --bias confirmation_bias \
+  -o test_cases.json
 
 # 2. Run on your model
 PYTHONPATH=src uv run kahne-bench evaluate \
-  -i core_tests.json \
+  -i test_cases.json \
   -p anthropic \
   -m claude-opus-4-5-20251101 \
   --trials 3 \
@@ -199,13 +209,20 @@ print(f\"Most Resistant: {data['summary']['most_resistant_biases'][:3]}\")
 ## Comparing Models
 
 ```bash
+# First generate tests once
+PYTHONPATH=src uv run kahne-bench generate \
+  --bias anchoring_effect \
+  --bias loss_aversion \
+  --bias confirmation_bias \
+  -o test_cases.json
+
 # Run same tests on multiple models
 for provider_model in "openai:gpt-5.2-2025-12-11" "anthropic:claude-opus-4-5-20251101" "gemini:gemini-3-pro-preview"; do
   provider="${provider_model%%:*}"
   model="${provider_model##*:}"
   echo "Testing $model..."
   PYTHONPATH=src uv run kahne-bench evaluate \
-    -i core_tests.json \
+    -i test_cases.json \
     -p "$provider" \
     -m "$model" \
     --trials 3 \
