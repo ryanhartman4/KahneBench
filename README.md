@@ -1,20 +1,29 @@
 # Kahne-Bench
 
-A comprehensive cognitive bias benchmark framework for evaluating Large Language Models, grounded in the dual-process theory of Kahneman and Tversky.
+A cognitive bias benchmark framework for evaluating Large Language Models, grounded in Kahneman-Tversky dual-process theory.
 
 ## Overview
 
-Kahne-Bench provides systematic evaluation of 69 cognitive biases across 5 ecological domains, with multi-scale testing methodology and 6 advanced metrics for deep analysis of LLM cognitive patterns.
+Kahne-Bench evaluates 69 cognitive biases across 5 ecological domains using multi-scale testing and 6 specialized metrics.
 
 ### Key Features
 
 - **69 Cognitive Biases**: Complete taxonomy based on Kahneman-Tversky research
 - **5 Ecological Domains**: Individual, Professional, Social, Temporal, Risk
 - **Multi-Scale Testing**: Micro, Meso, Macro, and Meta scales
-- **6 Advanced Metrics**: BMS, BCI, BMP, HAS, RCI, CAS
+- **6 Metrics**: BMS, BCI, BMP, HAS, RCI, CAS
 - **Bias Interaction Matrix**: Test compound effects between biases
 - **Benchmark Tiers**: Core (15), Extended (69), and Interaction tiers
 - **Data Export**: JSON, CSV, and human-readable reports
+
+## What's Included
+
+- Bias taxonomy (69 biases), categories, and interaction matrix
+- Test generation: standard templates, novel contamination-resistant scenarios, compound (meso) scenarios, and macro decision chains
+- Evaluation engines: standard evaluator plus temporal dynamics and context sensitivity evaluators
+- Robustness tooling: paraphrase consistency, debiasing variants, self-help debiasing prompts
+- Metrics: six metrics and cognitive fingerprint reporting
+- CLI commands, examples, and JSON/CSV import/export utilities
 
 ## Limitations (Read Before Use)
 
@@ -343,6 +352,8 @@ kahne-bench generate --bias anchoring_effect --bias loss_aversion --output tests
 # Generate compound (interaction) tests
 kahne-bench generate-compound --domain professional
 ```
+
+Note: The CLI covers listing/description, generation, compound tests, and evaluation. Advanced evaluators are Python API only: `TemporalEvaluator`, `ContextSensitivityEvaluator`, `MacroScaleGenerator`, `RobustnessTester`, and `ContrastiveRobustnessTester`.
 
 ---
 
