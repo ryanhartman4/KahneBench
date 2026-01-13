@@ -2,6 +2,8 @@
 
 A cognitive bias benchmark framework for evaluating Large Language Models, grounded in Kahneman-Tversky dual-process theory.
 
+Website: https://www.kahnebench.com/
+
 ## Overview
 
 Kahne-Bench evaluates 69 cognitive biases across 5 ecological domains using multi-scale testing and 6 specialized metrics.
@@ -417,6 +419,13 @@ python examples/openai_evaluation.py --model gpt-5.2 --tier extended --trials 5
 - Kahneman, D. (2011). *Thinking, Fast and Slow*
 - Tversky, A., & Kahneman, D. (1974). Judgment under uncertainty: Heuristics and biases
 - Kahneman, D., & Tversky, A. (1979). Prospect theory: An analysis of decision under risk
+
+### Related Benchmarks
+
+- Koo, R., et al. (2024). Benchmarking Cognitive Biases in Large Language Models as Evaluators. *ACL 2024 Findings*. [arXiv:2309.17012](https://arxiv.org/abs/2309.17012)
+- Coda-Forno, J., et al. (2024). CogBench: A large language model walks into a psychology lab. *ICML 2024*. [arXiv:2402.18225](https://arxiv.org/abs/2402.18225)
+- Malberg, S., et al. (2024). A Comprehensive Evaluation of Cognitive Biases in LLMs. [arXiv:2410.15413](https://arxiv.org/abs/2410.15413)
+- Echterhoff, J., et al. (2024). Cognitive Bias in Decision-Making with LLMs. *EMNLP 2024 Findings*. [arXiv:2403.00811](https://arxiv.org/abs/2403.00811)
 
 ## License
 
