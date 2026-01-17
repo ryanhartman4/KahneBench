@@ -1,5 +1,6 @@
 """Tests for the evaluation metrics."""
 
+
 import pytest
 from kahne_bench.metrics import (
     BiasMagnitudeScore,
@@ -407,6 +408,703 @@ class TestMetricCalculator:
         calculator = MetricCalculator(scorer=custom_scorer)
         report = calculator.calculate_all_metrics("test-model", sample_results)
         assert report.model_id == "test-model"
+
+
+class TestBiasMitigationPotential:
+    """Tests for Bias Mitigation Potential calculation."""
+
+    def test_bmp_calculate_basic(self, sample_instance):
+        """Test basic BMP calculation with mock debiasing results."""
+        def scorer(r):
+            # Treatment results have high bias, debiased results have lower bias
+            if "chain" in r.condition or "warn" in r.condition:
+                return 0.2  # Low bias after debiasing
+            return 0.8  # High bias in treatment
+
+        treatment_results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment_moderate",
+                prompt_used="",
+                model_response="",
+                extracted_answer="B",
+                response_time_ms=100.0,
+            )
+            for _ in range(3)
+        ]
+
+        debiasing_results = {
+            "chain_of_thought": [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="chain_of_thought",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="A",
+                    response_time_ms=100.0,
+                )
+            ],
+            "bias_warning": [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="bias_warning",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="A",
+                    response_time_ms=100.0,
+                )
+            ],
+        }
+
+        bmp = BiasMitigationPotential.calculate(
+            "anchoring_effect", treatment_results, debiasing_results, scorer
+        )
+        assert bmp.bias_id == "anchoring_effect"
+        assert bmp.baseline_bias_score == 0.8
+        assert bmp.mitigation_effectiveness > 0  # Should show improvement
+        assert len(bmp.debiased_scores) == 2
+
+    def test_bmp_with_zero_baseline(self, sample_instance):
+        """Test BMP when baseline_bias_score is 0 (potential division issue at line 340)."""
+        def scorer(r):
+            return 0.0  # All results show zero bias
+
+        treatment_results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment_moderate",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            )
+        ]
+
+        debiasing_results = {
+            "chain_of_thought": [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="chain_of_thought",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="A",
+                    response_time_ms=100.0,
+                )
+            ],
+        }
+
+        bmp = BiasMitigationPotential.calculate(
+            "anchoring_effect", treatment_results, debiasing_results, scorer
+        )
+        # When baseline is 0, effectiveness should be 0 (nothing to mitigate)
+        assert bmp.baseline_bias_score == 0.0
+        assert bmp.mitigation_effectiveness == 0.0
+
+    def test_bmp_selects_best_method(self, sample_instance):
+        """Test that best_mitigation_method is the one with lowest bias score."""
+        method_scores = {
+            "method_a": 0.5,
+            "method_b": 0.1,  # Best method (lowest score)
+            "method_c": 0.3,
+        }
+
+        def scorer(r):
+            if r.condition in method_scores:
+                return method_scores[r.condition]
+            return 0.8  # Treatment baseline
+
+        treatment_results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment_moderate",
+                prompt_used="",
+                model_response="",
+                extracted_answer="B",
+                response_time_ms=100.0,
+            )
+        ]
+
+        debiasing_results = {
+            method: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition=method,
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="A",
+                    response_time_ms=100.0,
+                )
+            ]
+            for method in method_scores.keys()
+        }
+
+        bmp = BiasMitigationPotential.calculate(
+            "anchoring_effect", treatment_results, debiasing_results, scorer
+        )
+        assert bmp.best_mitigation_method == "method_b"
+        assert bmp.debiased_scores["method_b"] == 0.1
+
+    def test_bmp_requires_explicit_warning(self, sample_instance):
+        """Test the requires_explicit_warning logic."""
+        # Scenario: warning methods work better than chain-of-thought methods
+        def scorer(r):
+            if "warn" in r.condition or "bias" in r.condition:
+                return 0.1  # Warning methods very effective
+            elif "chain" in r.condition or "step" in r.condition:
+                return 0.5  # Chain-of-thought less effective
+            return 0.8
+
+        treatment_results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment_moderate",
+                prompt_used="",
+                model_response="",
+                extracted_answer="B",
+                response_time_ms=100.0,
+            )
+        ]
+
+        debiasing_results = {
+            "chain_of_thought": [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="chain_of_thought",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="A",
+                    response_time_ms=100.0,
+                )
+            ],
+            "bias_warning": [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="bias_warning",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="A",
+                    response_time_ms=100.0,
+                )
+            ],
+        }
+
+        bmp = BiasMitigationPotential.calculate(
+            "anchoring_effect", treatment_results, debiasing_results, scorer
+        )
+        # Warning score (0.1) < chain-of-thought score (0.5), so requires_explicit_warning should be True
+        assert bmp.requires_explicit_warning is True
+
+    def test_bmp_empty_debiasing_results(self, sample_instance):
+        """Test BMP when no debiasing results are provided."""
+        def scorer(r):
+            return 0.7
+
+        treatment_results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment_moderate",
+                prompt_used="",
+                model_response="",
+                extracted_answer="B",
+                response_time_ms=100.0,
+            )
+        ]
+
+        bmp = BiasMitigationPotential.calculate(
+            "anchoring_effect", treatment_results, {}, scorer
+        )
+        assert bmp.best_mitigation_method == "none"
+        assert bmp.mitigation_effectiveness == 0.0
+        assert bmp.debiased_scores == {}
+        assert bmp.requires_explicit_warning is True
+
+
+class TestBiasMagnitudeScoreEdgeCases:
+    """Edge case tests for Bias Magnitude Score calculation."""
+
+    def test_bms_empty_control_results(self, sample_instance):
+        """Test BMS behavior when control_scores is empty (line 147)."""
+        def scorer(r):
+            return 0.5
+
+        treatment = {
+            TriggerIntensity.MODERATE: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                )
+            ]
+        }
+
+        # Empty control results
+        bms = BiasMagnitudeScore.calculate("anchoring_effect", [], treatment, scorer)
+        # Control mean should default to 0.0 when empty
+        assert bms.control_score == 0.0
+        assert bms.treatment_scores[TriggerIntensity.MODERATE] == 0.5
+
+    def test_bms_empty_treatment_results(self, sample_instance):
+        """Test BMS returns 0.0 for empty treatment results (line 153)."""
+        def scorer(r):
+            return 0.5
+
+        control = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="control",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            )
+        ]
+
+        treatment = {
+            TriggerIntensity.MODERATE: []  # Empty treatment results
+        }
+
+        bms = BiasMagnitudeScore.calculate("anchoring_effect", control, treatment, scorer)
+        # Treatment mean should default to 0.0 when empty
+        assert bms.treatment_scores[TriggerIntensity.MODERATE] == 0.0
+
+    def test_bms_single_intensity(self, sample_instance):
+        """Test BMS with only one intensity level provided."""
+        def scorer(r):
+            return 0.0 if r.condition == "control" else 0.8
+
+        control = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="control",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            )
+        ]
+
+        treatment = {
+            TriggerIntensity.STRONG: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment_strong",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                )
+            ]
+        }
+
+        bms = BiasMagnitudeScore.calculate("anchoring_effect", control, treatment, scorer)
+        assert len(bms.treatment_scores) == 1
+        assert TriggerIntensity.STRONG in bms.treatment_scores
+        # With single intensity, sensitivity calculation should handle gracefully
+        assert isinstance(bms.intensity_sensitivity, float)
+
+
+class TestBiasConsistencyIndexEdgeCases:
+    """Edge case tests for Bias Consistency Index calculation."""
+
+    def test_bci_empty_domain_scores(self):
+        """Test BCI with empty domain scores (lines 242-250)."""
+        def scorer(r):
+            return 0.5
+
+        # Empty results for all domains
+        bci = BiasConsistencyIndex.calculate("anchoring_effect", {}, scorer)
+
+        assert bci.domain_scores == {}
+        assert bci.mean_bias_score == 0.0
+        assert bci.consistency_score == 1.0  # Vacuously consistent
+        assert bci.standard_deviation == 0.0
+        assert bci.is_systematic is False
+
+    def test_bci_single_domain(self, sample_instance):
+        """Test BCI with exactly one domain."""
+        def scorer(r):
+            return 0.8
+
+        results = {
+            Domain.PROFESSIONAL: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                )
+            ]
+        }
+
+        bci = BiasConsistencyIndex.calculate("anchoring_effect", results, scorer)
+        assert len(bci.domain_scores) == 1
+        assert bci.mean_bias_score == 0.8
+        assert bci.consistency_score == 1.0  # Single domain = no variance
+        assert bci.standard_deviation == 0.0  # Can't calculate std with 1 sample
+        # Single domain with score > 0.5: is_systematic requires >70% domains
+        # 1/1 = 100% > 70%, so should be systematic
+        assert bci.is_systematic is True
+
+    def test_bci_all_identical_scores(self, sample_instance):
+        """Test BCI when all domains return the same score - consistency should be 1.0."""
+        def scorer(r):
+            return 0.6  # Same score for all
+
+        sample_instance_individual = CognitiveBiasInstance(
+            **{**sample_instance.__dict__, "domain": Domain.INDIVIDUAL}
+        )
+        sample_instance_social = CognitiveBiasInstance(
+            **{**sample_instance.__dict__, "domain": Domain.SOCIAL}
+        )
+        sample_instance_temporal = CognitiveBiasInstance(
+            **{**sample_instance.__dict__, "domain": Domain.TEMPORAL}
+        )
+
+        results = {
+            Domain.PROFESSIONAL: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                )
+            ],
+            Domain.INDIVIDUAL: [
+                TestResult(
+                    instance=sample_instance_individual,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                )
+            ],
+            Domain.SOCIAL: [
+                TestResult(
+                    instance=sample_instance_social,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                )
+            ],
+            Domain.TEMPORAL: [
+                TestResult(
+                    instance=sample_instance_temporal,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                )
+            ],
+        }
+
+        bci = BiasConsistencyIndex.calculate("anchoring_effect", results, scorer)
+        assert len(bci.domain_scores) == 4
+        assert bci.mean_bias_score == 0.6
+        assert bci.consistency_score == 1.0  # All identical = perfect consistency
+        assert bci.standard_deviation == 0.0
+
+
+class TestHumanAlignmentScoreEdgeCases:
+    """Edge case tests for Human Alignment Score calculation."""
+
+    def test_has_missing_baseline(self, sample_instance):
+        """Test HAS for biases without human baselines uses 0.5 default (lines 530-535)."""
+        def scorer(r):
+            return 0.7
+
+        results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="B",
+                response_time_ms=100.0,
+            )
+        ]
+
+        # Use a bias_id that doesn't exist in HUMAN_BASELINES
+        has = HumanAlignmentScore.calculate("nonexistent_bias_xyz", results, scorer)
+        assert has.human_baseline_rate == 0.5  # Default when missing
+        assert has.model_bias_rate == 0.7
+        # diff = 0.7 - 0.5 = 0.2 > 0.1, so direction should be "over"
+        assert has.bias_direction == "over"
+
+    def test_has_under_direction(self, sample_instance):
+        """Test HAS 'under' bias direction when model is less biased than humans (lines 550-553)."""
+        def scorer(r):
+            return 0.3  # Model much less biased than human baseline
+
+        results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            )
+        ]
+
+        # Human baseline for anchoring_effect is 0.65
+        has = HumanAlignmentScore.calculate("anchoring_effect", results, scorer)
+        assert has.human_baseline_rate == 0.65
+        assert has.model_bias_rate == 0.3
+        # diff = 0.3 - 0.65 = -0.35 < -0.1, so direction should be "under"
+        assert has.bias_direction == "under"
+
+    def test_has_boundary_at_0_1(self, sample_instance):
+        """Test HAS boundary condition around the 0.1 threshold for alignment."""
+        # Human baseline for anchoring_effect is 0.65
+        # Test values just inside and outside the 0.1 threshold
+
+        # Test value just inside threshold (should be "aligned")
+        # Use 0.56 which gives diff = -0.09, abs(diff) < 0.1
+        def scorer_aligned(r):
+            return 0.56
+
+        results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            )
+        ]
+
+        has_aligned = HumanAlignmentScore.calculate("anchoring_effect", results, scorer_aligned)
+        assert has_aligned.human_baseline_rate == 0.65
+        assert has_aligned.model_bias_rate == 0.56
+        # diff = 0.56 - 0.65 = -0.09, abs(diff) < 0.1, so should be "aligned"
+        assert has_aligned.bias_direction == "aligned"
+
+        # Test value just outside threshold (should be "under")
+        # Use 0.54 which gives diff = -0.11, abs(diff) > 0.1
+        def scorer_under(r):
+            return 0.54
+
+        has_under = HumanAlignmentScore.calculate("anchoring_effect", results, scorer_under)
+        assert has_under.human_baseline_rate == 0.65
+        assert has_under.model_bias_rate == 0.54
+        # diff = 0.54 - 0.65 = -0.11, abs(diff) > 0.1, so should be "under"
+        assert has_under.bias_direction == "under"
+
+
+class TestResponseConsistencyIndexEdgeCases:
+    """Edge case tests for Response Consistency Index calculation."""
+
+    def test_rci_empty_results(self):
+        """Test RCI with empty results (lines 602-610)."""
+        def scorer(r):
+            return 0.5
+
+        rci = ResponseConsistencyIndex.calculate("anchoring_effect", [], scorer)
+
+        assert rci.mean_response == 0.0
+        assert rci.variance == 0.0
+        assert rci.consistency_score == 1.0
+        assert rci.is_stable is True
+        assert rci.trial_count == 0
+
+    def test_rci_single_trial(self, sample_instance):
+        """Test RCI with a single trial (variance calculation edge case)."""
+        def scorer(r):
+            return 0.7
+
+        results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="B",
+                response_time_ms=100.0,
+            )
+        ]
+
+        rci = ResponseConsistencyIndex.calculate("anchoring_effect", results, scorer)
+
+        assert rci.trial_count == 1
+        assert rci.mean_response == 0.7
+        assert rci.variance == 0.0  # Can't calculate variance with 1 sample
+        assert rci.consistency_score == 1.0  # No variance = perfect consistency
+        assert rci.is_stable is True  # 0.0 < 0.025 threshold
+
+    def test_rci_stability_boundary(self, sample_instance):
+        """Test RCI stability threshold at exactly 0.025 (line 625)."""
+        # Need to create results that produce variance very close to 0.025
+        # Variance = std^2, so std = sqrt(0.025) ~ 0.158
+        # For binary-like scores, need careful control
+
+        # To get variance just below 0.025: is_stable = True
+        # To get variance just above 0.025: is_stable = False
+
+        # Create results with known variance
+        scores = [0.5, 0.5, 0.5, 0.7]  # Mean = 0.55, std = 0.1, variance = 0.01 < 0.025
+
+        def scorer_stable(r):
+            idx = int(r.extracted_answer)
+            return scores[idx]
+
+        results_stable = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer=str(i),
+                response_time_ms=100.0,
+            )
+            for i in range(4)
+        ]
+
+        rci_stable = ResponseConsistencyIndex.calculate("anchoring_effect", results_stable, scorer_stable)
+        assert rci_stable.variance < 0.025
+        assert rci_stable.is_stable is True
+
+        # Now test with variance above threshold
+        scores_unstable = [0.0, 1.0, 0.0, 1.0]  # Mean = 0.5, std = 0.577, variance = 0.333 > 0.025
+
+        def scorer_unstable(r):
+            idx = int(r.extracted_answer)
+            return scores_unstable[idx]
+
+        results_unstable = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer=str(i),
+                response_time_ms=100.0,
+            )
+            for i in range(4)
+        ]
+
+        rci_unstable = ResponseConsistencyIndex.calculate("anchoring_effect", results_unstable, scorer_unstable)
+        assert rci_unstable.variance > 0.025
+        assert rci_unstable.is_stable is False
+
+
+class TestCalibrationAwarenessScoreEdgeCases:
+    """Edge case tests for Calibration Awareness Score calculation."""
+
+    def test_cas_no_confidence_statements(self, sample_instance):
+        """Test CAS when no results have confidence statements (lines 689-700)."""
+        results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="B",
+                response_time_ms=100.0,
+                confidence_stated=None,  # No confidence
+            )
+            for _ in range(5)
+        ]
+
+        def accuracy_scorer(r):
+            return 0.8
+
+        cas = CalibrationAwarenessScore.calculate("anchoring_effect", results, accuracy_scorer)
+
+        # Default values when no confidence data
+        assert cas.mean_confidence == 0.5
+        assert cas.actual_accuracy == 0.5
+        assert cas.calibration_error == 0.0
+        assert cas.calibration_score == 0.5
+        assert cas.overconfident is False
+        assert cas.metacognitive_gap == 0.0
+
+    def test_cas_overconfident_boundary(self, sample_instance):
+        """Test CAS overconfident threshold at > 0.1 (line 714)."""
+        # Test exactly at boundary (confidence - accuracy = 0.1)
+        results_boundary = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="B",
+                response_time_ms=100.0,
+                confidence_stated=0.6,  # conf = 0.6
+            )
+        ]
+
+        def accuracy_scorer_boundary(r):
+            return 0.5  # accuracy = 0.5, conf - acc = 0.1 (exactly at boundary)
+
+        cas_boundary = CalibrationAwarenessScore.calculate(
+            "anchoring_effect", results_boundary, accuracy_scorer_boundary
+        )
+        # conf (0.6) > acc (0.5) + 0.1 is 0.6 > 0.6 which is False
+        assert cas_boundary.overconfident is False
+
+        # Test just above boundary (confidence - accuracy = 0.11)
+        results_over = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="B",
+                response_time_ms=100.0,
+                confidence_stated=0.61,  # conf = 0.61
+            )
+        ]
+
+        def accuracy_scorer_over(r):
+            return 0.5  # accuracy = 0.5, conf - acc = 0.11 > 0.1
+
+        cas_over = CalibrationAwarenessScore.calculate(
+            "anchoring_effect", results_over, accuracy_scorer_over
+        )
+        # conf (0.61) > acc (0.5) + 0.1 is 0.61 > 0.6 which is True
+        assert cas_over.overconfident is True
+        assert cas_over.metacognitive_gap > 0
 
 
 class TestHumanBaselines:

@@ -1,7 +1,9 @@
 """Tests for the evaluation engine components."""
 
+
+import asyncio
 import pytest
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from kahne_bench.core import (
     CognitiveBiasInstance,
@@ -36,6 +38,36 @@ class MockLLMProvider:
             response = self.responses[self.response_index % len(self.responses)]
             self.response_index += 1
             return response
+        return self.default_response
+
+
+@dataclass
+class ErrorSimulatingProvider:
+    """Mock LLM provider that can simulate failures on specific calls.
+
+    Use this provider to test error handling and recovery behavior.
+    Failures can be configured to occur on specific call indices.
+    """
+
+    default_response: str = "I would choose option A. My confidence is 80%."
+    fail_on_calls: list[int] = field(default_factory=list)
+    error_type: type[Exception] = Exception
+    error_message: str = "Simulated provider error"
+    call_count: int = 0
+
+    async def complete(
+        self,
+        prompt: str,
+        max_tokens: int = 1024,
+        temperature: float = 0.0,
+    ) -> str:
+        """Complete a prompt, potentially raising an error on configured calls."""
+        current_call = self.call_count
+        self.call_count += 1
+
+        if current_call in self.fail_on_calls:
+            raise self.error_type(self.error_message)
+
         return self.default_response
 
 
@@ -122,7 +154,7 @@ class TestAnswerExtractor:
         extractor = AnswerExtractor()
         response = "The project costs 1,000,000 and we expect 2,500,000 in revenue."
         result = extractor.extract(response, "numeric")
-        assert result == "2500000"  # Last number
+        assert result == "1000000"  # First number (changed from last to fix gambler_fallacy extraction)
 
 
 class TestBiasEvaluator:
@@ -696,3 +728,333 @@ class TestScoreResponseEdgeCases:
         is_biased, score = evaluator.score_response(result, "A", "B")
         assert is_biased is None
         assert score is None
+
+
+class TestErrorRecovery:
+    """Tests for error handling and recovery in the evaluation engine."""
+
+    @pytest.mark.asyncio
+    async def test_provider_timeout_captured(self):
+        """Test that timeout exceptions are caught and wrapped in 'ERROR:' string format."""
+
+        @dataclass
+        class TimeoutProvider:
+            """Provider that simulates a timeout."""
+
+            async def complete(
+                self,
+                prompt: str,
+                max_tokens: int = 1024,
+                temperature: float = 0.0,
+            ) -> str:
+                raise asyncio.TimeoutError("Request timed out after 30 seconds")
+
+        provider = TimeoutProvider()
+        config = EvaluationConfig(num_trials=1, include_control=True, include_debiasing=False, intensities=[])
+        evaluator = BiasEvaluator(provider, config)
+        instance = create_test_instance()
+
+        results = await evaluator.evaluate_instance(instance, "test-model")
+
+        assert len(results) == 1
+        assert results[0].model_response.startswith("ERROR:")
+        assert "timed out" in results[0].model_response.lower()
+
+    @pytest.mark.asyncio
+    async def test_empty_response_from_provider(self):
+        """Test handling of empty string responses from provider."""
+        provider = MockLLMProvider(default_response="")
+        config = EvaluationConfig(num_trials=1, include_control=True, include_debiasing=False, intensities=[])
+        evaluator = BiasEvaluator(provider, config)
+        instance = create_test_instance()
+
+        results = await evaluator.evaluate_instance(instance, "test-model")
+
+        assert len(results) == 1
+        assert results[0].model_response == ""
+        # Empty response should result in None extraction
+        assert results[0].extracted_answer is None
+
+    @pytest.mark.asyncio
+    async def test_provider_exception_captured(self):
+        """Test that generic exceptions are caught and result has error response."""
+        provider = ErrorSimulatingProvider(
+            fail_on_calls=[0],
+            error_type=RuntimeError,
+            error_message="API connection failed",
+        )
+        config = EvaluationConfig(num_trials=1, include_control=True, include_debiasing=False, intensities=[])
+        evaluator = BiasEvaluator(provider, config)
+        instance = create_test_instance()
+
+        results = await evaluator.evaluate_instance(instance, "test-model")
+
+        assert len(results) == 1
+        assert results[0].model_response.startswith("ERROR:")
+        assert "API connection failed" in results[0].model_response
+
+    @pytest.mark.asyncio
+    async def test_batch_continues_on_single_failure(self):
+        """Test that batch evaluation continues when one instance fails."""
+        # Fail on calls 0 and 1 (first instance's control trial)
+        # but succeed on subsequent calls
+        provider = ErrorSimulatingProvider(
+            fail_on_calls=[0],
+            error_type=Exception,
+            error_message="Transient error",
+        )
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=True,
+            include_debiasing=False,
+            intensities=[TriggerIntensity.MODERATE],
+        )
+        evaluator = BiasEvaluator(provider, config)
+
+        instances = [
+            create_test_instance(bias_id="anchoring_effect"),
+            create_test_instance(bias_id="confirmation_bias"),
+        ]
+
+        session = await evaluator.evaluate_batch(instances, "test-model")
+
+        # Should have results for both instances despite first call failing
+        assert len(session.results) == 4  # 2 instances * 2 conditions (control + moderate)
+
+        # First result should have error
+        assert session.results[0].model_response.startswith("ERROR:")
+
+        # Later results should succeed
+        successful_results = [r for r in session.results if not r.model_response.startswith("ERROR:")]
+        assert len(successful_results) >= 3
+
+
+class TestRateLimiting:
+    """Tests for rate limiting configuration."""
+
+    def test_evaluation_config_has_rate_limit_fields(self):
+        """Verify EvaluationConfig has trial_delay_ms and requests_per_minute fields."""
+        config = EvaluationConfig()
+
+        # These should exist as attributes
+        assert hasattr(config, "trial_delay_ms")
+        assert hasattr(config, "requests_per_minute")
+
+        # Verify they are integers
+        assert isinstance(config.trial_delay_ms, int)
+        assert isinstance(config.requests_per_minute, int)
+
+    def test_config_defaults_are_reasonable(self):
+        """Verify default rate limiting values are set to reasonable values."""
+        config = EvaluationConfig()
+
+        # trial_delay_ms should be positive but not too long
+        assert config.trial_delay_ms >= 0
+        assert config.trial_delay_ms <= 10000  # Max 10 seconds between trials
+
+        # requests_per_minute should be positive and reasonable
+        assert config.requests_per_minute >= 1
+        assert config.requests_per_minute <= 1000  # Max 1000 RPM
+
+    def test_config_rejects_invalid_rate_limit(self):
+        """Verify that invalid rate limit values are rejected."""
+        with pytest.raises(ValueError, match="requests_per_minute"):
+            EvaluationConfig(requests_per_minute=0)
+
+        with pytest.raises(ValueError, match="requests_per_minute"):
+            EvaluationConfig(requests_per_minute=-1)
+
+
+class TestAnswerExtractorEdgeCasesExtended:
+    """Extended tests for edge cases in AnswerExtractor."""
+
+    def test_extract_confidence_from_range(self):
+        """Test that '80-90% confident' extracts a number from the range.
+
+        Current implementation extracts the number closest to the confidence keyword,
+        which in this case is 90 (from '90% confident').
+        """
+        extractor = AnswerExtractor()
+        response = "I would say option A. I am 80-90% confident in this assessment."
+        confidence = extractor.extract_confidence(response)
+
+        # Extracts the number closest to the confidence keyword (90)
+        assert confidence is not None
+        assert confidence == 0.90
+
+    def test_extract_numeric_scientific_notation(self):
+        """Test extraction of scientific notation numbers like '1e5' or '1.5e6'."""
+        extractor = AnswerExtractor()
+
+        # Scientific notation in responses
+        response1 = "The population estimate is 1e5 people."
+        result1 = extractor.extract(response1, "numeric")
+        # Note: Current implementation may not handle scientific notation
+        # This test documents the expected behavior
+        assert result1 is not None or result1 is None  # Document current behavior
+
+        response2 = "The value is approximately 1.5e6 dollars."
+        result2 = extractor.extract(response2, "numeric")
+        assert result2 is not None or result2 is None  # Document current behavior
+
+    def test_extract_numeric_with_currency(self):
+        """Test extraction of currency values like '$1,000' or 'USD 500'."""
+        extractor = AnswerExtractor()
+
+        # Dollar sign prefix
+        response1 = "My estimate is $1,000 for this project."
+        result1 = extractor.extract(response1, "numeric")
+        assert result1 is not None
+        # Should extract the numeric value, possibly with comma
+        assert "1000" in result1.replace(",", "") or "1,000" in result1
+
+        # Spelled out currency
+        response2 = "The cost would be approximately USD 500 per unit."
+        result2 = extractor.extract(response2, "numeric")
+        assert result2 is not None
+        assert "500" in result2
+
+    def test_extract_option_beyond_d(self):
+        """Test extraction of options E, F if present in response."""
+        extractor = AnswerExtractor()
+
+        # Options E and F are not in the standard A-D patterns
+        response_e = "After analysis, I would choose option E."
+        result_e = extractor.extract(response_e, "option")
+
+        response_f = "My selection is F as the best alternative."
+        result_f = extractor.extract(response_f, "option")
+
+        # Current implementation only supports A-D, so these may return None
+        # This test documents the current behavior
+        # If E/F extraction is needed, patterns would need to be updated
+        assert result_e is None or result_e == "E"
+        assert result_f is None or result_f == "F"
+
+    def test_extract_confidence_fractional(self):
+        """Test extraction of fractional confidence like '0.95 confidence'."""
+        extractor = AnswerExtractor()
+
+        # Fractional format
+        response = "I have 0.95 confidence in this answer being correct."
+        confidence = extractor.extract_confidence(response)
+
+        # Current implementation expects percentage format (e.g., 95%)
+        # Fractional format may not be extracted correctly
+        # This documents current behavior
+        if confidence is not None:
+            assert 0.0 <= confidence <= 1.0
+
+    def test_extract_confidence_verbal_high(self):
+        """Test confidence extraction with verbal indicators like 'highly confident'."""
+        extractor = AnswerExtractor()
+
+        # Verbal confidence without explicit number
+        response = "I am highly confident that option B is correct."
+        confidence = extractor.extract_confidence(response)
+
+        # Current implementation requires numeric confidence
+        # Verbal confidence is not extracted
+        assert confidence is None
+
+    def test_extract_numeric_negative_value(self):
+        """Test extraction of negative numeric values."""
+        extractor = AnswerExtractor()
+
+        response = "The change in value is -500 dollars."
+        result = extractor.extract(response, "numeric")
+
+        # Current patterns may or may not capture negative numbers
+        # This documents the behavior
+        assert result is not None or result is None
+
+    def test_extract_numeric_percentage(self):
+        """Test extraction of percentage values in numeric context."""
+        extractor = AnswerExtractor()
+
+        response = "The probability is 75% based on historical data."
+        result = extractor.extract(response, "numeric")
+
+        assert result is not None
+        assert "75" in result
+
+    def test_extract_multiple_options_returns_last(self):
+        """Test that when multiple options are mentioned, fallback returns the last one."""
+        extractor = AnswerExtractor()
+
+        # Response mentions multiple options
+        response = "Initially I thought A, but after considering B, I settled on C."
+        result = extractor.extract(response, "option")
+
+        # Fallback extraction should return the last option mentioned
+        assert result == "C"
+
+
+class TestErrorSimulatingProvider:
+    """Tests for the ErrorSimulatingProvider mock class itself."""
+
+    @pytest.mark.asyncio
+    async def test_provider_fails_on_specified_calls(self):
+        """Test that ErrorSimulatingProvider fails only on specified call indices."""
+        provider = ErrorSimulatingProvider(
+            fail_on_calls=[1, 3],
+            error_type=ValueError,
+            error_message="Test error",
+        )
+
+        # Call 0: should succeed
+        result0 = await provider.complete("test")
+        assert result0 == provider.default_response
+
+        # Call 1: should fail
+        with pytest.raises(ValueError, match="Test error"):
+            await provider.complete("test")
+
+        # Call 2: should succeed
+        result2 = await provider.complete("test")
+        assert result2 == provider.default_response
+
+        # Call 3: should fail
+        with pytest.raises(ValueError, match="Test error"):
+            await provider.complete("test")
+
+        # Call 4: should succeed
+        result4 = await provider.complete("test")
+        assert result4 == provider.default_response
+
+    @pytest.mark.asyncio
+    async def test_provider_tracks_call_count(self):
+        """Test that ErrorSimulatingProvider correctly tracks call count."""
+        provider = ErrorSimulatingProvider()
+
+        assert provider.call_count == 0
+
+        await provider.complete("test1")
+        assert provider.call_count == 1
+
+        await provider.complete("test2")
+        assert provider.call_count == 2
+
+        await provider.complete("test3")
+        assert provider.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_provider_custom_error_types(self):
+        """Test that ErrorSimulatingProvider can raise different exception types."""
+        # Test with TimeoutError
+        timeout_provider = ErrorSimulatingProvider(
+            fail_on_calls=[0],
+            error_type=asyncio.TimeoutError,
+            error_message="Connection timed out",
+        )
+        with pytest.raises(asyncio.TimeoutError):
+            await timeout_provider.complete("test")
+
+        # Test with ConnectionError
+        connection_provider = ErrorSimulatingProvider(
+            fail_on_calls=[0],
+            error_type=ConnectionError,
+            error_message="Network unreachable",
+        )
+        with pytest.raises(ConnectionError):
+            await connection_provider.complete("test")

@@ -5,8 +5,10 @@ Supports JSON and CSV formats for test instances, results, and metrics.
 """
 
 import json
+import warnings
 from datetime import datetime
 from pathlib import Path
+from typing import TypeVar
 
 import pandas as pd
 
@@ -19,6 +21,32 @@ from kahne_bench.core import (
     TriggerIntensity,
 )
 from kahne_bench.metrics.core import CognitiveFingerprintReport
+
+# Type variable for enum parsing
+_E = TypeVar("_E")
+
+
+def _safe_parse_enum(value: str, enum_class: type[_E], context: str = "") -> _E | None:
+    """
+    Safely parse an enum value, returning None and warning on invalid values.
+
+    Args:
+        value: String value to parse
+        enum_class: Enum class to parse into
+        context: Additional context for warning message
+
+    Returns:
+        Parsed enum value or None if invalid
+    """
+    try:
+        return enum_class(value)
+    except ValueError:
+        ctx = f" in {context}" if context else ""
+        warnings.warn(
+            f"Unknown {enum_class.__name__} '{value}'{ctx}, skipping",
+            stacklevel=3
+        )
+        return None
 
 
 def export_instances_to_json(
@@ -76,16 +104,32 @@ def import_instances_from_json(
         data = json.load(f)
 
     instances = []
-    for item in data:
-        # Convert string keys back to enums
-        treatment_prompts = {
-            TriggerIntensity(k): v
-            for k, v in item.get("treatment_prompts", {}).items()
-        }
-        cross_domain_variants = {
-            Domain(k): v
-            for k, v in item.get("cross_domain_variants", {}).items()
-        }
+    for idx, item in enumerate(data):
+        # Convert string keys back to enums with validation
+        treatment_prompts = {}
+        for k, v in item.get("treatment_prompts", {}).items():
+            intensity = _safe_parse_enum(k, TriggerIntensity, f"treatment_prompts (item {idx})")
+            if intensity is not None:
+                treatment_prompts[intensity] = v
+
+        cross_domain_variants = {}
+        for k, v in item.get("cross_domain_variants", {}).items():
+            domain = _safe_parse_enum(k, Domain, f"cross_domain_variants (item {idx})")
+            if domain is not None:
+                cross_domain_variants[domain] = v
+
+        # Parse required domain with fallback
+        domain_str = item.get("domain", "individual")
+        domain = _safe_parse_enum(domain_str, Domain, f"domain (item {idx})")
+        if domain is None:
+            warnings.warn(f"Skipping item {idx} due to invalid domain '{domain_str}'")
+            continue
+
+        # Parse optional scale with default
+        scale_str = item.get("scale", "micro")
+        scale = _safe_parse_enum(scale_str, TestScale, f"scale (item {idx})")
+        if scale is None:
+            scale = TestScale.MICRO  # Default fallback
 
         instance = CognitiveBiasInstance(
             bias_id=item["bias_id"],
@@ -95,8 +139,8 @@ def import_instances_from_json(
             treatment_prompts=treatment_prompts,
             expected_rational_response=item.get("expected_rational_response", ""),
             expected_biased_response=item.get("expected_biased_response", ""),
-            domain=Domain(item["domain"]),
-            scale=TestScale(item.get("scale", "micro")),
+            domain=domain,
+            scale=scale,
             cross_domain_variants=cross_domain_variants,
             debiasing_prompts=item.get("debiasing_prompts", []),
             interaction_biases=item.get("interaction_biases", []),

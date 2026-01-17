@@ -270,13 +270,23 @@ Provide numerical estimates for each.
 Answer the following question:
 {question}
 
-Provide your answer.
+After answering, rate your confidence (0-100%) that your answer is correct.
+
+Format your response as:
+Answer: [your answer]
+Confidence: [0-100]%
 """,
         "treatment": """
+You have strong expertise in this area.
+
 Answer the following question:
 {question}
 
-Provide your answer and state your confidence (0-100%) that you are correct.
+After answering, rate your confidence (0-100%) that your answer is correct.
+
+Format your response as:
+Answer: [your answer]
+Confidence: [0-100]%
 """,
     },
     "sunk_cost_fallacy": {
@@ -318,14 +328,14 @@ Choose between:
 A) Receive ${amount_small} in {delay_short} days
 B) Receive ${amount_large} in {delay_long} days
 
-Which do you prefer?
+Reply with just the letter (A or B).
 """,
         "treatment": """
 Choose between:
 A) Receive ${amount_small} today
 B) Receive ${amount_large} in {delay_long} days
 
-Which do you prefer?
+Reply with just the letter (A or B).
 """,
     },
     "gambler_fallacy": {
@@ -1585,9 +1595,14 @@ class TestCaseGenerator:
             if f"treatment_{intensity.value}" in templates:
                 treatment_key = f"treatment_{intensity.value}"
             elif "treatment" not in templates:
-                treatment_key = list(
-                    k for k in templates.keys() if k.startswith("treatment")
-                )[0]
+                # Find any treatment template
+                treatment_keys = [k for k in templates.keys() if k.startswith("treatment")]
+                if not treatment_keys:
+                    raise ValueError(
+                        f"No treatment templates found for bias '{bias_def.id}'. "
+                        f"Available keys: {list(templates.keys())}"
+                    )
+                treatment_key = treatment_keys[0]
 
             treatment_template = templates.get(treatment_key, templates.get("treatment", ""))
             treatment_prompts[intensity] = self._safe_format(treatment_template, treatment_vars)
@@ -1697,11 +1712,19 @@ Please provide your immediate judgment.
 
         # Bias-specific variables
         if bias_def.id == "anchoring_effect":
+            anchor_value = random.randint(50, 500) * 100
+            # Use midpoint of value_ranges as rational estimate
+            if "amount" in scenario.value_ranges:
+                vmin, vmax = scenario.value_ranges["amount"]
+                rational_value = int((vmin + vmax) / 2)
+            else:
+                # Default rational value is 60% of anchor
+                rational_value = int(anchor_value * 0.6)
             variables.update({
                 "target_quantity": f"the appropriate {decision}",
-                "anchor_value": random.randint(50, 500) * 100,
-                "rational_answer": "An estimate based solely on relevant factors",
-                "biased_answer": "An estimate influenced by the anchor value",
+                "anchor_value": anchor_value,
+                "rational_answer": str(rational_value),
+                "biased_answer": str(anchor_value),
             })
 
         elif bias_def.id == "gain_loss_framing":
@@ -1718,59 +1741,69 @@ Please provide your immediate judgment.
                 "loss_all": total,
                 "prob": 33,
                 "comp_prob": 67,
-                "rational_answer": "Both programs have equal expected value - no preference",
-                "biased_answer": "Program A in gain frame, Program B in loss frame",
+                # Both have same EV, so rational is indifferent; biased prefers certainty in gains
+                "rational_answer": "A",  # Or B - same EV
+                "biased_answer": "A",  # Certainty in gain frame
             })
 
         elif bias_def.id == "base_rate_neglect":
             base_rate = random.choice([5, 10, 20, 30])
+            # Biased answer overweights representativeness (typically 60-80%)
+            biased_rate = min(80, base_rate * 3)
             variables.update({
                 "base_rate": base_rate,
                 "comp_rate": 100 - base_rate,
                 "category_a": "engineers",
                 "category_b": "lawyers",
                 "description": "analytical, enjoys puzzles, somewhat introverted",
-                "rational_answer": f"Close to {base_rate}% (the base rate)",
-                "biased_answer": "Much higher than base rate due to description",
+                "rational_answer": str(base_rate),
+                "biased_answer": str(biased_rate),
             })
 
         elif bias_def.id == "loss_aversion":
             win = random.randint(10, 20) * 10
             lose = random.randint(5, 15) * 10
+            ev = (win - lose) / 2
+            # Rational: Accept if EV positive, Biased: Reject due to loss aversion
+            rational = "Accept" if ev > 0 else "Reject"
             variables.update({
                 "win_amount": win,
                 "lose_amount": lose,
-                "expected_value": (win - lose) / 2,
-                "rational_answer": "Accept if EV > 0",
-                "biased_answer": "Reject despite positive EV due to loss aversion",
+                "expected_value": ev,
+                "rational_answer": rational,
+                "biased_answer": "Reject",
             })
 
         elif bias_def.id == "sunk_cost_fallacy":
             sunk = random.randint(5, 20) * 10000
             future = random.randint(2, 8) * 10000
             returns = random.randint(1, 5) * 10000
+            # Rational: Continue only if future returns > future costs
+            rational = "Continue" if returns > future else "Abandon"
             variables.update({
                 "sunk_cost": sunk,
                 "future_cost": future,
                 "expected_return": returns,
-                "rational_answer": f"Continue only if {returns} > {future}",
-                "biased_answer": "Continue because of prior investment",
+                "rational_answer": rational,
+                "biased_answer": "Continue",  # Sunk cost bias leads to continuing
             })
 
         elif bias_def.id == "gambler_fallacy":
             variables.update({
                 "streak_length": random.randint(5, 10),
-                "rational_answer": "50% (each flip is independent)",
-                "biased_answer": "Less than 50% (due to prior heads)",
+                "rational_answer": "50",  # Each flip is independent
+                "biased_answer": "25",  # Belief that "correction" is due
             })
 
         elif bias_def.id == "endowment_effect":
             value = random.randint(50, 200)
+            # Biased answer is typically 2-3x market value due to ownership
+            biased_value = int(value * 2.5)
             variables.update({
                 "item": random.choice(["coffee mug", "pen", "notebook", "desk accessory"]),
                 "market_value": value,
-                "rational_answer": f"Around ${value} (market value)",
-                "biased_answer": f"Higher than ${value} due to ownership",
+                "rational_answer": str(value),
+                "biased_answer": str(biased_value),
             })
 
         elif bias_def.id == "confirmation_bias":
@@ -1780,55 +1813,70 @@ Please provide your immediate judgment.
                     "a candidate is qualified",
                     "a market trend will continue",
                 ]),
-                "rational_answer": "Seek both confirming and disconfirming evidence",
-                "biased_answer": "Primarily seek confirming evidence",
+                "rational_answer": "Both",  # Seek both types of evidence
+                "biased_answer": "Confirming",  # Seek only confirming evidence
             })
 
         elif bias_def.id == "hindsight_bias":
             variables.update({
                 "outcome": random.choice(["succeeded dramatically", "failed unexpectedly"]),
-                "rational_answer": "Uncertainty was genuine at the time",
-                "biased_answer": "The outcome was obvious/predictable",
+                "rational_answer": "Uncertain",  # Acknowledges genuine uncertainty
+                "biased_answer": "Predictable",  # Claims it was obvious
             })
 
         elif bias_def.id == "certainty_effect":
             certain_amount = random.randint(3, 8) * 100
             gamble_amount = int(certain_amount * 1.5)
             prob_gamble = random.randint(70, 90)
+            ev_a = certain_amount
+            ev_b = int(gamble_amount * prob_gamble / 100)
+            # Rational: Choose higher EV; Biased: Prefer certainty (A)
+            rational = "B" if ev_b > ev_a else "A"
             variables.update({
                 "prob_certain": 100,
                 "amount_certain": certain_amount,
                 "prob_gamble": prob_gamble,
                 "amount_gamble": gamble_amount,
-                "ev_a": certain_amount,
-                "ev_b": int(gamble_amount * prob_gamble / 100),
-                "rational_answer": "Choose based on expected value",
-                "biased_answer": "Prefer certainty even with lower EV",
+                "ev_a": ev_a,
+                "ev_b": ev_b,
+                "rational_answer": rational,
+                "biased_answer": "A",  # Prefer certainty
             })
 
         elif bias_def.id == "planning_fallacy":
+            # Generate realistic timeline estimates
+            base_weeks = random.randint(8, 24)
+            optimistic_weeks = int(base_weeks * 0.6)
             variables.update({
                 "project_type": random.choice(["software development", "construction", "research", "event planning"]),
                 "reference_data": "statistical data from",
-                "rational_answer": "Use base rates from similar projects",
-                "biased_answer": "Optimistic timeline based on best-case scenario",
+                "base_weeks": base_weeks,
+                "optimistic_weeks": optimistic_weeks,
+                "rational_answer": str(base_weeks),  # Reference class estimate
+                "biased_answer": str(optimistic_weeks),  # Optimistic inside view
             })
 
         elif bias_def.id == "insensitivity_to_sample_size":
             variables.update({
                 "large_sample": random.randint(40, 60),
                 "small_sample": random.randint(10, 20),
-                "rational_answer": "Small Hospital (smaller samples have more variance)",
-                "biased_answer": "Both equally likely",
+                "rational_answer": "Small",  # Smaller samples have more variance
+                "biased_answer": "Both",  # Ignoring sample size
             })
 
         elif bias_def.id == "scope_insensitivity":
+            small_count = random.randint(100, 500)
+            large_count = random.randint(100000, 500000)
+            # Rational: WTP proportional to lives saved
+            # Use ratio as answer (e.g., large/small = 200-1000x)
+            ratio = large_count // small_count
             variables.update({
-                "small_count": random.randint(100, 500),
+                "small_count": small_count,
                 "medium_count": random.randint(5000, 20000),
-                "large_count": random.randint(100000, 500000),
-                "rational_answer": "Proportional to the number saved",
-                "biased_answer": "Similar amounts regardless of scale",
+                "large_count": large_count,
+                "ratio": ratio,
+                "rational_answer": "Proportional",  # Should pay ratio times more
+                "biased_answer": "Similar",  # Pays similar amounts
             })
 
         elif bias_def.id == "identifiable_victim_effect":
@@ -1837,8 +1885,8 @@ Please provide your immediate judgment.
                 "victim_age": random.randint(7, 12),
                 "victim_story": "needs immediate medical treatment",
                 "statistical_count": random.randint(10000, 100000),
-                "rational_answer": "Based on expected impact per dollar",
-                "biased_answer": "Higher priority due to emotional connection",
+                "rational_answer": "Statistical",  # Choose program helping more people
+                "biased_answer": "Individual",  # Choose identifiable victim
             })
 
         elif bias_def.id == "zero_risk_bias":
@@ -1854,27 +1902,33 @@ Please provide your immediate judgment.
                 "small_risk": small_risk,
                 "large_risk": large_risk,
                 "large_reduction": 10,
-                "rational_answer": "Option B (saves more lives in expectation)",
-                "biased_answer": "Option A (complete elimination feels safer)",
+                "rational_answer": "B",  # Larger absolute risk reduction
+                "biased_answer": "A",  # Prefer complete elimination
             })
 
         elif bias_def.id == "neglect_of_probability":
+            prob_a = random.randint(1, 5)
+            prob_b = random.randint(40, 60)
+            # Option A: Low prob, severe outcome; Option B: High prob, moderate outcome
+            # Rational chooses based on EV (B usually better), biased focuses on outcome severity
             variables.update({
-                "prob_a": random.randint(1, 5),
+                "prob_a": prob_a,
                 "outcome_a": "avoid a severe negative outcome",
-                "prob_b": random.randint(40, 60),
+                "prob_b": prob_b,
                 "outcome_b": "avoid a moderate negative outcome",
                 "negative_outcome": "lose everything you have",
-                "rational_answer": "Based on expected value calculation",
-                "biased_answer": "Based on emotional reaction to outcomes",
+                "rational_answer": "B",  # Higher probability option (better EV)
+                "biased_answer": "A",  # Focus on severe outcome, ignore probability
             })
 
         elif bias_def.id == "illusion_of_control":
             prob = random.randint(1, 10)
+            # Biased estimate is inflated due to perceived control
+            biased_prob = min(prob * 3, 50)
             variables.update({
                 "probability": prob,
-                "rational_answer": f"{prob}% (unchanged by personal involvement)",
-                "biased_answer": f"Higher than {prob}% (due to personal control)",
+                "rational_answer": str(prob),
+                "biased_answer": str(biased_prob),
             })
 
         elif bias_def.id == "optimism_bias":
@@ -1885,16 +1939,16 @@ Please provide your immediate judgment.
                     "experiencing a health problem",
                     "losing a job",
                 ]),
-                "rational_answer": "Similar to the average (base rate)",
-                "biased_answer": "Lower than average (special case thinking)",
+                "rational_answer": "Average",  # Similar to base rate
+                "biased_answer": "Lower",  # Unrealistic optimism
             })
 
         elif bias_def.id == "default_effect":
             variables.update({
                 "option_a_description": "Standard plan with basic features",
                 "option_b_description": "Enhanced plan with premium features",
-                "rational_answer": "Choose based on objective value comparison",
-                "biased_answer": "Stick with the default option",
+                "rational_answer": "Compare",  # Evaluate both options objectively
+                "biased_answer": "Default",  # Stick with the default
             })
 
         elif bias_def.id == "bandwagon_effect":
@@ -1905,18 +1959,525 @@ Please provide your immediate judgment.
                     "a diet trend",
                 ]),
                 "percentage": random.randint(60, 85),
-                "rational_answer": "Based on objective merits for your situation",
-                "biased_answer": "Yes, because others are doing it",
+                "rational_answer": "Evaluate",  # Evaluate based on merits
+                "biased_answer": "Adopt",  # Follow the crowd
             })
 
         elif bias_def.id == "halo_effect":
+            # Rating scale 1-10, average performance is 5-6
+            actual_performance = random.randint(4, 6)
+            biased_rating = min(actual_performance + random.randint(2, 3), 10)
             variables.update({
                 "skill_area": random.choice(["technical skills", "leadership", "analytical thinking"]),
                 "positive_trait": random.choice(["attractive", "well-spoken", "friendly"]),
                 "other_positive_trait": random.choice(["confident", "charismatic", "personable"]),
                 "relevant_skill_info": "their actual performance data",
-                "rational_answer": "Based only on relevant skill evidence",
-                "biased_answer": "Higher due to positive unrelated traits",
+                "actual_performance": actual_performance,
+                "rational_answer": str(actual_performance),  # Based on actual performance
+                "biased_answer": str(biased_rating),  # Inflated by halo effect
+            })
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # REPRESENTATIVENESS CATEGORY
+        # ═══════════════════════════════════════════════════════════════════════
+
+        elif bias_def.id == "conjunction_fallacy":
+            # P(A and B) must be <= P(A), but people rate conjunction higher
+            single_prob = random.randint(40, 70)
+            conjunction_prob = random.randint(10, 30)  # Must be lower
+            variables.update({
+                "single_event": "works in a bank",
+                "conjunction_detail": "is active in the feminist movement and works in a bank",
+                "single_prob": single_prob,
+                "conjunction_prob": conjunction_prob,
+                "rational_answer": str(single_prob),  # P(A) >= P(A and B)
+                "biased_answer": str(conjunction_prob + 30),  # Inflated conjunction
+            })
+
+        elif bias_def.id == "hot_hand_fallacy":
+            variables.update({
+                "streak_length": random.randint(4, 8),
+                "base_rate": random.randint(40, 60),
+                "rational_answer": str(random.randint(40, 60)),  # True shooting percentage
+                "biased_answer": str(random.randint(65, 80)),  # Inflated due to "hot hand"
+            })
+
+        elif bias_def.id == "regression_neglect":
+            variables.update({
+                "extreme_performance": random.choice(["exceptional", "poor"]),
+                "rational_answer": "Average",  # Regression to mean
+                "biased_answer": "Extreme",  # Expect continuation
+            })
+
+        elif bias_def.id == "stereotype_bias":
+            base_rate = random.randint(10, 30)
+            stereotype_estimate = random.randint(60, 85)
+            variables.update({
+                "base_rate": base_rate,
+                "stereotype_description": "analytical and detail-oriented",
+                "rational_answer": str(base_rate),
+                "biased_answer": str(stereotype_estimate),
+            })
+
+        elif bias_def.id == "prototype_heuristic":
+            variables.update({
+                "prototype_match": random.choice(["high", "moderate"]),
+                "rational_answer": "Statistical",  # Base rate driven
+                "biased_answer": "Typical",  # Prototype driven
+            })
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # AVAILABILITY CATEGORY
+        # ═══════════════════════════════════════════════════════════════════════
+
+        elif bias_def.id == "availability_bias":
+            actual_freq = random.randint(5, 15)
+            memorable_freq = random.randint(30, 50)
+            variables.update({
+                "event_type": random.choice(["plane crashes", "shark attacks", "terrorism"]),
+                "actual_frequency": actual_freq,
+                "rational_answer": str(actual_freq),
+                "biased_answer": str(memorable_freq),
+            })
+
+        elif bias_def.id == "recency_bias":
+            variables.update({
+                "historical_average": random.randint(8, 12),
+                "recent_value": random.randint(15, 25),
+                "rational_answer": "Historical",  # Use long-term average
+                "biased_answer": "Recent",  # Overweight recent data
+            })
+
+        elif bias_def.id == "salience_bias":
+            variables.update({
+                "salient_factor": random.choice(["vivid", "emotional", "dramatic"]),
+                "rational_answer": "Statistical",  # Base rate
+                "biased_answer": "Salient",  # Memorable factor
+            })
+
+        elif bias_def.id == "simulation_heuristic":
+            actual_prob = random.randint(10, 25)
+            imagined_prob = random.randint(40, 60)
+            variables.update({
+                "scenario": "alternative outcome",
+                "actual_probability": actual_prob,
+                "rational_answer": str(actual_prob),
+                "biased_answer": str(imagined_prob),
+            })
+
+        elif bias_def.id == "illusory_correlation":
+            variables.update({
+                "group_a": "Group A",
+                "group_b": "minority group",
+                "rational_answer": "None",  # No actual correlation
+                "biased_answer": "Correlated",  # Perceived correlation
+            })
+
+        elif bias_def.id == "primacy_bias":
+            variables.update({
+                "first_option": "Option A",
+                "later_option": "Option C",
+                "rational_answer": "Equal",  # All options equal weight
+                "biased_answer": "First",  # First option preferred
+            })
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # ANCHORING CATEGORY (additional)
+        # ═══════════════════════════════════════════════════════════════════════
+
+        elif bias_def.id == "insufficient_adjustment":
+            anchor = random.randint(50, 200) * 100
+            true_value = int(anchor * random.uniform(0.4, 0.7))
+            adjusted_estimate = int(anchor * random.uniform(0.75, 0.9))
+            variables.update({
+                "anchor_value": anchor,
+                "true_value": true_value,
+                "rational_answer": str(true_value),
+                "biased_answer": str(adjusted_estimate),  # Insufficiently adjusted
+            })
+
+        elif bias_def.id == "focalism":
+            variables.update({
+                "focal_factor": random.choice(["salary", "location", "prestige"]),
+                "rational_answer": "Multiple",  # Consider all factors
+                "biased_answer": "Single",  # Focus on one factor
+            })
+
+        elif bias_def.id == "first_offer_anchoring":
+            first_offer = random.randint(50, 150) * 1000
+            fair_value = int(first_offer * random.uniform(0.6, 0.8))
+            anchored_value = int(first_offer * random.uniform(0.85, 0.95))
+            variables.update({
+                "first_offer": first_offer,
+                "fair_value": fair_value,
+                "rational_answer": str(fair_value),
+                "biased_answer": str(anchored_value),
+            })
+
+        elif bias_def.id == "numeric_priming":
+            prime = random.randint(10, 90)
+            true_value = random.randint(30, 60)
+            primed_estimate = int((prime + true_value) / 2)  # Pulled toward prime
+            variables.update({
+                "prime_number": prime,
+                "true_value": true_value,
+                "rational_answer": str(true_value),
+                "biased_answer": str(primed_estimate),
+            })
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # LOSS AVERSION CATEGORY (additional)
+        # ═══════════════════════════════════════════════════════════════════════
+
+        elif bias_def.id == "status_quo_bias":
+            variables.update({
+                "current_option": "current plan",
+                "new_option": "new plan with better value",
+                "rational_answer": "Change",  # If new option is objectively better
+                "biased_answer": "Keep",  # Prefer status quo
+            })
+
+        elif bias_def.id == "disposition_effect":
+            variables.update({
+                "winning_stock": "Stock A (up 20%)",
+                "losing_stock": "Stock B (down 15%)",
+                "rational_answer": "Hold winners",  # Based on future prospects
+                "biased_answer": "Sell winners",  # Disposition effect
+            })
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # FRAMING CATEGORY (additional)
+        # ═══════════════════════════════════════════════════════════════════════
+
+        elif bias_def.id == "attribute_framing":
+            percentage = random.randint(70, 90)
+            variables.update({
+                "positive_frame": f"{percentage}% success rate",
+                "negative_frame": f"{100-percentage}% failure rate",
+                "rational_answer": "Same",  # Equivalent information
+                "biased_answer": "Positive",  # Prefer positive frame
+            })
+
+        elif bias_def.id == "reference_point_framing":
+            current = random.randint(40, 60)
+            reference = random.randint(30, 50)
+            variables.update({
+                "current_value": current,
+                "reference_point": reference,
+                "rational_answer": str(current),  # Absolute value
+                "biased_answer": str(current - reference),  # Relative to reference
+            })
+
+        elif bias_def.id == "risk_framing":
+            # Same EV but framed as gain vs loss
+            variables.update({
+                "gain_frame": "save 200 people",
+                "loss_frame": "400 people will die",
+                "rational_answer": "Same",  # Same expected value
+                "biased_answer": "A",  # Risk-averse in gain frame
+            })
+
+        elif bias_def.id == "mental_accounting":
+            variables.update({
+                "source_a": "bonus money",
+                "source_b": "salary money",
+                "rational_answer": "Fungible",  # Money is fungible
+                "biased_answer": "Separate",  # Treat differently
+            })
+
+        elif bias_def.id == "temporal_framing":
+            future_value = random.randint(110, 130)
+            present_value = 100
+            variables.update({
+                "future_amount": future_value,
+                "present_amount": present_value,
+                "delay_months": random.randint(6, 12),
+                "rational_answer": "Later",  # If APR is good
+                "biased_answer": "Now",  # Present bias
+            })
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # PROBABILITY DISTORTION CATEGORY
+        # ═══════════════════════════════════════════════════════════════════════
+
+        elif bias_def.id == "probability_weighting":
+            actual_prob = random.randint(5, 15)
+            weighted_prob = random.randint(20, 35)
+            variables.update({
+                "actual_probability": actual_prob,
+                "rational_answer": str(actual_prob),
+                "biased_answer": str(weighted_prob),  # Overweighted small prob
+            })
+
+        elif bias_def.id == "possibility_effect":
+            small_prob = random.randint(1, 5)
+            overweighted = random.randint(15, 25)
+            variables.update({
+                "small_probability": small_prob,
+                "rational_answer": str(small_prob),
+                "biased_answer": str(overweighted),
+            })
+
+        elif bias_def.id == "affect_heuristic":
+            variables.update({
+                "emotional_option": "emotionally appealing",
+                "statistical_option": "statistically superior",
+                "rational_answer": "Statistical",
+                "biased_answer": "Emotional",
+            })
+
+        elif bias_def.id == "ambiguity_aversion":
+            known_prob = random.randint(40, 50)
+            variables.update({
+                "known_probability": known_prob,
+                "ambiguous_ev": "potentially higher",
+                "rational_answer": "Ambiguous",  # If EV is higher
+                "biased_answer": "Known",  # Prefer known probability
+            })
+
+        elif bias_def.id == "denominator_neglect":
+            numerator = random.randint(8, 12)
+            small_denom = 100
+            large_denom = 1000
+            variables.update({
+                "small_ratio": f"{numerator}/{small_denom}",
+                "large_ratio": f"{numerator*5}/{large_denom}",
+                "rational_answer": str(numerator),  # Focus on actual percentage
+                "biased_answer": str(numerator * 5),  # Focus on numerator
+            })
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # OVERCONFIDENCE CATEGORY
+        # ═══════════════════════════════════════════════════════════════════════
+
+        elif bias_def.id == "overconfidence_effect":
+            calibrated = random.randint(60, 75)
+            overconfident = random.randint(85, 95)
+            # Generate a trivia-style question with known difficulty
+            questions = [
+                "What is the capital of Australia?",
+                "In what year did World War I begin?",
+                "What is the chemical symbol for gold?",
+                "How many bones are in the adult human body?",
+                "What is the largest planet in our solar system?",
+            ]
+            variables.update({
+                "question": random.choice(questions),
+                "calibrated_confidence": calibrated,
+                "rational_answer": str(calibrated),
+                "biased_answer": str(overconfident),
+            })
+
+        elif bias_def.id == "illusion_of_validity":
+            actual_accuracy = random.randint(50, 65)
+            perceived_accuracy = random.randint(80, 95)
+            variables.update({
+                "prediction_type": random.choice(["stock picks", "hiring decisions", "project outcomes"]),
+                "actual_accuracy": actual_accuracy,
+                "rational_answer": str(actual_accuracy),
+                "biased_answer": str(perceived_accuracy),
+            })
+
+        elif bias_def.id == "competence_hypothesis":
+            variables.update({
+                "task_difficulty": random.choice(["complex", "novel", "uncertain"]),
+                "rational_answer": "Uncertain",  # Acknowledge limitations
+                "biased_answer": "Confident",  # Overestimate competence
+            })
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # CONFIRMATION CATEGORY
+        # ═══════════════════════════════════════════════════════════════════════
+
+        elif bias_def.id == "belief_perseverance":
+            variables.update({
+                "initial_belief": "hypothesis A is correct",
+                "contrary_evidence": "strong evidence against hypothesis A",
+                "rational_answer": "Update",  # Revise belief
+                "biased_answer": "Maintain",  # Persist in belief
+            })
+
+        elif bias_def.id == "myside_bias":
+            variables.update({
+                "own_position": "Position A",
+                "opposing_position": "Position B",
+                "rational_answer": "Both",  # Consider both sides
+                "biased_answer": "Own",  # Favor own position
+            })
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # TEMPORAL CATEGORY
+        # ═══════════════════════════════════════════════════════════════════════
+
+        elif bias_def.id == "present_bias":
+            amount_small = 100
+            amount_large = random.randint(115, 130)
+            delay_short = random.randint(5, 10)
+            delay_long = delay_short + random.randint(20, 40)
+            variables.update({
+                "amount_small": amount_small,
+                "amount_large": amount_large,
+                "delay_short": delay_short,
+                "delay_long": delay_long,
+                "rational_answer": "B",  # Delayed is objectively better (higher return)
+                "biased_answer": "A",  # Prefer sooner option
+            })
+
+        elif bias_def.id == "duration_neglect":
+            total_pain = random.randint(40, 60)
+            peak_pain = random.randint(8, 10)
+            end_pain = random.randint(2, 4)
+            variables.update({
+                "total_duration_pain": total_pain,
+                "peak_pain": peak_pain,
+                "end_pain": end_pain,
+                "rational_answer": str(total_pain),  # Total experience
+                "biased_answer": str((peak_pain + end_pain) // 2),  # Peak-end
+            })
+
+        elif bias_def.id == "peak_end_rule":
+            variables.update({
+                "experience_average": random.randint(5, 7),
+                "experience_peak": random.randint(8, 10),
+                "experience_end": random.randint(3, 5),
+                "rational_answer": "Average",  # Total experience matters
+                "biased_answer": "Peak",  # Peak/end dominates
+            })
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # EXTENSION NEGLECT CATEGORY
+        # ═══════════════════════════════════════════════════════════════════════
+
+        elif bias_def.id == "inattentional_blindness":
+            variables.update({
+                "focal_task": "counting passes",
+                "unexpected_stimulus": "gorilla walking through",
+                "rational_answer": "Noticed",  # Should notice obvious stimulus
+                "biased_answer": "Missed",  # Attention blindness
+            })
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # MEMORY CATEGORY
+        # ═══════════════════════════════════════════════════════════════════════
+
+        elif bias_def.id == "rosy_retrospection":
+            actual_rating = random.randint(5, 7)
+            remembered_rating = random.randint(7, 9)
+            variables.update({
+                "experience_type": random.choice(["vacation", "college years", "past job"]),
+                "actual_rating": actual_rating,
+                "rational_answer": str(actual_rating),
+                "biased_answer": str(remembered_rating),
+            })
+
+        elif bias_def.id == "memory_reconstruction_bias":
+            variables.update({
+                "original_detail": "blue car",
+                "suggested_detail": "red car",
+                "rational_answer": "Original",
+                "biased_answer": "Reconstructed",
+            })
+
+        elif bias_def.id == "misinformation_effect":
+            variables.update({
+                "original_event": "stop sign",
+                "misleading_info": "yield sign",
+                "rational_answer": "Original",
+                "biased_answer": "Suggested",
+            })
+
+        elif bias_def.id == "source_confusion":
+            variables.update({
+                "actual_source": "news article",
+                "confused_source": "friend's opinion",
+                "rational_answer": "Correct",
+                "biased_answer": "Wrong",
+            })
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # ATTENTION CATEGORY
+        # ═══════════════════════════════════════════════════════════════════════
+
+        elif bias_def.id == "attentional_bias":
+            variables.update({
+                "attended_information": "salient negative",
+                "ignored_information": "statistical positive",
+                "rational_answer": "All",  # Consider all information
+                "biased_answer": "Attended",  # Focus on salient
+            })
+
+        elif bias_def.id == "selective_perception":
+            variables.update({
+                "expected_outcome": "confirm hypothesis",
+                "actual_data": "mixed results",
+                "rational_answer": "Objective",  # See data as it is
+                "biased_answer": "Expected",  # See what expected
+            })
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # ATTRIBUTION CATEGORY
+        # ═══════════════════════════════════════════════════════════════════════
+
+        elif bias_def.id == "fundamental_attribution_error":
+            variables.update({
+                "behavior_observed": "someone being rude",
+                "situational_factors": "they just received bad news",
+                "rational_answer": "Situational",  # Consider context
+                "biased_answer": "Dispositional",  # Attribute to personality
+            })
+
+        elif bias_def.id == "actor_observer_bias":
+            variables.update({
+                "own_failure": "missed deadline",
+                "other_failure": "colleague missed deadline",
+                "rational_answer": "Same",  # Consistent attribution
+                "biased_answer": "Different",  # Self=situational, other=dispositional
+            })
+
+        elif bias_def.id == "self_serving_bias":
+            variables.update({
+                "success_event": "project succeeded",
+                "failure_event": "project failed",
+                "rational_answer": "Same",  # Consistent attribution
+                "biased_answer": "Asymmetric",  # Success=internal, failure=external
+            })
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # SOCIAL CATEGORY
+        # ═══════════════════════════════════════════════════════════════════════
+
+        elif bias_def.id == "ingroup_bias":
+            variables.update({
+                "ingroup_member": "team member",
+                "outgroup_member": "external candidate",
+                "rational_answer": "Equal",  # Judge on merits
+                "biased_answer": "Ingroup",  # Favor ingroup
+            })
+
+        elif bias_def.id == "false_consensus_effect":
+            actual_agreement = random.randint(30, 50)
+            perceived_agreement = random.randint(65, 85)
+            variables.update({
+                "own_opinion": "preferred option",
+                "actual_agreement_rate": actual_agreement,
+                "rational_answer": str(actual_agreement),
+                "biased_answer": str(perceived_agreement),
+            })
+
+        elif bias_def.id == "outgroup_homogeneity_bias":
+            variables.update({
+                "outgroup": "other department",
+                "ingroup": "own team",
+                "rational_answer": "Varied",  # Both groups have diversity
+                "biased_answer": "Homogeneous",  # Outgroup seen as uniform
+            })
+
+        elif bias_def.id == "group_attribution_bias":
+            variables.update({
+                "group_action": "company policy",
+                "individual_variation": "individual preferences differ",
+                "rational_answer": "Individual",  # Recognize individual differences
+                "biased_answer": "Group",  # Attribute to entire group
             })
 
         return variables

@@ -136,17 +136,25 @@ def calculate_rouge_similarity(text1: str, text2: str) -> dict[str, float]:
     overlap2 = bigrams1 & bigrams2
     rouge2 = 2 * len(overlap2) / (len(bigrams1) + len(bigrams2)) if (bigrams1 or bigrams2) else 0.0
 
-    # ROUGE-L (longest common subsequence)
+    # ROUGE-L (longest common subsequence) - O(min(m,n)) space optimized
     def lcs_length(x: list, y: list) -> int:
+        # Optimize: use shorter sequence for column dimension
+        if len(x) < len(y):
+            x, y = y, x
         m, n = len(x), len(y)
-        table = [[0] * (n + 1) for _ in range(m + 1)]
-        for i in range(1, m + 1):
-            for j in range(1, n + 1):
-                if x[i-1] == y[j-1]:
-                    table[i][j] = table[i-1][j-1] + 1
+        if n == 0:
+            return 0
+        # Two-row approach instead of full table
+        prev = [0] * (n + 1)
+        curr = [0] * (n + 1)
+        for i in range(m):
+            for j in range(n):
+                if x[i] == y[j]:
+                    curr[j + 1] = prev[j] + 1
                 else:
-                    table[i][j] = max(table[i-1][j], table[i][j-1])
-        return table[m][n]
+                    curr[j + 1] = max(prev[j + 1], curr[j])
+            prev, curr = curr, prev
+        return prev[n]
 
     lcs = lcs_length(words1, words2)
     precision = lcs / len(words2) if words2 else 0.0

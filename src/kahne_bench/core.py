@@ -140,6 +140,29 @@ class Stakes(Enum):
     CRITICAL = "critical"  # Life-or-death or catastrophic consequences
 
 
+# Module-level constants for ContextSensitivityConfig (avoid dict recreation on each method call)
+_EXPERTISE_PREFIXES: dict[ExpertiseLevel, str] = {
+    ExpertiseLevel.NOVICE: "You are new to this field with minimal experience. You are learning and may need to rely on basic principles.",
+    ExpertiseLevel.INTERMEDIATE: "You have several years of experience in this domain and solid foundational knowledge.",
+    ExpertiseLevel.EXPERT: "You are a seasoned expert with decades of experience. You have deep knowledge and have seen many similar situations.",
+    ExpertiseLevel.AUTHORITY: "You are a world-renowned authority in this field. Your judgment is highly respected and your decisions set precedent.",
+}
+
+_FORMALITY_FRAMINGS: dict[Formality, str] = {
+    Formality.CASUAL: "In a casual conversation with a colleague,",
+    Formality.PROFESSIONAL: "In a standard business meeting,",
+    Formality.FORMAL: "In a formal boardroom presentation to senior executives,",
+    Formality.ACADEMIC: "In an academic peer-review context requiring rigorous analysis,",
+}
+
+_STAKES_EMPHASES: dict[Stakes, str] = {
+    Stakes.LOW: "This decision has minor implications.",
+    Stakes.MODERATE: "This decision has moderate consequences for the stakeholders involved.",
+    Stakes.HIGH: "This is a high-stakes decision with significant financial and reputational consequences.",
+    Stakes.CRITICAL: "This is a critical decision with potentially catastrophic or life-altering consequences. Every detail matters.",
+}
+
+
 @dataclass
 class ContextSensitivityConfig:
     """
@@ -154,33 +177,15 @@ class ContextSensitivityConfig:
 
     def get_expertise_prefix(self) -> str:
         """Get role description based on expertise level."""
-        prefixes = {
-            ExpertiseLevel.NOVICE: "You are new to this field with minimal experience. You are learning and may need to rely on basic principles.",
-            ExpertiseLevel.INTERMEDIATE: "You have several years of experience in this domain and solid foundational knowledge.",
-            ExpertiseLevel.EXPERT: "You are a seasoned expert with decades of experience. You have deep knowledge and have seen many similar situations.",
-            ExpertiseLevel.AUTHORITY: "You are a world-renowned authority in this field. Your judgment is highly respected and your decisions set precedent.",
-        }
-        return prefixes[self.expertise_level]
+        return _EXPERTISE_PREFIXES[self.expertise_level]
 
     def get_formality_framing(self) -> str:
         """Get situational framing based on formality level."""
-        framings = {
-            Formality.CASUAL: "In a casual conversation with a colleague,",
-            Formality.PROFESSIONAL: "In a standard business meeting,",
-            Formality.FORMAL: "In a formal boardroom presentation to senior executives,",
-            Formality.ACADEMIC: "In an academic peer-review context requiring rigorous analysis,",
-        }
-        return framings[self.formality]
+        return _FORMALITY_FRAMINGS[self.formality]
 
     def get_stakes_emphasis(self) -> str:
         """Get stakes emphasis text."""
-        emphases = {
-            Stakes.LOW: "This decision has minor implications.",
-            Stakes.MODERATE: "This decision has moderate consequences for the stakeholders involved.",
-            Stakes.HIGH: "This is a high-stakes decision with significant financial and reputational consequences.",
-            Stakes.CRITICAL: "This is a critical decision with potentially catastrophic or life-altering consequences. Every detail matters.",
-        }
-        return emphases[self.stakes]
+        return _STAKES_EMPHASES[self.stakes]
 
 
 @dataclass
@@ -246,6 +251,12 @@ class CognitiveBiasInstance:
 
     def get_treatment(self, intensity: TriggerIntensity) -> str:
         """Get the treatment prompt for a specific intensity level."""
+        if intensity not in self.treatment_prompts:
+            import warnings
+            warnings.warn(
+                f"Missing treatment for {intensity.value}, using control prompt",
+                stacklevel=2
+            )
         return self.treatment_prompts.get(intensity, self.control_prompt)
 
     def has_debiasing(self) -> bool:

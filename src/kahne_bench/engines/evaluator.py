@@ -22,6 +22,120 @@ from kahne_bench.core import (
 )
 
 
+# Answer normalization mappings for common synonyms
+# Maps canonical form -> list of acceptable variations
+ANSWER_SYNONYMS: dict[str, list[str]] = {
+    # Decision/action answers
+    "accept": ["accept", "yes", "take", "agree", "proceed", "go ahead"],
+    "reject": ["reject", "no", "decline", "refuse", "pass", "avoid"],
+    "continue": ["continue", "proceed", "keep going", "persist", "stay"],
+    "abandon": ["abandon", "stop", "quit", "cancel", "discontinue"],
+    "change": ["change", "switch", "new", "different"],
+    "keep": ["keep", "maintain", "stay", "current", "status quo"],
+    # Option answers
+    "a": ["a", "option a", "choice a", "program a", "plan a"],
+    "b": ["b", "option b", "choice b", "program b", "plan b"],
+    "both": ["both", "equal", "same", "either", "no difference", "indifferent"],
+    # Comparison answers
+    "small": ["small", "smaller", "the small", "small hospital"],
+    "large": ["large", "larger", "the large", "large hospital"],
+    "average": ["average", "similar", "same as average", "base rate", "mean"],
+    "lower": ["lower", "less", "below average", "less than average", "decreased"],
+    "higher": ["higher", "more", "above average", "greater than average", "increased"],
+    "extreme": ["extreme", "continuation", "persist", "same direction"],
+    # Certainty answers
+    "uncertain": ["uncertain", "unsure", "unclear", "unknown", "unpredictable"],
+    "predictable": ["predictable", "obvious", "foreseeable", "expected", "inevitable"],
+    "confident": ["confident", "certain", "sure", "high confidence"],
+    # Evidence/information answers
+    "confirming": ["confirming", "supporting", "favorable", "positive evidence"],
+    "statistical": ["statistical", "base rate", "data-driven", "objective"],
+    "emotional": ["emotional", "affect", "feeling", "gut"],
+    "salient": ["salient", "memorable", "vivid", "dramatic"],
+    # Evaluation answers
+    "compare": ["compare", "evaluate", "assess", "analyze", "consider both"],
+    "evaluate": ["evaluate", "assess", "consider", "analyze", "judge on merits"],
+    "default": ["default", "unchanged", "original"],
+    "adopt": ["adopt", "follow", "join", "go with"],
+    # Attribution answers
+    "situational": ["situational", "external", "circumstances", "context"],
+    "dispositional": ["dispositional", "internal", "personality", "character"],
+    # Timing answers
+    "now": ["now", "immediate", "today", "present"],
+    "later": ["later", "delayed", "future", "wait"],
+    "historical": ["historical", "long-term", "past average"],
+    "recent": ["recent", "latest", "current trend"],
+    # Memory answers
+    "original": ["original", "actual", "true", "real"],
+    "reconstructed": ["reconstructed", "false", "suggested", "modified"],
+    "correct": ["correct", "right", "accurate"],
+    "wrong": ["wrong", "incorrect", "mistaken"],
+    # Group answers
+    "individual": ["individual", "person", "specific", "single"],
+    "group": ["group", "collective", "all", "everyone"],
+    "ingroup": ["ingroup", "team", "us", "own group"],
+    "equal": ["equal", "fair", "unbiased", "merit-based"],
+    # Variety answers
+    "varied": ["varied", "diverse", "heterogeneous", "different"],
+    "homogeneous": ["homogeneous", "uniform", "same", "similar"],
+    # Update answers
+    "update": ["update", "revise", "change belief", "modify"],
+    "maintain": ["maintain", "persist", "keep belief", "unchanged"],
+    # Correlation answers
+    "none": ["none", "no correlation", "unrelated", "independent"],
+    "correlated": ["correlated", "related", "connected", "associated"],
+    # Proportion answers
+    "proportional": ["proportional", "scaled", "relative to size"],
+    "similar": ["similar", "same amount", "flat", "regardless of scale"],
+    # Other
+    "multiple": ["multiple", "several", "many factors", "all factors"],
+    "single": ["single", "one", "focal", "main factor"],
+    "first": ["first", "initial", "primary", "earliest"],
+    "all": ["all", "everything", "complete", "comprehensive"],
+    "attended": ["attended", "noticed", "salient", "focused on"],
+    "objective": ["objective", "unbiased", "neutral", "as is"],
+    "fungible": ["fungible", "interchangeable", "same money"],
+    "separate": ["separate", "different", "mental account"],
+    "noticed": ["noticed", "saw", "detected", "observed"],
+    "missed": ["missed", "didn't see", "overlooked", "blind to"],
+    "peak": ["peak", "highest", "best moment", "peak-end"],
+    "typical": ["typical", "representative", "prototype", "stereotypical"],
+    "own": ["own", "my side", "personal view"],
+    "asymmetric": ["asymmetric", "different attribution", "self-serving"],
+    "ambiguous": ["ambiguous", "unknown probability", "uncertain odds"],
+    "known": ["known", "certain probability", "clear odds"],
+}
+
+
+def normalize_answer(answer: str) -> str:
+    """
+    Normalize an answer to its canonical form for comparison.
+
+    Args:
+        answer: The raw answer string (will be lowercased and stripped)
+
+    Returns:
+        Canonical form if a match is found, otherwise the original lowercased answer
+    """
+    answer_lower = answer.lower().strip()
+
+    # Check each canonical form - require word boundary or exact match
+    for canonical, variations in ANSWER_SYNONYMS.items():
+        for variation in variations:
+            # Exact match
+            if answer_lower == variation:
+                return canonical
+            # Check if answer contains the variation as a complete word
+            # (e.g., "i accept" contains "accept" but not just "a" or "e")
+            if len(variation) >= 3 and variation in answer_lower:
+                # Ensure it's a word boundary match (not substring of another word)
+                import re
+                if re.search(rf'\b{re.escape(variation)}\b', answer_lower):
+                    return canonical
+
+    return answer_lower
+
+
 class LLMProvider(Protocol):
     """Protocol for LLM API providers."""
 
@@ -89,6 +203,9 @@ class AnthropicProvider:
             max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
         )
+        # Handle empty content array (e.g., from content filtering)
+        if not response.content:
+            return ""
         return response.content[0].text
 
 
@@ -116,7 +233,8 @@ class XAIProvider:
             chat.append(system("You are a helpful assistant."))
             chat.append(user(prompt))
             response = chat.sample()
-            return response.content
+            # Handle None content from xAI
+            return response.content or ""
 
         return await asyncio.to_thread(_sync_complete)
 
@@ -143,7 +261,8 @@ class GeminiProvider:
                 model=self.model,
                 contents=prompt,
             )
-            return response.text
+            # Handle None text (e.g., from safety filtering)
+            return response.text or ""
 
         return await asyncio.to_thread(_sync_complete)
 
@@ -175,6 +294,33 @@ class EvaluationConfig:
     # Rate limiting
     requests_per_minute: int = 60
 
+    def __post_init__(self):
+        """Validate configuration values."""
+        if self.requests_per_minute < 1:
+            raise ValueError("requests_per_minute must be at least 1")
+
+
+# Pre-compiled regex patterns for answer extraction (module level for performance)
+_OPTION_PATTERNS = [
+    re.compile(r"(?:I (?:would )?(?:choose|select|prefer|recommend)(?:ing)?)\s*(?:option\s*)?([A-D])", re.IGNORECASE),
+    re.compile(r"(?:my (?:choice|selection|preference|answer) is)\s*(?:option\s*)?([A-D])", re.IGNORECASE),
+    re.compile(r"(?:option\s*)?([A-D])\s*(?:is (?:the )?(?:best|better|correct|right))", re.IGNORECASE),
+    re.compile(r"(?:^|\n)\s*([A-D])\s*[:\.\)]"),
+    re.compile(r"(?:answer|choice|selection):\s*([A-D])", re.IGNORECASE),
+]
+
+_NUMERIC_PATTERNS = [
+    re.compile(r"(?:estimate|answer|value|result)[:\s]+\$?([\d,]+(?:\.\d+)?)", re.IGNORECASE),
+    re.compile(r"(?:approximately|about|around)\s+\$?([\d,]+(?:\.\d+)?)", re.IGNORECASE),
+    re.compile(r"\$?([\d,]+(?:\.\d+)?)\s*(?:dollars|percent|%|years|people)", re.IGNORECASE),
+]
+
+_YES_NO_PATTERNS = [
+    re.compile(r"(?:I (?:would )?(?:recommend|suggest|advise))\s*(yes|no|accepting|rejecting)", re.IGNORECASE),
+    re.compile(r"(?:my (?:answer|recommendation) is)\s*(yes|no)", re.IGNORECASE),
+    re.compile(r"(?:^|\n)\s*(yes|no)\s*[,\.\:]", re.IGNORECASE),
+]
+
 
 class AnswerExtractor:
     """
@@ -184,26 +330,10 @@ class AnswerExtractor:
     identify the final decision/answer from verbose responses.
     """
 
-    # Common answer patterns
-    OPTION_PATTERNS = [
-        r"(?:I (?:would )?(?:choose|select|prefer|recommend)(?:ing)?)\s*(?:option\s*)?([A-D])",
-        r"(?:my (?:choice|selection|preference|answer) is)\s*(?:option\s*)?([A-D])",
-        r"(?:option\s*)?([A-D])\s*(?:is (?:the )?(?:best|better|correct|right))",
-        r"(?:^|\n)\s*([A-D])\s*[:\.\)]",
-        r"(?:answer|choice|selection):\s*([A-D])",
-    ]
-
-    NUMERIC_PATTERNS = [
-        r"(?:estimate|answer|value|result)[:\s]+\$?([\d,]+(?:\.\d+)?)",
-        r"(?:approximately|about|around)\s+\$?([\d,]+(?:\.\d+)?)",
-        r"\$?([\d,]+(?:\.\d+)?)\s*(?:dollars|percent|%|years|people)",
-    ]
-
-    YES_NO_PATTERNS = [
-        r"(?:I (?:would )?(?:recommend|suggest|advise))\s*(yes|no|accepting|rejecting)",
-        r"(?:my (?:answer|recommendation) is)\s*(yes|no)",
-        r"(?:^|\n)\s*(yes|no)\s*[,\.\:]",
-    ]
+    # Use pre-compiled module-level patterns for performance
+    OPTION_PATTERNS = _OPTION_PATTERNS
+    NUMERIC_PATTERNS = _NUMERIC_PATTERNS
+    YES_NO_PATTERNS = _YES_NO_PATTERNS
 
     def __init__(self, llm_extractor: LLMProvider | None = None):
         """
@@ -230,6 +360,15 @@ class AnswerExtractor:
         if expected_type == "option":
             patterns = self.OPTION_PATTERNS
         elif expected_type == "numeric":
+            # First, check for structured "Confidence: X%" format (overconfidence tests)
+            # This takes priority over other numeric patterns
+            confidence_structured = re.search(
+                r"Confidence:\s*(\d{1,3})\s*%?",
+                response,
+                re.IGNORECASE,
+            )
+            if confidence_structured:
+                return confidence_structured.group(1)
             patterns = self.NUMERIC_PATTERNS
         elif expected_type == "yes_no":
             patterns = self.YES_NO_PATTERNS
@@ -237,7 +376,8 @@ class AnswerExtractor:
             return self._extract_text_answer(response)
 
         for pattern in patterns:
-            match = re.search(pattern, response_lower, re.IGNORECASE)
+            # Patterns are pre-compiled with re.IGNORECASE
+            match = pattern.search(response_lower)
             if match:
                 return match.group(1).upper() if expected_type == "option" else match.group(1)
 
@@ -269,9 +409,18 @@ class AnswerExtractor:
             return options[-1] if options else None
 
         elif expected_type == "numeric":
-            # Try to find numbers near answer keywords first
+            # First, check for structured "Confidence: X%" format (overconfidence tests)
+            confidence_structured = re.search(
+                r"Confidence:\s*(\d{1,3})\s*%?",
+                response,
+                re.IGNORECASE,
+            )
+            if confidence_structured:
+                return confidence_structured.group(1)
+
+            # Try to find numbers near answer keywords (handles "answer is X", "answer: X", "answer X")
             answer_context = re.search(
-                r"(?:estimate|answer|value|result|approximately|about|around)[:\s]+\$?([\d,]+(?:\.\d+)?)",
+                r"(?:estimate|answer|value|result|approximately|about|around|probability|chance|likelihood|odds)(?:\s+is\s+|\s*:\s*|\s+)\$?([\d,]+(?:\.\d+)?)",
                 response,
                 re.IGNORECASE,
             )
@@ -295,7 +444,7 @@ class AnswerExtractor:
                 flags=re.IGNORECASE,
             )
             numbers = re.findall(r"[\d,]+(?:\.\d+)?", response_no_confidence)
-            return numbers[-1].replace(",", "") if numbers else None
+            return numbers[0].replace(",", "") if numbers else None
 
         elif expected_type == "yes_no":
             # Check for presence of yes/no keywords
@@ -472,7 +621,7 @@ class BiasEvaluator:
 
         if any(opt in prompt_lower for opt in ["option a", "option b", "program a", "program b"]):
             return "option"
-        elif any(word in prompt_lower for word in ["estimate", "how much", "how many", "probability"]):
+        elif any(word in prompt_lower for word in ["estimate", "how much", "how many", "probability", "confidence:"]):
             return "numeric"
         elif any(word in prompt_lower for word in ["accept", "reject", "continue", "should you"]):
             return "yes_no"
@@ -582,7 +731,17 @@ class BiasEvaluator:
         except (ValueError, TypeError):
             pass
 
-        # Fall back to exact string matching for non-numeric answers
+        # Fall back to normalized string matching for non-numeric answers
+        extracted_norm = normalize_answer(extracted)
+        rational_norm = normalize_answer(rational)
+        biased_norm = normalize_answer(biased)
+
+        if extracted_norm == rational_norm:
+            return False, 0.0
+        elif extracted_norm == biased_norm:
+            return True, 1.0
+
+        # Also try exact matching as fallback
         if extracted == rational:
             return False, 0.0
         elif extracted == biased:

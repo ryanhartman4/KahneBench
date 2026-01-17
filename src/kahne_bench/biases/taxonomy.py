@@ -975,6 +975,23 @@ BIAS_TAXONOMY: dict[str, BiasDefinition] = {
     for bias in bias_list
 }
 
+# =============================================================================
+# PRECOMPUTED LOOKUPS
+# Built once at module load for O(1) category and type access
+# =============================================================================
+
+BIASES_BY_CATEGORY: dict[BiasCategory, list[BiasDefinition]] = {}
+KT_CORE_BIASES: list[BiasDefinition] = []
+EXTENDED_BIASES: list[BiasDefinition] = []
+
+for _bias in BIAS_TAXONOMY.values():
+    BIASES_BY_CATEGORY.setdefault(_bias.category, []).append(_bias)
+    if _bias.is_kt_core:
+        KT_CORE_BIASES.append(_bias)
+    else:
+        EXTENDED_BIASES.append(_bias)
+del _bias  # Clean up loop variable
+
 
 def get_bias_by_id(bias_id: str) -> BiasDefinition | None:
     """Retrieve a bias definition by its ID."""
@@ -983,7 +1000,7 @@ def get_bias_by_id(bias_id: str) -> BiasDefinition | None:
 
 def get_biases_by_category(category: BiasCategory) -> list[BiasDefinition]:
     """Get all biases belonging to a specific category."""
-    return [bias for bias in BIAS_TAXONOMY.values() if bias.category == category]
+    return BIASES_BY_CATEGORY.get(category, [])
 
 
 def get_all_bias_ids() -> list[str]:
@@ -997,7 +1014,7 @@ def get_kt_core_biases() -> list[BiasDefinition]:
     Returns biases where is_kt_core=True, meaning the bias was documented
     in papers where Kahneman and/or Tversky were authors.
     """
-    return [bias for bias in BIAS_TAXONOMY.values() if bias.is_kt_core]
+    return KT_CORE_BIASES
 
 
 def get_extended_biases() -> list[BiasDefinition]:
@@ -1006,7 +1023,7 @@ def get_extended_biases() -> list[BiasDefinition]:
     Returns biases where is_kt_core=False, meaning the bias was documented
     by other researchers but is theoretically connected to dual-process theory.
     """
-    return [bias for bias in BIAS_TAXONOMY.values() if not bias.is_kt_core]
+    return EXTENDED_BIASES
 
 
 # =============================================================================

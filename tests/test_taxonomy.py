@@ -1,5 +1,8 @@
 """Tests for the cognitive bias taxonomy."""
 
+
+import re
+
 import pytest
 from kahne_bench.biases import (
     BIAS_TAXONOMY,
@@ -9,15 +12,22 @@ from kahne_bench.biases import (
     BIAS_INTERACTION_MATRIX,
     BiasCategory,
 )
+from kahne_bench.biases.taxonomy import get_kt_core_biases, get_extended_biases
 from kahne_bench.core import BiasDefinition
 
 
 class TestBiasTaxonomy:
     """Tests for the bias taxonomy structure and content."""
 
-    def test_taxonomy_has_at_least_50_biases(self):
-        """Verify we have at least 50 biases as specified."""
-        assert len(BIAS_TAXONOMY) >= 50
+    def test_taxonomy_has_exactly_69_biases(self):
+        """Verify the taxonomy contains exactly 69 biases as specified in the framework documentation.
+
+        The Kahne-Bench framework extends beyond the original 50-bias specification to include
+        69 well-documented biases across 16 categories grounded in Kahneman-Tversky research.
+        """
+        assert len(BIAS_TAXONOMY) == 69, (
+            f"Expected exactly 69 biases in taxonomy, found {len(BIAS_TAXONOMY)}"
+        )
 
     def test_all_biases_have_required_fields(self):
         """Verify each bias has all required fields populated."""
@@ -92,6 +102,96 @@ class TestBiasTaxonomy:
         for bias_id in key_biases:
             assert bias_id in BIAS_TAXONOMY, f"Missing key bias: {bias_id}"
 
+    def test_bias_category_distribution(self):
+        """Verify each category has the expected number of biases per the framework specification.
+
+        The distribution is documented in taxonomy.py header and must be maintained for
+        consistent benchmark coverage across all cognitive bias categories.
+        """
+        # Expected counts from taxonomy.py docstring
+        expected_distribution = {
+            BiasCategory.REPRESENTATIVENESS: 8,
+            BiasCategory.AVAILABILITY: 6,
+            BiasCategory.ANCHORING: 5,
+            BiasCategory.LOSS_AVERSION: 5,
+            BiasCategory.FRAMING: 6,  # 7 in doc but mental_accounting makes 6 + 1 in FRAMING
+            BiasCategory.PROBABILITY_DISTORTION: 7,  # includes affect_heuristic
+            BiasCategory.OVERCONFIDENCE: 5,
+            BiasCategory.CONFIRMATION: 3,
+            BiasCategory.TEMPORAL_BIAS: 3,
+            BiasCategory.EXTENSION_NEGLECT: 2,  # scope_insensitivity, identifiable_victim_effect
+            BiasCategory.MEMORY_BIAS: 4,
+            BiasCategory.ATTENTION_BIAS: 3,
+            BiasCategory.ATTRIBUTION_BIAS: 3,
+            BiasCategory.UNCERTAINTY_JUDGMENT: 3,
+            BiasCategory.SOCIAL_BIAS: 5,  # group_attribution, halo, ingroup, false_consensus, outgroup_homogeneity
+            BiasCategory.REFERENCE_DEPENDENCE: 1,  # reference_point_framing
+        }
+
+        # Check actual counts
+        actual_distribution = {}
+        for bias in BIAS_TAXONOMY.values():
+            actual_distribution[bias.category] = actual_distribution.get(bias.category, 0) + 1
+
+        for category, expected_count in expected_distribution.items():
+            actual_count = actual_distribution.get(category, 0)
+            assert actual_count == expected_count, (
+                f"Category {category.name}: expected {expected_count} biases, found {actual_count}"
+            )
+
+    def test_all_bias_categories_are_used(self):
+        """Verify all BiasCategory enum values have at least one bias assigned.
+
+        This prevents orphaned categories that exist in the enum but have no
+        corresponding biases in the taxonomy.
+        """
+        used_categories = {bias.category for bias in BIAS_TAXONOMY.values()}
+        all_categories = set(BiasCategory)
+
+        orphaned = all_categories - used_categories
+        assert not orphaned, (
+            f"The following BiasCategory enum values have no biases: "
+            f"{[c.name for c in orphaned]}"
+        )
+
+    def test_bias_ids_follow_naming_convention(self):
+        """Verify all bias IDs use snake_case naming convention.
+
+        All bias IDs must consist only of lowercase letters and underscores
+        (e.g., 'anchoring_effect', 'loss_aversion'). This ensures consistency
+        across the codebase and compatibility with Python identifier conventions.
+        """
+        snake_case_pattern = re.compile(r"^[a-z][a-z_]*[a-z]$|^[a-z]$")
+
+        violations = []
+        for bias_id in BIAS_TAXONOMY.keys():
+            if not snake_case_pattern.match(bias_id):
+                violations.append(bias_id)
+
+        assert not violations, (
+            f"The following bias IDs do not follow snake_case convention: {violations}"
+        )
+
+    def test_trigger_templates_have_placeholders(self):
+        """Verify all trigger templates contain variable placeholders for parameterization.
+
+        Trigger templates must contain at least one {variable_name} placeholder
+        to allow dynamic test case generation with scenario-specific values.
+        Placeholders can contain lowercase letters, underscores, and digits
+        (e.g., {anchor}, {n1}, {base_rate}).
+        """
+        placeholder_pattern = re.compile(r"\{[a-z][a-z0-9_]*\}")
+
+        missing_placeholders = []
+        for bias_id, bias in BIAS_TAXONOMY.items():
+            if not placeholder_pattern.search(bias.trigger_template):
+                missing_placeholders.append(bias_id)
+
+        assert not missing_placeholders, (
+            f"The following biases have trigger templates without placeholders: "
+            f"{missing_placeholders}"
+        )
+
 
 class TestBiasInteractionMatrix:
     """Tests for the bias interaction matrix."""
@@ -131,6 +231,28 @@ class TestBiasInteractionMatrix:
 
         assert coverage >= 0.60, f"Interaction coverage {coverage:.1%} below 60% target"
 
+    def test_interaction_matrix_reasonable_pair_counts(self):
+        """Verify no bias has more than 15 interaction partners.
+
+        This constraint ensures the interaction matrix remains theoretically
+        meaningful rather than becoming a dense web where every bias interacts
+        with every other bias. Having too many partners dilutes the theoretical
+        significance of each interaction.
+        """
+        max_interactions = 15
+        excessive_interactions = []
+
+        for primary_bias, secondaries in BIAS_INTERACTION_MATRIX.items():
+            if len(secondaries) > max_interactions:
+                excessive_interactions.append(
+                    f"{primary_bias}: {len(secondaries)} interactions"
+                )
+
+        assert not excessive_interactions, (
+            f"The following biases exceed {max_interactions} interaction partners: "
+            f"{excessive_interactions}"
+        )
+
 
 class TestKTCoreField:
     """Tests for the is_kt_core field on BiasDefinition."""
@@ -161,8 +283,6 @@ class TestKTCoreField:
 
     def test_helper_functions_exist(self):
         """Verify get_kt_core_biases and get_extended_biases work."""
-        from kahne_bench.biases.taxonomy import get_kt_core_biases, get_extended_biases
-
         kt_core = get_kt_core_biases()
         extended = get_extended_biases()
 
@@ -174,3 +294,52 @@ class TestKTCoreField:
 
         # All extended should have is_kt_core=False
         assert all(not b.is_kt_core for b in extended)
+
+    def test_non_kt_core_biases_exist(self):
+        """Verify the taxonomy contains biases not directly authored by Kahneman & Tversky.
+
+        The framework includes biases documented by other researchers that are
+        theoretically connected to dual-process theory but were not part of K&T's
+        original research papers. This ensures we have both core and extended biases.
+        """
+        non_kt_core_biases = [b for b in BIAS_TAXONOMY.values() if not b.is_kt_core]
+
+        assert len(non_kt_core_biases) > 0, (
+            "Expected at least some biases with is_kt_core=False"
+        )
+
+        # Should have a reasonable number of extended biases (not just 1 or 2)
+        assert len(non_kt_core_biases) >= 10, (
+            f"Expected at least 10 non-K&T core biases, found {len(non_kt_core_biases)}"
+        )
+
+    def test_get_kt_core_biases_returns_subset(self):
+        """Test that get_kt_core_biases() returns only biases with is_kt_core=True.
+
+        The function should return a proper subset of the taxonomy containing
+        only biases that were directly documented in Kahneman and/or Tversky's
+        original research papers.
+        """
+        kt_core = get_kt_core_biases()
+
+        # Should return a non-empty list
+        assert len(kt_core) > 0, "get_kt_core_biases() returned empty list"
+
+        # All returned biases must have is_kt_core=True
+        for bias in kt_core:
+            assert bias.is_kt_core, (
+                f"Bias '{bias.id}' returned by get_kt_core_biases() "
+                f"but has is_kt_core=False"
+            )
+
+        # Should be a proper subset (not all biases)
+        assert len(kt_core) < len(BIAS_TAXONOMY), (
+            "get_kt_core_biases() returned all biases, expected a subset"
+        )
+
+        # Verify the count matches filtering the taxonomy directly
+        expected_kt_core = [b for b in BIAS_TAXONOMY.values() if b.is_kt_core]
+        assert len(kt_core) == len(expected_kt_core), (
+            f"get_kt_core_biases() returned {len(kt_core)} biases but "
+            f"taxonomy has {len(expected_kt_core)} biases with is_kt_core=True"
+        )

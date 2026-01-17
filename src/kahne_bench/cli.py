@@ -24,6 +24,13 @@ from kahne_bench.engines.compound import CompoundTestGenerator
 console = Console()
 
 
+def validate_positive(ctx, param, value):
+    """Click callback to validate that a value is at least 1."""
+    if value is not None and value < 1:
+        raise click.BadParameter(f"must be at least 1, got {value}")
+    return value
+
+
 @click.group()
 @click.version_option(version=__version__)
 def main():
@@ -37,7 +44,7 @@ def main():
 
 @main.command()
 def list_biases():
-    """List all 50 biases in the taxonomy."""
+    """List all 69 biases in the taxonomy."""
     table = Table(title="Kahne-Bench Bias Taxonomy")
     table.add_column("ID", style="cyan")
     table.add_column("Name", style="green")
@@ -93,7 +100,13 @@ def list_categories(category: str | None):
             BiasCategory.ANCHORING: "Over-reliance on initial values",
             BiasCategory.LOSS_AVERSION: "Losses loom larger than gains",
             BiasCategory.FRAMING: "Decisions affected by presentation",
+            BiasCategory.REFERENCE_DEPENDENCE: "Outcomes evaluated relative to reference points",
             BiasCategory.PROBABILITY_DISTORTION: "Misweighting probabilities",
+            BiasCategory.UNCERTAINTY_JUDGMENT: "Errors in assessing uncertainty",
+            BiasCategory.MEMORY_BIAS: "Systematic distortions in memory recall",
+            BiasCategory.ATTENTION_BIAS: "Selective focus on certain information",
+            BiasCategory.SOCIAL_BIAS: "Biases in social judgments",
+            BiasCategory.ATTRIBUTION_BIAS: "Errors in explaining causes of events",
             BiasCategory.OVERCONFIDENCE: "Excessive certainty in judgments",
             BiasCategory.CONFIRMATION: "Seeking confirming evidence",
             BiasCategory.TEMPORAL_BIAS: "Biases in time perception",
@@ -111,7 +124,7 @@ def list_categories(category: str | None):
 @main.command()
 @click.option("--bias", "-b", multiple=True, help="Bias IDs to include (default: all)")
 @click.option("--domain", "-d", type=click.Choice([d.value for d in Domain]), multiple=True, help="Domains to include")
-@click.option("--instances", "-n", default=3, help="Instances per bias-domain pair")
+@click.option("--instances", "-n", default=3, callback=validate_positive, help="Instances per bias-domain pair")
 @click.option("--output", "-o", default="test_cases.json", help="Output file path")
 @click.option("--seed", "-s", type=int, default=None, help="Random seed for reproducibility")
 def generate(bias: tuple, domain: tuple, instances: int, output: str, seed: int | None):
@@ -255,7 +268,7 @@ def info():
 @click.option("--provider", "-p", type=click.Choice(["openai", "anthropic", "fireworks", "xai", "gemini", "mock"]), default="mock",
               help="LLM provider (fireworks for open-source models, xai for Grok, gemini for Google)")
 @click.option("--model", "-m", default=None, help="Model name to evaluate")
-@click.option("--trials", "-n", default=3, help="Number of trials per condition")
+@click.option("--trials", "-n", default=3, callback=validate_positive, help="Number of trials per condition")
 @click.option("--output", "-o", default="results.json", help="Output file for results")
 @click.option("--fingerprint", "-f", default="fingerprint.json", help="Output file for cognitive fingerprint")
 @click.option("--tier", "-t", type=click.Choice(["core", "extended", "interaction"]), default="core",
@@ -286,6 +299,9 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
     console.print(f"[cyan]Loading test cases from {input_file}...[/cyan]")
     try:
         instances = import_instances_from_json(input_file)
+        if not instances:
+            console.print("[red]Error: Input file contains no test instances[/red]")
+            sys.exit(1)
         console.print(f"[green]Loaded {len(instances)} test instances[/green]")
     except Exception as e:
         console.print(f"[red]Error loading test cases: {e}[/red]")

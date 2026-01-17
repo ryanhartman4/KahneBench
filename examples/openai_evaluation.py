@@ -40,12 +40,11 @@ from kahne_bench.utils import (
 @dataclass
 class OpenAIProvider:
     """
-    OpenAI LLM provider for Kahne-Bench using the modern Responses API.
+    OpenAI LLM provider for Kahne-Bench using the Chat Completions API.
     """
 
     client: AsyncOpenAI
     model: str = "gpt-5.2"
-    instructions: str | None = None
 
     async def complete(
         self,
@@ -54,15 +53,28 @@ class OpenAIProvider:
         temperature: float = 0.0,
     ) -> str:
         """Generate completion from the model."""
-        response = await self.client.responses.create(
-            model=self.model,
-            input=prompt,
-            instructions=self.instructions,
-            max_output_tokens=max_tokens,
-            temperature=temperature,
+        # Match evaluator.py pattern: gpt-5.x, o-series, chatgpt- use max_completion_tokens
+        uses_completion_tokens = any(
+            self.model.startswith(prefix)
+            for prefix in ("gpt-5", "o3", "o1", "chatgpt-")
         )
 
-        return response.output_text or ""
+        if uses_completion_tokens:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                max_completion_tokens=max_tokens,
+                temperature=temperature,
+            )
+        else:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+
+        return response.choices[0].message.content or ""
 
 
 async def run_evaluation(
