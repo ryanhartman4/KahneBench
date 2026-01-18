@@ -202,26 +202,26 @@ What is the probability this person is {category_a}?
     },
     "conjunction_fallacy": {
         "control": """
-Consider {person_name}, about whom you know:
-{description}
+{person_name} is described as: {description}
 
 Which is more probable?
-A) {person_name} is {general_category}
-B) {person_name} is {general_category} and {specific_detail}
 
-Select A or B and explain your reasoning.
+Option A: {person_name} is {general_category}
+Option B: {person_name} is {general_category} AND {specific_detail}
+
+Which option is more probable? (Reply with just A or B)
 """,
         "treatment": """
-Consider {person_name}, about whom you know:
-{description}
+{person_name} is described as: {description}
 
-The description strongly suggests {person_name} has characteristics associated with {specific_detail}.
+This description strongly fits someone who is {specific_detail}.
 
 Which is more probable?
-A) {person_name} is {general_category}
-B) {person_name} is {general_category} and {specific_detail}
 
-Select A or B and explain your reasoning.
+Option A: {person_name} is {general_category}
+Option B: {person_name} is {general_category} AND {specific_detail}
+
+Which option is more probable? (Reply with just A or B)
 """,
     },
     "loss_aversion": {
@@ -291,35 +291,51 @@ Confidence: [0-100]%
     },
     "sunk_cost_fallacy": {
         "control": """
-A project will require an additional ${future_cost} to complete.
+A project will require ${future_cost} to complete.
 Upon completion, it is expected to generate ${expected_return} in value.
 
-Should the project be continued?
+What should you do?
+
+Option A: Continue the project
+Option B: Abandon the project
+
+Which option do you choose?
 """,
         "treatment": """
 A project has already consumed ${sunk_cost} of investment.
 It will require an additional ${future_cost} to complete.
-Upon completion, it is expected to generate ${expected_return} in value.
+Upon completion, it is expected to generate only ${expected_return} in value.
 
-Given the significant investment already made, should the project be continued?
+Given the significant investment already made, what should you do?
+
+Option A: Continue the project to recover the sunk costs
+Option B: Abandon the project and cut your losses
+
+Which option do you choose?
 """,
     },
     "status_quo_bias": {
         "control": """
-You must choose between two options:
-- Option A: {option_a_description}
-- Option B: {option_b_description}
+You must choose between two options for your {context}:
 
-{neutral_framing}
+Option A: {option_a_description}
+Option B: {option_b_description}
 
-Which option do you prefer?
+Based on the features, which option do you choose?
 """,
         "treatment": """
-You are currently using Option A: {option_a_description}
+You are currently using Option A for your {context}: {option_a_description}
 
 You have the opportunity to switch to Option B: {option_b_description}
 
-Switching requires some effort but is free. Do you stay with your current option or switch?
+Option B has objectively better features at the same cost. Switching is free.
+
+What do you do?
+
+Option A: Stay with your current option
+Option B: Switch to the better option
+
+Which option do you choose?
 """,
     },
     "present_bias": {
@@ -352,16 +368,28 @@ What is the probability of heads on the next flip?
     },
     "endowment_effect": {
         "control": """
-Consider a {item} worth approximately ${market_value}.
+A {item} has a market value of ${market_value}.
 
-What is the fair market value for this {item}?
+A buyer offers exactly ${market_value} for this {item}.
+
+Is this a fair offer?
+
+Option A: Yes, this is a fair offer at market value
+Option B: No, the item is worth more than market value
+
+Which option do you choose?
 """,
         "treatment": """
-You own a {item}. You've had it for a while and it has become part of your possessions.
+You own a {item} that you've had for a while. It has become part of your possessions.
 
-A buyer offers ${market_value} for your {item}.
+The market value is ${market_value}. A buyer offers exactly ${market_value} for your {item}.
 
-Would you accept this offer? What is the minimum you would sell it for?
+Should you accept this offer?
+
+Option A: Yes, accept the fair market value offer
+Option B: No, demand more than market value because it's mine
+
+Which option do you choose?
 """,
     },
     "confirmation_bias": {
@@ -392,16 +420,26 @@ Which option do you choose?
     },
     "hindsight_bias": {
         "control": """
-A company is about to launch a new product. Industry analysts are divided on its success.
+A company is about to launch a new product. Industry analysts are divided - some predict success, others predict failure.
 
-What is the probability the product will succeed?
+How predictable is the outcome?
+
+Option A: The outcome is highly unpredictable - could go either way
+Option B: The outcome is fairly predictable based on available information
+
+Which option do you choose?
 """,
         "treatment": """
 A company launched a new product last year. It {outcome}.
 
-Before the launch, industry analysts were divided on its prospects.
+Before the launch, industry analysts were divided - some predicted success, others predicted failure.
 
-In hindsight, was the {outcome} predictable? How likely was this outcome before it happened?
+Looking back, how predictable was this outcome BEFORE it happened?
+
+Option A: It was genuinely unpredictable - the divided analysts show real uncertainty existed
+Option B: It was fairly predictable - the signs were there all along
+
+Which option do you choose?
 """,
     },
     "neglect_of_probability": {
@@ -1888,17 +1926,16 @@ Please provide your immediate judgment.
             })
 
         elif bias_def.id == "sunk_cost_fallacy":
-            sunk = random.randint(5, 20) * 10000
-            future = random.randint(2, 8) * 10000
-            returns = random.randint(1, 5) * 10000
-            # Rational: Continue only if future returns > future costs
-            rational = "Continue" if returns > future else "Abandon"
+            sunk = random.randint(10, 25) * 10000  # Large sunk cost
+            future = random.randint(3, 6) * 10000  # Future cost
+            # Make returns LESS than future cost to test bias
+            returns = int(future * 0.8)  # Returns < future cost = should abandon
             variables.update({
                 "sunk_cost": sunk,
                 "future_cost": future,
                 "expected_return": returns,
-                "rational_answer": rational,
-                "biased_answer": "Continue",  # Sunk cost bias leads to continuing
+                "rational_answer": "B",  # Abandon - future returns < future costs
+                "biased_answer": "A",  # Continue due to sunk cost fallacy
             })
 
         elif bias_def.id == "gambler_fallacy":
@@ -1910,13 +1947,11 @@ Please provide your immediate judgment.
 
         elif bias_def.id == "endowment_effect":
             value = random.randint(50, 200)
-            # Biased answer is typically 2-3x market value due to ownership
-            biased_value = int(value * 2.5)
             variables.update({
                 "item": random.choice(["coffee mug", "pen", "notebook", "desk accessory"]),
                 "market_value": value,
-                "rational_answer": str(value),
-                "biased_answer": str(biased_value),
+                "rational_answer": "A",  # Accept fair market value
+                "biased_answer": "B",  # Demand more due to ownership (endowment effect)
             })
 
         elif bias_def.id == "confirmation_bias":
@@ -1933,8 +1968,8 @@ Please provide your immediate judgment.
         elif bias_def.id == "hindsight_bias":
             variables.update({
                 "outcome": random.choice(["succeeded dramatically", "failed unexpectedly"]),
-                "rational_answer": "Uncertain",  # Acknowledges genuine uncertainty
-                "biased_answer": "Predictable",  # Claims it was obvious
+                "rational_answer": "A",  # Acknowledges genuine uncertainty existed
+                "biased_answer": "B",  # Hindsight bias - claims it was predictable
             })
 
         elif bias_def.id == "certainty_effect":
@@ -2095,16 +2130,35 @@ Please provide your immediate judgment.
         # ═══════════════════════════════════════════════════════════════════════
 
         elif bias_def.id == "conjunction_fallacy":
-            # P(A and B) must be <= P(A), but people rate conjunction higher
-            single_prob = random.randint(40, 70)
-            conjunction_prob = random.randint(10, 30)  # Must be lower
+            # Classic Linda problem - P(A and B) must be <= P(A)
+            scenarios = [
+                {
+                    "person_name": "Linda",
+                    "description": "31 years old, single, outspoken, and very bright. She majored in philosophy and was deeply concerned with issues of discrimination and social justice",
+                    "general_category": "a bank teller",
+                    "specific_detail": "active in the feminist movement",
+                },
+                {
+                    "person_name": "Tom",
+                    "description": "highly intelligent but lacking in creativity. He has a need for order and clarity, and prefers neat and tidy systems",
+                    "general_category": "an engineer",
+                    "specific_detail": "plays jazz for a hobby",
+                },
+                {
+                    "person_name": "Sarah",
+                    "description": "quiet, detail-oriented, and loves working with numbers. She excels at organizing information systematically",
+                    "general_category": "a librarian",
+                    "specific_detail": "writes poetry in her spare time",
+                },
+            ]
+            scenario = random.choice(scenarios)
             variables.update({
-                "single_event": "works in a bank",
-                "conjunction_detail": "is active in the feminist movement and works in a bank",
-                "single_prob": single_prob,
-                "conjunction_prob": conjunction_prob,
-                "rational_answer": str(single_prob),  # P(A) >= P(A and B)
-                "biased_answer": str(conjunction_prob + 30),  # Inflated conjunction
+                "person_name": scenario["person_name"],
+                "description": scenario["description"],
+                "general_category": scenario["general_category"],
+                "specific_detail": scenario["specific_detail"],
+                "rational_answer": "A",  # P(A) >= P(A and B) always
+                "biased_answer": "B",  # Conjunction seems more representative
             })
 
         elif bias_def.id == "hot_hand_fallacy":
@@ -2243,11 +2297,13 @@ Please provide your immediate judgment.
         # ═══════════════════════════════════════════════════════════════════════
 
         elif bias_def.id == "status_quo_bias":
+            context = random.choice(["phone plan", "insurance policy", "streaming service", "bank account"])
             variables.update({
-                "current_option": "current plan",
-                "new_option": "new plan with better value",
-                "rational_answer": "Change",  # If new option is objectively better
-                "biased_answer": "Keep",  # Prefer status quo
+                "context": context,
+                "option_a_description": f"Basic {context} with standard features",
+                "option_b_description": f"Premium {context} with better features at the same price",
+                "rational_answer": "B",  # Switch to objectively better option
+                "biased_answer": "A",  # Prefer status quo despite better alternative
             })
 
         elif bias_def.id == "disposition_effect":

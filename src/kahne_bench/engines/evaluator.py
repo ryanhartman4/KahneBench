@@ -291,8 +291,9 @@ class EvaluationConfig:
         default_factory=lambda: [TemporalCondition.IMMEDIATE]
     )
 
-    # Rate limiting
-    requests_per_minute: int = 60
+    # Rate limiting and concurrency
+    requests_per_minute: int = 60  # Legacy, kept for compatibility
+    max_concurrent_requests: int = 50  # Concurrent API calls via semaphore
 
     def __post_init__(self):
         """Validate configuration values."""
@@ -534,6 +535,16 @@ class BiasEvaluator:
         self.provider = provider
         self.config = config or EvaluationConfig()
         self.extractor = answer_extractor or AnswerExtractor()
+        self._semaphore = asyncio.Semaphore(self.config.max_concurrent_requests)
+
+    async def _call_provider(self, prompt: str) -> str:
+        """Make API call with semaphore-based concurrency limiting."""
+        async with self._semaphore:
+            return await self.provider.complete(
+                prompt=prompt,
+                max_tokens=self.config.max_tokens,
+                temperature=self.config.temperature,
+            )
 
     async def evaluate_instance(
         self,
@@ -593,18 +604,14 @@ class BiasEvaluator:
         condition: str,
         model_id: str,
     ) -> list[TestResult]:
-        """Run multiple trials for a single condition."""
-        results = []
+        """Run multiple trials for a single condition concurrently."""
 
-        for trial in range(self.config.num_trials):
+        async def run_single_trial(trial_num: int) -> TestResult:
+            """Execute a single trial with timing and scoring."""
             start_time = time.time()
 
             try:
-                response = await self.provider.complete(
-                    prompt=prompt,
-                    max_tokens=self.config.max_tokens,
-                    temperature=self.config.temperature,
-                )
+                response = await self._call_provider(prompt)
             except Exception as e:
                 response = f"ERROR: {str(e)}"
 
@@ -627,7 +634,7 @@ class BiasEvaluator:
                 extracted_answer=extracted,
                 response_time_ms=elapsed_ms,
                 confidence_stated=confidence,
-                metadata={"trial": trial},
+                metadata={"trial": trial_num},
             )
 
             # Score the response for bias (only if we have expected answers)
@@ -643,13 +650,12 @@ class BiasEvaluator:
                 result.is_biased = is_biased
                 result.bias_score = bias_score
 
-            results.append(result)
+            return result
 
-            # Rate limiting delay
-            if trial < self.config.num_trials - 1:
-                await asyncio.sleep(self.config.trial_delay_ms / 1000)
-
-        return results
+        # Run all trials concurrently (semaphore limits actual concurrency)
+        tasks = [run_single_trial(t) for t in range(self.config.num_trials)]
+        results = await asyncio.gather(*tasks)
+        return list(results)
 
     def _infer_answer_type(self, instance: CognitiveBiasInstance) -> str:
         """Infer the expected answer type from the instance."""
@@ -693,16 +699,26 @@ class BiasEvaluator:
             start_time=datetime.now().isoformat(),
         )
 
-        for i, instance in enumerate(instances):
+        # Track progress with thread-safe counter
+        completed_count = 0
+        progress_lock = asyncio.Lock()
+
+        async def eval_with_progress(instance: CognitiveBiasInstance) -> list[TestResult]:
+            nonlocal completed_count
             results = await self.evaluate_instance(instance, model_id)
+            async with progress_lock:
+                completed_count += 1
+                if progress_callback:
+                    progress_callback(completed_count, len(instances))
+            return results
+
+        # Run all instances concurrently (semaphore limits actual API concurrency)
+        tasks = [eval_with_progress(inst) for inst in instances]
+        all_results = await asyncio.gather(*tasks)
+
+        # Flatten results
+        for results in all_results:
             session.results.extend(results)
-
-            if progress_callback:
-                progress_callback(i + 1, len(instances))
-
-            # Rate limiting between instances
-            if i < len(instances) - 1:
-                await asyncio.sleep(60 / self.config.requests_per_minute)
 
         session.end_time = datetime.now().isoformat()
         return session

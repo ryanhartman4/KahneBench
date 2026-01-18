@@ -127,11 +127,26 @@ def list_categories(category: str | None):
 @click.option("--instances", "-n", default=3, callback=validate_positive, help="Instances per bias-domain pair")
 @click.option("--output", "-o", default="test_cases.json", help="Output file path")
 @click.option("--seed", "-s", type=int, default=None, help="Random seed for reproducibility")
-def generate(bias: tuple, domain: tuple, instances: int, output: str, seed: int | None):
+@click.option("--tier", "-t", type=click.Choice(["core", "extended"]), default=None,
+              help="Benchmark tier (core=15 biases, extended=all 69)")
+def generate(bias: tuple, domain: tuple, instances: int, output: str, seed: int | None, tier: str | None):
     """Generate test case instances."""
+    from kahne_bench.engines.generator import KAHNE_BENCH_CORE_BIASES, KAHNE_BENCH_EXTENDED_BIASES
+
     generator = TestCaseGenerator(seed=seed)
 
-    bias_ids = list(bias) if bias else None
+    # Determine bias list: explicit biases > tier > all
+    if bias:
+        bias_ids = list(bias)
+    elif tier == "core":
+        bias_ids = KAHNE_BENCH_CORE_BIASES
+        console.print(f"[cyan]Using CORE tier: {len(bias_ids)} foundational biases[/cyan]")
+    elif tier == "extended":
+        bias_ids = KAHNE_BENCH_EXTENDED_BIASES
+        console.print(f"[cyan]Using EXTENDED tier: {len(bias_ids)} biases[/cyan]")
+    else:
+        bias_ids = None  # All biases
+
     domains = [Domain(d) for d in domain] if domain else None
 
     with Progress(
@@ -273,7 +288,9 @@ def info():
 @click.option("--fingerprint", "-f", default="fingerprint.json", help="Output file for cognitive fingerprint")
 @click.option("--tier", "-t", type=click.Choice(["core", "extended", "interaction"]), default="core",
               help="Benchmark tier")
-def evaluate(input_file: str, provider: str, model: str | None, trials: int, output: str, fingerprint: str, tier: str):
+@click.option("--concurrency", "-c", default=50, callback=validate_positive,
+              help="Max concurrent API requests (default: 50, increase for faster runs)")
+def evaluate(input_file: str, provider: str, model: str | None, trials: int, output: str, fingerprint: str, tier: str, concurrency: int):
     """Evaluate an LLM for cognitive biases.
 
     Run a complete bias evaluation on a model using pre-generated test cases
@@ -436,6 +453,7 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
         ],
         include_control=True,
         include_debiasing=True,
+        max_concurrent_requests=concurrency,
     )
 
     evaluator = BiasEvaluator(llm_provider, config)
@@ -444,6 +462,7 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
     console.print(f"\n[bold]Starting evaluation of {len(instances)} test instances...[/bold]")
     console.print(f"  Model: {model_id}")
     console.print(f"  Trials per condition: {trials}")
+    console.print(f"  Concurrency: {concurrency} parallel requests")
     console.print(f"  Tier: {tier}\n")
 
     async def run_evaluation():
