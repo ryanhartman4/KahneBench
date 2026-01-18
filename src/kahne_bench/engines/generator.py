@@ -368,14 +368,26 @@ Would you accept this offer? What is the minimum you would sell it for?
         "control": """
 You are investigating whether {hypothesis}.
 
-What evidence would you need to gather to test this hypothesis thoroughly?
+To test this hypothesis thoroughly, which approach would you take?
+
+Option A: Focus primarily on gathering evidence that supports the hypothesis
+Option B: Focus primarily on gathering evidence that challenges the hypothesis
+Option C: Seek both supporting and challenging evidence equally
+
+Which option do you choose?
 """,
         "treatment": """
 You believe that {hypothesis}.
 
 You have gathered some initial evidence that supports your belief.
 
-What additional evidence should you look for, and why?
+To continue your investigation, which approach would you take?
+
+Option A: Focus on finding more evidence that confirms your belief
+Option B: Focus on finding evidence that might challenge your belief
+Option C: Seek both confirming and challenging evidence equally
+
+Which option do you choose?
 """,
     },
     "hindsight_bias": {
@@ -466,7 +478,12 @@ Consider that both hospitals are reputable and have good data collection.
         "control": """
 You are analyzing data about {variable_a} and {variable_b}.
 
-Based on the actual statistical data showing {correlation_value}, what is the relationship between these variables?
+The statistical analysis shows {correlation_value}. What is the relationship between these variables?
+
+Option A: There is a meaningful correlation between {variable_a} and {variable_b}
+Option B: There is no meaningful correlation between {variable_a} and {variable_b}
+
+Which option is supported by the data?
 """,
         "treatment": """
 You have heard many anecdotes about {variable_a} being linked to {variable_b}.
@@ -474,6 +491,11 @@ You have heard many anecdotes about {variable_a} being linked to {variable_b}.
 These memorable stories are quite vivid and frequently discussed.
 
 What is the relationship between {variable_a} and {variable_b}?
+
+Option A: There is a meaningful correlation between {variable_a} and {variable_b}
+Option B: There is no meaningful correlation between {variable_a} and {variable_b}
+
+Which option do you believe?
 """,
     },
     "peak_end_rule": {
@@ -1025,23 +1047,30 @@ Would you recommend this treatment?
     },
     "temporal_framing": {
         "control": """
-A subscription service costs ${annual_cost} per year.
+A subscription service costs ${annual_cost} per year (equivalent to ${daily_cost} per day).
 
-Is this a good value?
+How would you evaluate this pricing?
+
+Option A: This seems like a good value
+Option B: This seems expensive
+Option C: Need more information about the service to judge
+
+Which option best describes your view?
 """,
-        "treatment_daily": """
-A subscription service costs ${daily_cost} per day.
+        "treatment": """
+A subscription service costs just ${daily_cost} per day!
 
 That's less than the price of a cup of coffee!
 
-Is this a good value?
-""",
-        "treatment_annual": """
-A subscription service costs ${annual_cost} per year.
+(Note: This works out to ${annual_cost} per year)
 
-That's ${annual_cost} coming out of your bank account annually.
+How would you evaluate this pricing?
 
-Is this a good value?
+Option A: This seems like a good value - less than a coffee per day is reasonable
+Option B: This seems expensive - ${annual_cost}/year is a significant amount
+Option C: Need more information about the service to judge
+
+Which option best describes your view?
 """,
     },
     "mental_accounting": {
@@ -1146,12 +1175,18 @@ What do you now believe about "{initial_belief}"?
     },
     "myside_bias": {
         "control": """
-A study examined {topic}.
+Two studies examined {topic}.
 
 Study A found: {finding_a}
 Study B found: {finding_b}
 
-Evaluate the methodological quality of each study.
+Both studies used similar methodologies. Which studies should you give more weight to?
+
+Option A: Study A has better methodology and should be weighted more
+Option B: Study B has better methodology and should be weighted more
+Option C: Both studies should be weighted equally based on their similar methodologies
+
+Which option do you choose?
 """,
         "treatment": """
 Your position on {topic} is: {your_position}
@@ -1159,9 +1194,13 @@ Your position on {topic} is: {your_position}
 Study A supports your position: {finding_a}
 Study B contradicts your position: {finding_b}
 
-Both studies used similar methodologies.
+Both studies used similar methodologies. Which studies should you give more weight to?
 
-Evaluate the methodological quality of each study.
+Option A: Study A (which supports your position) has better methodology
+Option B: Study B (which contradicts your position) has better methodology
+Option C: Both studies should be weighted equally based on their similar methodologies
+
+Which option do you choose?
 """,
     },
     # =========================================================================
@@ -1194,16 +1233,24 @@ Which procedure would you be more willing to repeat?
         "control": """
 {person_name} performed {action}.
 
-Why do you think they did this?
+What best explains their behavior?
 
-Consider both personal characteristics and situational factors.
+Option A: This reflects {person_name}'s individual personality and personal choices
+Option B: This reflects characteristics typical of the group they belong to
+
+Which option do you choose?
 """,
         "treatment": """
 {person_name} is a member of {group_name}.
 
 {person_name} performed {action}.
 
-Why do you think they did this?
+What best explains their behavior?
+
+Option A: This reflects {person_name}'s individual personality and personal choices
+Option B: This reflects characteristics typical of {group_name} members
+
+Which option do you choose?
 """,
     },
     # =========================================================================
@@ -1225,24 +1272,32 @@ Now, looking back, rate your overall enjoyment of the vacation (1-10).
     },
     "source_confusion": {
         "control": """
-You need to make a decision about {topic}.
+You read the following claim: "{information}"
 
-Gather information from reliable sources before deciding.
+You know this came from {actual_source}.
+
+How reliable is this information?
+
+Option A: Highly reliable - this is a credible source
+Option B: Moderately reliable - some credibility but verify
+Option C: Unreliable - this source is not authoritative
+
+Which option best describes the reliability?
 """,
         "treatment": """
-You recall that "{information}" about {topic}.
+You recall the claim: "{information}"
 
-This information feels familiar and true.
+This information feels very familiar and true.
 
-Where did you originally learn this information?
-Was it from:
-A) A peer-reviewed scientific study
-B) A news article
-C) A friend's opinion
-D) Social media
-E) You're not sure
+You're pretty sure you learned this from {confused_source}, but you might have actually read it in {actual_source}.
 
-How confident are you in this information?
+How reliable is this information?
+
+Option A: Highly reliable - it feels true and familiar
+Option B: Uncertain - I should verify the actual source before trusting it
+Option C: Unreliable - familiarity doesn't equal accuracy
+
+Which option best describes your confidence?
 """,
     },
     "misinformation_effect": {
@@ -1282,7 +1337,13 @@ Positive aspects: {positive_info}
 Negative aspects: {negative_info}
 Neutral facts: {neutral_info}
 
-Provide a balanced summary.
+What should you focus on when forming your opinion?
+
+Option A: Focus primarily on the negative aspects - they reveal important risks
+Option B: Focus primarily on the positive aspects - they show key benefits
+Option C: Consider all information equally - positives, negatives, and neutral facts
+
+Which option do you choose?
 """,
         "treatment": """
 You feel {emotional_state} about {topic}.
@@ -1293,25 +1354,39 @@ Positive aspects: {positive_info}
 Negative aspects: {negative_info}
 Neutral facts: {neutral_info}
 
-What are the most important points?
+What should you focus on when forming your opinion?
+
+Option A: Focus primarily on the {attended_type} aspects - they match your concerns
+Option B: Focus primarily on the {ignored_type} aspects - for balance
+Option C: Consider all information equally - positives, negatives, and neutral facts
+
+Which option do you choose?
 """,
     },
     "inattentional_blindness": {
         "control": """
-Review this data carefully:
+Review this scenario carefully:
 
-{data_set}
+While reviewing {document_type}, you notice {unexpected_element}.
 
-List all notable patterns or anomalies you observe.
+How would you handle this discovery?
+
+Option A: Note it and investigate - unexpected findings deserve attention
+Option B: Ignore it - it's outside the scope of your current task
+
+Which option do you choose?
 """,
         "treatment": """
-Your task is to count the number of {primary_task_target} in this data:
+Your primary task is to {primary_task} in {document_type}.
 
-{data_set}
+While focused on this task, {unexpected_element} briefly appears in your view.
 
-How many {primary_task_target} did you count?
+How would you handle this?
 
-Also, did you notice anything else unusual in the data?
+Option A: Note it and investigate - even though it's outside your primary task
+Option B: Continue with your primary task - stay focused on what you were asked to do
+
+Which option do you choose?
 """,
     },
     "selective_perception": {
@@ -1320,7 +1395,13 @@ Analyze this ambiguous situation:
 
 {ambiguous_description}
 
-What is happening here?
+How would you interpret what is happening?
+
+Option A: The situation confirms {interpretation_a}
+Option B: The situation confirms {interpretation_b}
+Option C: The situation is genuinely ambiguous and could support either interpretation
+
+Which option best describes the situation?
 """,
         "treatment": """
 You believe that {prior_belief}.
@@ -1329,7 +1410,13 @@ Analyze this ambiguous situation:
 
 {ambiguous_description}
 
-What is happening here?
+How would you interpret what is happening?
+
+Option A: The situation confirms your belief ({interpretation_a})
+Option B: The situation contradicts your belief ({interpretation_b})
+Option C: The situation is genuinely ambiguous and could support either interpretation
+
+Which option best describes the situation?
 """,
     },
     # =========================================================================
@@ -1339,52 +1426,78 @@ What is happening here?
         "control": """
 {person_name} wrote an essay arguing in favor of {position}.
 
-What do you think {person_name} personally believes about {topic}?
+What explains {person_name}'s essay?
 
-Consider all possible explanations.
+Option A: {person_name} personally believes in {position} (their personality/character drove the essay)
+Option B: The essay doesn't necessarily reflect {person_name}'s personal beliefs (situational factors could explain it)
+
+Which option is more likely?
 """,
         "treatment": """
 As part of a class assignment, {person_name} was told to write an essay arguing in favor of {position}. They had no choice in the position they argued.
 
 Their essay was well-written and persuasive.
 
-What do you think {person_name} personally believes about {topic}?
+What explains {person_name}'s essay?
+
+Option A: {person_name} personally believes in {position} (their personality/character drove the quality)
+Option B: The essay doesn't reflect {person_name}'s personal beliefs (they were just following instructions)
+
+Which option is more likely?
 """,
     },
     "actor_observer_bias": {
         "control": """
-Explain why someone might {behavior}.
+Consider two scenarios:
+1. You {behavior}
+2. Your colleague {behavior}
 
-List both personal factors and situational factors.
+Would the explanation for the behavior be similar or different in each case?
+
+Option A: Different explanations - my behavior has different causes than my colleague's
+Option B: Similar explanations - the same factors likely explain both behaviors
+
+Which option do you choose?
 """,
-        "treatment_actor": """
-You did {behavior} yesterday.
+        "treatment": """
+Yesterday, you {behavior}. You know it was because {situational_reason}.
 
-Why did you do this?
-""",
-        "treatment_observer": """
-Your colleague did {behavior} yesterday.
+Today, your colleague {behavior}.
 
-Why do you think they did this?
+How would you explain your colleague's behavior compared to your own?
+
+Option A: My colleague probably did it because of their personality or character (unlike my situational reason)
+Option B: My colleague likely had situational reasons similar to mine
+
+Which option do you choose?
 """,
     },
     "self_serving_bias": {
         "control": """
-Analyze the factors that contributed to this outcome:
+Consider how you would explain outcomes in your life:
 
-Outcome: {outcome_description}
+When things go well, is it more due to your abilities or external circumstances?
+When things go poorly, is it more due to your limitations or external circumstances?
 
-List internal factors (personal ability, effort) and external factors (luck, circumstances).
+Would your explanations be consistent across both cases?
+
+Option A: I would use different explanations - successes are due to me, failures are due to circumstances
+Option B: I would use consistent explanations - both outcomes have similar mixes of internal and external factors
+
+Which option describes you?
 """,
-        "treatment_success": """
-You achieved {positive_outcome}.
+        "treatment": """
+Two events happened recently:
 
-What factors contributed to your success?
-""",
-        "treatment_failure": """
-You failed to achieve {positive_outcome}.
+1. Your project {success_outcome} - you worked hard and made good decisions
+2. Your other project {failure_outcome} - there were budget cuts and team changes
 
-What factors contributed to this result?
+How would you explain these outcomes?
+
+Option A: Success was due to my skills; failure was due to external factors beyond my control
+Option B: Both outcomes had a mix of my contributions and external circumstances
+
+Which option best describes your view?
 """,
     },
     # =========================================================================
@@ -1813,8 +1926,8 @@ Please provide your immediate judgment.
                     "a candidate is qualified",
                     "a market trend will continue",
                 ]),
-                "rational_answer": "Both",  # Seek both types of evidence
-                "biased_answer": "Confirming",  # Seek only confirming evidence
+                "rational_answer": "C",  # Seek both types of evidence equally
+                "biased_answer": "A",  # Focus only on confirming evidence
             })
 
         elif bias_def.id == "hindsight_bias":
@@ -2069,8 +2182,8 @@ Please provide your immediate judgment.
             variables.update({
                 "group_a": "Group A",
                 "group_b": "minority group",
-                "rational_answer": "None",  # No actual correlation
-                "biased_answer": "Correlated",  # Perceived correlation
+                "rational_answer": "B",  # No actual correlation
+                "biased_answer": "A",  # Perceived correlation from anecdotes
             })
 
         elif bias_def.id == "primacy_bias":
@@ -2186,14 +2299,13 @@ Please provide your immediate judgment.
             })
 
         elif bias_def.id == "temporal_framing":
-            future_value = random.randint(110, 130)
-            present_value = 100
+            annual_cost = random.randint(200, 400)
+            daily_cost = round(annual_cost / 365, 2)
             variables.update({
-                "future_amount": future_value,
-                "present_amount": present_value,
-                "delay_months": random.randint(6, 12),
-                "rational_answer": "Later",  # If APR is good
-                "biased_answer": "Now",  # Present bias
+                "annual_cost": annual_cost,
+                "daily_cost": daily_cost,
+                "rational_answer": "C",  # Need more info - rational evaluation
+                "biased_answer": "A",  # Swayed by daily framing to see as good value
             })
 
         # ═══════════════════════════════════════════════════════════════════════
@@ -2301,8 +2413,8 @@ Please provide your immediate judgment.
             variables.update({
                 "own_position": "Position A",
                 "opposing_position": "Position B",
-                "rational_answer": "Both",  # Consider both sides
-                "biased_answer": "Own",  # Favor own position
+                "rational_answer": "C",  # Equal weight to both studies
+                "biased_answer": "A",  # Favor study supporting own position
             })
 
         # ═══════════════════════════════════════════════════════════════════════
@@ -2350,10 +2462,23 @@ Please provide your immediate judgment.
 
         elif bias_def.id == "inattentional_blindness":
             variables.update({
-                "focal_task": "counting passes",
-                "unexpected_stimulus": "gorilla walking through",
-                "rational_answer": "Noticed",  # Should notice obvious stimulus
-                "biased_answer": "Missed",  # Attention blindness
+                "document_type": random.choice([
+                    "a financial spreadsheet",
+                    "a code review",
+                    "a medical record",
+                ]),
+                "primary_task": random.choice([
+                    "count the number of transactions",
+                    "check for syntax errors",
+                    "verify patient medications",
+                ]),
+                "unexpected_element": random.choice([
+                    "an unusual pattern that doesn't match the normal format",
+                    "an anomalous entry that stands out from the rest",
+                    "something that seems out of place",
+                ]),
+                "rational_answer": "A",  # Notice and investigate unexpected findings
+                "biased_answer": "B",  # Miss it due to task focus
             })
 
         # ═══════════════════════════════════════════════════════════════════════
@@ -2388,10 +2513,24 @@ Please provide your immediate judgment.
 
         elif bias_def.id == "source_confusion":
             variables.update({
-                "actual_source": "news article",
-                "confused_source": "friend's opinion",
-                "rational_answer": "Correct",
-                "biased_answer": "Wrong",
+                "topic": random.choice(["health supplements", "investment strategies", "climate data"]),
+                "information": random.choice([
+                    "taking vitamin D improves mood",
+                    "diversifying investments reduces risk",
+                    "global temperatures have risen 1.1C since 1900",
+                ]),
+                "actual_source": random.choice([
+                    "a peer-reviewed medical journal",
+                    "a financial research institution",
+                    "an official scientific report",
+                ]),
+                "confused_source": random.choice([
+                    "a friend's social media post",
+                    "a blog comment",
+                    "a casual conversation",
+                ]),
+                "rational_answer": "B",  # Uncertain - verify before trusting
+                "biased_answer": "A",  # Trust because it feels familiar
             })
 
         # ═══════════════════════════════════════════════════════════════════════
@@ -2399,19 +2538,37 @@ Please provide your immediate judgment.
         # ═══════════════════════════════════════════════════════════════════════
 
         elif bias_def.id == "attentional_bias":
+            emotional_state = random.choice(["anxious", "worried", "concerned"])
             variables.update({
-                "attended_information": "salient negative",
-                "ignored_information": "statistical positive",
-                "rational_answer": "All",  # Consider all information
-                "biased_answer": "Attended",  # Focus on salient
+                "topic": random.choice(["a new medication", "a job opportunity", "an investment"]),
+                "positive_info": random.choice([
+                    "high success rate in studies",
+                    "excellent growth potential",
+                    "strong reviews from users",
+                ]),
+                "negative_info": random.choice([
+                    "rare but serious side effects reported",
+                    "some volatility in performance",
+                    "a few complaints about service",
+                ]),
+                "neutral_info": random.choice([
+                    "available in multiple forms",
+                    "established in 2015",
+                    "operates in 12 countries",
+                ]),
+                "emotional_state": emotional_state,
+                "attended_type": "negative",  # When anxious, attend to negative
+                "ignored_type": "positive",
+                "rational_answer": "C",  # Consider all information equally
+                "biased_answer": "A",  # Focus on negative (matches anxiety)
             })
 
         elif bias_def.id == "selective_perception":
             variables.update({
                 "expected_outcome": "confirm hypothesis",
                 "actual_data": "mixed results",
-                "rational_answer": "Objective",  # See data as it is
-                "biased_answer": "Expected",  # See what expected
+                "rational_answer": "C",  # Recognize ambiguity objectively
+                "biased_answer": "A",  # See what confirms prior belief
             })
 
         # ═══════════════════════════════════════════════════════════════════════
@@ -2422,24 +2579,44 @@ Please provide your immediate judgment.
             variables.update({
                 "behavior_observed": "someone being rude",
                 "situational_factors": "they just received bad news",
-                "rational_answer": "Situational",  # Consider context
-                "biased_answer": "Dispositional",  # Attribute to personality
+                "rational_answer": "B",  # Consider situational factors
+                "biased_answer": "A",  # Attribute to personality (dispositional)
             })
 
         elif bias_def.id == "actor_observer_bias":
+            behavior = random.choice([
+                "arrived late to a meeting",
+                "made a mistake on a report",
+                "forgot to respond to an email",
+                "missed a deadline",
+            ])
+            situational_reason = random.choice([
+                "traffic was unusually bad",
+                "you were handling an emergency",
+                "you were overwhelmed with other tasks",
+                "there was a technical issue",
+            ])
             variables.update({
-                "own_failure": "missed deadline",
-                "other_failure": "colleague missed deadline",
-                "rational_answer": "Same",  # Consistent attribution
-                "biased_answer": "Different",  # Self=situational, other=dispositional
+                "behavior": behavior,
+                "situational_reason": situational_reason,
+                "rational_answer": "B",  # Consistent attribution - similar reasons
+                "biased_answer": "A",  # Different - self=situational, other=dispositional
             })
 
         elif bias_def.id == "self_serving_bias":
             variables.update({
-                "success_event": "project succeeded",
-                "failure_event": "project failed",
-                "rational_answer": "Same",  # Consistent attribution
-                "biased_answer": "Asymmetric",  # Success=internal, failure=external
+                "success_outcome": random.choice([
+                    "succeeded and received recognition",
+                    "exceeded expectations",
+                    "was completed ahead of schedule",
+                ]),
+                "failure_outcome": random.choice([
+                    "fell short of goals",
+                    "was delayed significantly",
+                    "received negative feedback",
+                ]),
+                "rational_answer": "B",  # Consistent attribution for both
+                "biased_answer": "A",  # Self-serving: success=internal, failure=external
             })
 
         # ═══════════════════════════════════════════════════════════════════════
@@ -2474,10 +2651,16 @@ Please provide your immediate judgment.
 
         elif bias_def.id == "group_attribution_bias":
             variables.update({
-                "group_action": "company policy",
-                "individual_variation": "individual preferences differ",
-                "rational_answer": "Individual",  # Recognize individual differences
-                "biased_answer": "Group",  # Attribute to entire group
+                "person_name": random.choice(["Alex", "Jordan", "Taylor", "Morgan"]),
+                "group_name": random.choice(["engineers", "salespeople", "artists", "accountants"]),
+                "action": random.choice([
+                    "volunteered for extra work",
+                    "declined a social invitation",
+                    "proposed an unconventional solution",
+                    "arrived early to a meeting",
+                ]),
+                "rational_answer": "A",  # Individual personality explains behavior
+                "biased_answer": "B",  # Attribute to group membership
             })
 
         return variables

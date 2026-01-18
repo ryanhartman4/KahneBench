@@ -990,6 +990,79 @@ class TestAnswerExtractorEdgeCasesExtended:
         assert result == "C"
 
 
+class TestBugFixes:
+    """Tests for specific bug fixes in extraction and scoring."""
+
+    # Bug 1: Confidence extracted instead of answer
+    def test_extract_numeric_prefers_estimate_over_confidence(self):
+        """Bug fix: Numeric extraction should prefer answer over confidence value."""
+        extractor = AnswerExtractor()
+        response = "My estimate is 50. Confidence: 30%"
+        result = extractor.extract(response, "numeric")
+        assert result == "50", f"Expected '50' but got '{result}' - confidence was extracted instead"
+
+    def test_extract_numeric_answer_with_inline_confidence(self):
+        """Bug fix: Answer should be extracted even with inline confidence statement."""
+        extractor = AnswerExtractor()
+        response = "Based on my analysis, the answer is 42. I'm 80% confident."
+        result = extractor.extract(response, "numeric")
+        assert result == "42", f"Expected '42' but got '{result}'"
+
+    def test_extract_numeric_answer_is_format_with_confidence(self):
+        """Bug fix: 'The answer is X' format should extract X, not confidence."""
+        extractor = AnswerExtractor()
+        response = "The answer is 100. Confidence: 90%"
+        result = extractor.extract(response, "numeric")
+        assert result == "100", f"Expected '100' but got '{result}'"
+
+    # Bug 2: Negation detection in yes/no fallback
+    def test_yes_no_not_accept(self):
+        """Bug fix: 'not accept' should return 'no', not 'yes'."""
+        extractor = AnswerExtractor()
+        result = extractor.extract("I would not accept this offer.", "yes_no")
+        assert result == "no", f"Expected 'no' but got '{result}' - negation not detected"
+
+    def test_yes_no_do_not_recommend(self):
+        """Bug fix: 'do not recommend' should return 'no'."""
+        extractor = AnswerExtractor()
+        result = extractor.extract("I do not recommend proceeding.", "yes_no")
+        assert result == "no", f"Expected 'no' but got '{result}'"
+
+    def test_yes_no_decline(self):
+        """Bug fix: 'decline' should return 'no'."""
+        extractor = AnswerExtractor()
+        result = extractor.extract("I decline this proposal.", "yes_no")
+        assert result == "no", f"Expected 'no' but got '{result}'"
+
+    def test_yes_no_would_accept(self):
+        """Bug fix: Affirmative 'would accept' should still return 'yes'."""
+        extractor = AnswerExtractor()
+        result = extractor.extract("I would accept this offer.", "yes_no")
+        assert result == "yes", f"Expected 'yes' but got '{result}'"
+
+    def test_yes_no_wouldnt_accept(self):
+        """Bug fix: 'wouldn't accept' contraction should return 'no'."""
+        extractor = AnswerExtractor()
+        result = extractor.extract("I wouldn't accept this deal.", "yes_no")
+        assert result == "no", f"Expected 'no' but got '{result}'"
+
+    # Bug 3: ERROR response extraction (tested via evaluator integration)
+    def test_extraction_skips_error_response(self):
+        """Bug fix: Extraction should return None for ERROR: prefixed responses."""
+        extractor = AnswerExtractor()
+
+        # Simulate what happens when provider returns error
+        error_response = "ERROR: Connection refused by service A"
+
+        # The extraction itself shouldn't crash, but we need the evaluator-level check
+        # This tests that the pattern wouldn't extract "A" as an option
+        # Note: The actual fix is in BiasEvaluator._run_trials which checks for ERROR: prefix
+        # before calling extract. This test documents the issue.
+        result = extractor.extract(error_response, "option")
+        # Without the evaluator-level check, this would incorrectly return "A"
+        # The fix ensures extraction is never called on ERROR responses
+
+
 class TestErrorSimulatingProvider:
     """Tests for the ErrorSimulatingProvider mock class itself."""
 

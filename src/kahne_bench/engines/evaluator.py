@@ -360,24 +360,32 @@ class AnswerExtractor:
         if expected_type == "option":
             patterns = self.OPTION_PATTERNS
         elif expected_type == "numeric":
-            # First, check for structured "Confidence: X%" format (overconfidence tests)
-            # This takes priority over other numeric patterns
-            confidence_structured = re.search(
-                r"Confidence:\s*(\d{1,3})\s*%?",
-                response,
-                re.IGNORECASE,
+            # Strip confidence statements before pattern matching to avoid
+            # extracting confidence values (e.g., "30%" from "Confidence: 30%")
+            response_for_patterns = re.sub(
+                r"(?:confidence|confident|certain|sure)[:\s]+\d{1,3}\s*%?",
+                "",
+                response_lower,
+                flags=re.IGNORECASE,
             )
-            if confidence_structured:
-                return confidence_structured.group(1)
+            response_for_patterns = re.sub(
+                r"\d{1,3}\s*%?\s*(?:confident|confidence|certain|sure)",
+                "",
+                response_for_patterns,
+                flags=re.IGNORECASE,
+            )
             patterns = self.NUMERIC_PATTERNS
         elif expected_type == "yes_no":
             patterns = self.YES_NO_PATTERNS
         else:
             return self._extract_text_answer(response)
 
+        # Use confidence-stripped response for numeric, original for others
+        search_text = response_for_patterns if expected_type == "numeric" else response_lower
+
         for pattern in patterns:
             # Patterns are pre-compiled with re.IGNORECASE
-            match = pattern.search(response_lower)
+            match = pattern.search(search_text)
             if match:
                 return match.group(1).upper() if expected_type == "option" else match.group(1)
 
@@ -409,15 +417,6 @@ class AnswerExtractor:
             return options[-1] if options else None
 
         elif expected_type == "numeric":
-            # First, check for structured "Confidence: X%" format (overconfidence tests)
-            confidence_structured = re.search(
-                r"Confidence:\s*(\d{1,3})\s*%?",
-                response,
-                re.IGNORECASE,
-            )
-            if confidence_structured:
-                return confidence_structured.group(1)
-
             # Try to find numbers near answer keywords (handles "answer is X", "answer: X", "answer X")
             answer_context = re.search(
                 r"(?:estimate|answer|value|result|approximately|about|around|probability|chance|likelihood|odds)(?:\s+is\s+|\s*:\s*|\s+)\$?([\d,]+(?:\.\d+)?)",
@@ -447,11 +446,44 @@ class AnswerExtractor:
             return numbers[0].replace(",", "") if numbers else None
 
         elif expected_type == "yes_no":
-            # Check for presence of yes/no keywords
-            if "yes" in response.lower() or "accept" in response.lower():
-                return "yes"
-            elif "no" in response.lower() or "reject" in response.lower():
+            response_lower = response.lower()
+
+            # Check for negation patterns first (higher priority)
+            negation_patterns = [
+                r"\bnot\s+accept",
+                r"\bwould\s+not\b",
+                r"\bdon'?t\s+accept",
+                r"\bshould\s+not\b",
+                r"\bdo\s+not\b",
+                r"\bcannot\s+recommend",
+                r"\bwouldn'?t\s+recommend",
+                r"\bwouldn'?t\s+accept",
+                r"\brefuse\b",
+                r"\bdecline\b",
+                r"\breject\b",
+            ]
+
+            for pattern in negation_patterns:
+                if re.search(pattern, response_lower):
+                    return "no"
+
+            # Check for affirmative patterns
+            affirmative_patterns = [
+                r"\byes\b",
+                r"\baccept\b",
+                r"\bwould\s+recommend\b",
+                r"\bshould\s+proceed\b",
+                r"\bagree\b",
+            ]
+
+            for pattern in affirmative_patterns:
+                if re.search(pattern, response_lower):
+                    return "yes"
+
+            # Fallback: check for standalone "no"
+            if re.search(r"\bno\b", response_lower):
                 return "no"
+
             return None
 
         return None
@@ -578,9 +610,13 @@ class BiasEvaluator:
 
             elapsed_ms = (time.time() - start_time) * 1000
 
-            # Extract answer and confidence
-            extracted = self.extractor.extract(response, self._infer_answer_type(instance))
-            confidence = self.extractor.extract_confidence(response)
+            # Extract answer and confidence (skip for error responses)
+            if response.startswith("ERROR:"):
+                extracted = None
+                confidence = None
+            else:
+                extracted = self.extractor.extract(response, self._infer_answer_type(instance))
+                confidence = self.extractor.extract_confidence(response)
 
             result = TestResult(
                 instance=instance,
