@@ -322,6 +322,19 @@ _YES_NO_PATTERNS = [
     re.compile(r"(?:^|\n)\s*(yes|no)\s*[,\.\:]", re.IGNORECASE),
 ]
 
+# Priority patterns for explicit "Answer:" lines - checked FIRST before other patterns
+# These ensure that when a model follows the prompt format (e.g., "Answer: [your answer]"),
+# we always capture their intended answer regardless of verbose reasoning.
+_ANSWER_LINE_OPTION = re.compile(
+    r"(?:^|\n)\s*\*{0,2}Answer\*{0,2}\s*[:]\s*\*{0,2}(?:option\s*)?([A-D])\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+_ANSWER_LINE_NUMERIC = re.compile(
+    r"(?:^|\n)\s*\*{0,2}Answer\*{0,2}\s*[:]\s*\*{0,2}(?:approximately\s+|about\s+|around\s+)?\$?([\d,]+(?:\.\d+)?)",
+    re.IGNORECASE | re.MULTILINE,
+)
+
 
 class AnswerExtractor:
     """
@@ -349,6 +362,9 @@ class AnswerExtractor:
         """
         Extract the final answer from an LLM response.
 
+        Priority: Explicit "Answer:" lines are always preferred when present.
+        This ensures models following prompt format have their intended answer captured.
+
         Args:
             response: Full text response from LLM
             expected_type: Type of answer expected ("option", "numeric", "yes_no", "text")
@@ -356,6 +372,35 @@ class AnswerExtractor:
         Returns:
             Extracted answer string, or None if extraction failed
         """
+        if expected_type == "confidence":
+            confidence = self.extract_confidence(response)
+            if confidence is None:
+                return None
+            percentage = round(confidence * 100, 2)
+            if percentage.is_integer():
+                return str(int(percentage))
+            return str(percentage)
+
+        # PRIORITY CHECK: Look for explicit "Answer:" line first
+        # This takes precedence over all other patterns to ensure we capture
+        # the model's intended answer when it follows the requested format.
+        if expected_type == "option":
+            priority_match = _ANSWER_LINE_OPTION.search(response)
+            if priority_match:
+                return priority_match.group(1).upper()
+        elif expected_type == "numeric":
+            # Strip confidence statements before checking Answer: line
+            response_no_confidence = re.sub(
+                r"(?:confidence|confident|certain|sure)[:\s]+\d{1,3}\s*%?",
+                "",
+                response,
+                flags=re.IGNORECASE,
+            )
+            priority_match = _ANSWER_LINE_NUMERIC.search(response_no_confidence)
+            if priority_match:
+                return priority_match.group(1).replace(",", "")
+
+        # Standard pattern matching (fallback when no explicit Answer: line)
         response_lower = response.lower()
 
         if expected_type == "option":
@@ -388,7 +433,14 @@ class AnswerExtractor:
             # Patterns are pre-compiled with re.IGNORECASE
             match = pattern.search(search_text)
             if match:
-                return match.group(1).upper() if expected_type == "option" else match.group(1)
+                if expected_type == "option":
+                    return match.group(1).upper()
+                if expected_type == "yes_no":
+                    value = match.group(1).lower()
+                    if value in ("accepting", "rejecting"):
+                        return "yes" if value == "accepting" else "no"
+                    return value
+                return match.group(1)
 
         # Fallback: look for the last mentioned option/value
         return self._fallback_extraction(response, expected_type)
@@ -400,15 +452,31 @@ class AnswerExtractor:
         for marker in answer_markers:
             idx = response.lower().rfind(marker)
             if idx != -1:
-                return response[idx:].split(".")[0].strip()
+                # Use sentence-aware splitting (don't split on decimal points)
+                remainder = response[idx:]
+                sentences = self._split_into_sentences(remainder)
+                return sentences[0].strip() if sentences else remainder.strip()
 
-        # Return last sentence as fallback
-        sentences = response.split(".")
-        if len(sentences) > 1 and sentences[-2].strip():
-            return sentences[-2].strip()
+        # Return last sentence as fallback using sentence-aware splitting
+        sentences = self._split_into_sentences(response)
+        if len(sentences) > 1 and sentences[-1].strip():
+            return sentences[-1].strip()
         elif response.strip():
             return response.strip()
         return None
+
+    def _split_into_sentences(self, text: str) -> list[str]:
+        """Split text into sentences, preserving decimal numbers.
+
+        Splits on periods followed by whitespace and uppercase letter,
+        or periods at end of text. Does NOT split on decimal points like 0.30.
+        """
+        # Pattern: period followed by space and capital letter, or period at end
+        # Negative lookbehind for digits to avoid splitting "0.30" or "P(X) = 0.5"
+        pattern = r'(?<!\d)\.(?=\s+[A-Z])|(?<!\d)\.$'
+        sentences = re.split(pattern, text)
+        # Filter out empty strings and strip whitespace
+        return [s.strip() for s in sentences if s and s.strip()]
 
     def _fallback_extraction(self, response: str, expected_type: str) -> str | None:
         """Fallback extraction when patterns don't match."""
@@ -492,22 +560,67 @@ class AnswerExtractor:
     def extract_confidence(self, response: str) -> float | None:
         """Extract stated confidence level from response.
 
+        Priority order:
+        1. Explicit 'Confidence:' line markers (highest priority)
+        2. Inline confidence statements with keywords
+
+        Supports both percentage (0-100) and fractional (0-1) formats.
+
         Returns:
             Confidence value clamped to [0.0, 1.0], or None if not found.
         """
-        patterns = [
-            r"(\d{1,3})\s*%?\s*(?:confident|confidence|certain|sure)",
-            r"(?:confidence|certainty)[:\s]+(\d{1,3})\s*%?",
+        # Priority 1: Explicit "Confidence:" line markers (most reliable)
+        # Matches: "Confidence: 85%", "Confidence: 85", "Confidence: 0.85"
+        explicit_patterns = [
+            # "Confidence: 0.85" or "Confidence: .85" (decimal fraction) - check first
+            r"(?:^|\n)\s*confidence\s*:\s*(0?\.\d+)",
+            # "Confidence: 85%" or "Confidence: 85" (integer percentage)
+            # Negative lookahead (?!\.) prevents matching "0" in "0.85"
+            r"(?:^|\n)\s*confidence\s*:\s*(\d{1,3})(?!\.)\s*%?",
         ]
 
-        for pattern in patterns:
+        for pattern in explicit_patterns:
+            match = re.search(pattern, response, re.IGNORECASE | re.MULTILINE)
+            if match:
+                return self._normalize_confidence(match.group(1))
+
+        # Priority 2: Inline confidence statements (fallback)
+        # Matches: "85% confident", "I am 70% certain", "confidence is 80"
+        inline_patterns = [
+            # "85% confident" or "85 percent confident"
+            r"(\d{1,3})\s*%?\s*(?:percent\s+)?(?:confident|certain|sure)",
+            # "confidence is 70" or "certainty: 80%"
+            r"(?:confidence|certainty)\s*(?:is|of|:)\s*(\d{1,3})\s*%?",
+            # "0.85 confident" (fractional inline)
+            r"(0?\.\d+)\s*(?:confident|certain|sure)",
+        ]
+
+        for pattern in inline_patterns:
             match = re.search(pattern, response, re.IGNORECASE)
             if match:
-                conf = float(match.group(1))
-                normalized = conf / 100 if conf > 1 else conf
-                return max(0.0, min(1.0, normalized))  # Clamp to [0, 1]
+                return self._normalize_confidence(match.group(1))
 
         return None
+
+    def _normalize_confidence(self, value_str: str) -> float:
+        """Normalize confidence value to [0.0, 1.0] range.
+
+        Args:
+            value_str: String representation of confidence (e.g., "85", "0.85", ".75")
+
+        Returns:
+            Confidence value clamped to [0.0, 1.0]
+        """
+        value = float(value_str)
+
+        # Values > 1 are treated as percentages (divide by 100)
+        # Values <= 1 are treated as fractions (keep as-is)
+        if value > 1:
+            normalized = value / 100
+        else:
+            normalized = value
+
+        return max(0.0, min(1.0, normalized))
 
 
 class BiasEvaluator:
@@ -658,7 +771,21 @@ class BiasEvaluator:
         return list(results)
 
     def _infer_answer_type(self, instance: CognitiveBiasInstance) -> str:
-        """Infer the expected answer type from the instance."""
+        """Infer the expected answer type from the instance.
+
+        First checks metadata for explicit answer_type, then falls back to prompt inference.
+        """
+        # Check metadata first for explicit answer_type
+        if instance.metadata and "answer_type" in instance.metadata:
+            answer_type = instance.metadata["answer_type"]
+            # Handle categorical as non-evaluable
+            if answer_type == "categorical":
+                return "text"  # Will extract but scoring handles placeholder answers
+            if answer_type == "choice":
+                return "option"
+            return answer_type
+
+        # Fall back to prompt-based inference
         prompt_lower = instance.control_prompt.lower()
 
         if any(opt in prompt_lower for opt in ["option a", "option b", "program a", "program b"]):

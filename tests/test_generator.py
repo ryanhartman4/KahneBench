@@ -1,5 +1,6 @@
 """Tests for the test case generator."""
 
+import re
 
 import pytest
 from kahne_bench.engines.generator import (
@@ -255,6 +256,106 @@ class TestTreatmentPromptVariation:
             assert len(treatment.strip()) > 0, (
                 f"Empty treatment prompt for {bias_id} at {intensity} intensity"
             )
+
+
+class TestEVValueModelBiases:
+    """Tests for EV/value-model biases (Part E fixes).
+
+    These tests verify that gain_loss_framing, loss_aversion, certainty_effect,
+    and present_bias always have distinct rational and biased responses, with
+    rational choices grounded in explicit EV or discounting rules.
+    """
+
+    @pytest.fixture
+    def generator(self):
+        """Create a generator with fixed seed for reproducibility."""
+        return TestCaseGenerator(seed=42)
+
+    @pytest.mark.parametrize("bias_id", [
+        "gain_loss_framing",
+        "loss_aversion",
+        "certainty_effect",
+        "present_bias",
+    ])
+    def test_ev_biases_have_different_rational_and_biased_responses(self, generator, bias_id):
+        """Verify EV/discounting biases always have distinct rational and biased responses.
+
+        This is the key acceptance criteria for Part E: no generated instance should
+        have expected_rational_response == expected_biased_response.
+        """
+        # Run multiple trials to catch edge cases
+        for trial in range(10):
+            # Use different seeds for variety
+            gen = TestCaseGenerator(seed=42 + trial)
+            instance = gen.generate_instance(bias_id, Domain.INDIVIDUAL)
+            assert instance.expected_rational_response != instance.expected_biased_response, (
+                f"{bias_id} (trial {trial}): rational ({instance.expected_rational_response}) "
+                f"== biased ({instance.expected_biased_response})"
+            )
+
+    def test_loss_aversion_ev_always_positive(self, generator):
+        """Verify loss_aversion always generates positive EV gambles.
+
+        The rational choice should always be 'Accept' because EV > 0.
+        """
+        for trial in range(20):
+            gen = TestCaseGenerator(seed=42 + trial)
+            instance = gen.generate_instance("loss_aversion", Domain.INDIVIDUAL)
+            # Control prompt should contain explicit EV
+            assert "Expected value: $" in instance.control_prompt, (
+                "loss_aversion control prompt should show expected value"
+            )
+            # Rational should always be Accept since EV > 0
+            assert instance.expected_rational_response == "Accept", (
+                f"loss_aversion rational should be 'Accept' but got "
+                f"'{instance.expected_rational_response}'"
+            )
+
+    def test_certainty_effect_gamble_ev_exceeds_certain(self, generator):
+        """Verify certainty_effect gamble EV always exceeds certain amount.
+
+        The rational choice should always be 'B' (gamble) since EV_B > EV_A.
+        """
+        for trial in range(20):
+            gen = TestCaseGenerator(seed=42 + trial)
+            instance = gen.generate_instance("certainty_effect", Domain.INDIVIDUAL)
+            # Rational should always be B (higher EV gamble)
+            assert instance.expected_rational_response == "B", (
+                f"certainty_effect rational should be 'B' but got "
+                f"'{instance.expected_rational_response}'"
+            )
+
+    def test_present_bias_uses_discounting(self, generator):
+        """Verify present_bias includes discount rate in control prompt.
+
+        The rational choice must be grounded in an explicit discounting rule.
+        """
+        instance = generator.generate_instance("present_bias", Domain.INDIVIDUAL)
+        control_lower = instance.control_prompt.lower()
+        assert "discount rate" in control_lower or "present value" in control_lower, (
+            "present_bias control prompt should reference discount rate or present value"
+        )
+        # Rational should always be B (higher PV)
+        assert instance.expected_rational_response == "B", (
+            f"present_bias rational should be 'B' but got "
+            f"'{instance.expected_rational_response}'"
+        )
+
+    def test_gain_loss_framing_shows_ev_comparison(self, generator):
+        """Verify gain_loss_framing control prompt shows both EVs.
+
+        The rational choice should be grounded in EV comparison.
+        """
+        instance = generator.generate_instance("gain_loss_framing", Domain.INDIVIDUAL)
+        # Control should show both EVs
+        assert "EV =" in instance.control_prompt, (
+            "gain_loss_framing control prompt should show EV values"
+        )
+        # Rational should be B (higher EV by construction)
+        assert instance.expected_rational_response == "B", (
+            f"gain_loss_framing rational should be 'B' but got "
+            f"'{instance.expected_rational_response}'"
+        )
 
 
 class TestDebiasingPrompts:
@@ -556,3 +657,378 @@ class TestDomainScenarioQuality:
                     assert value_range[0] <= value_range[1], (
                         f"Scenario {i} in {domain}: value_range '{key}' min > max"
                     )
+
+
+class TestNumericTargetRedesign:
+    """Tests for Part F: Numeric-Target Redesign.
+
+    These tests verify that anchoring_effect, base_rate_neglect, and gambler_fallacy
+    have defensible normative models or categorical choices, with single parseable
+    answer formats.
+    """
+
+    @pytest.fixture
+    def generator(self):
+        """Create a generator with fixed seed for reproducibility."""
+        return TestCaseGenerator(seed=42)
+
+    def test_anchoring_effect_has_answer_marker(self, generator):
+        """Test anchoring prompt includes explicit answer format."""
+        instance = generator.generate_instance("anchoring_effect", Domain.PROFESSIONAL)
+        assert "Answer:" in instance.control_prompt, (
+            "anchoring_effect control prompt should include 'Answer:' marker"
+        )
+        for intensity in TriggerIntensity:
+            treatment = instance.get_treatment(intensity)
+            assert "Answer:" in treatment, (
+                f"anchoring_effect treatment ({intensity}) should include 'Answer:' marker"
+            )
+
+    def test_anchoring_effect_model_grounded_biased_answer(self, generator):
+        """Test anchoring biased answer reflects insufficient adjustment.
+
+        The biased answer should be between the rational answer and anchor,
+        reflecting the 'insufficient adjustment' mechanism.
+        """
+        instance = generator.generate_instance("anchoring_effect", Domain.PROFESSIONAL)
+        # Biased should differ from rational (insufficient adjustment)
+        assert instance.expected_rational_response != instance.expected_biased_response, (
+            "anchoring_effect: rational and biased answers should differ"
+        )
+
+    def test_base_rate_neglect_categorical_format(self, generator):
+        """Test base_rate_neglect uses categorical A/B choice."""
+        instance = generator.generate_instance("base_rate_neglect", Domain.PROFESSIONAL)
+        assert "A)" in instance.control_prompt, (
+            "base_rate_neglect should have option A"
+        )
+        assert "B)" in instance.control_prompt, (
+            "base_rate_neglect should have option B"
+        )
+        assert "Reply with just A or B" in instance.control_prompt, (
+            "base_rate_neglect should specify answer format"
+        )
+        assert instance.expected_rational_response in ["A", "B"], (
+            f"base_rate_neglect rational answer should be A or B, got {instance.expected_rational_response}"
+        )
+        assert instance.expected_biased_response in ["A", "B"], (
+            f"base_rate_neglect biased answer should be A or B, got {instance.expected_biased_response}"
+        )
+
+    def test_base_rate_neglect_rational_follows_base_rate(self, generator):
+        """Test rational answer follows base rate (majority category).
+
+        With base_rate < 50%, category_b (lawyers) is the majority,
+        so the rational answer should be B.
+        """
+        instance = generator.generate_instance("base_rate_neglect", Domain.PROFESSIONAL)
+        # With base_rate < 50%, category_b (lawyers) is majority, so rational = "B"
+        assert instance.expected_rational_response == "B", (
+            "base_rate_neglect: rational should be B (majority by base rate)"
+        )
+        # Biased ignores base rate, uses representativeness, so biased = "A"
+        assert instance.expected_biased_response == "A", (
+            "base_rate_neglect: biased should be A (representativeness heuristic)"
+        )
+
+    def test_gambler_fallacy_categorical_format(self, generator):
+        """Test gambler_fallacy uses categorical A/B/C choice."""
+        instance = generator.generate_instance("gambler_fallacy", Domain.INDIVIDUAL)
+        assert "A)" in instance.control_prompt, (
+            "gambler_fallacy should have option A"
+        )
+        assert "B)" in instance.control_prompt, (
+            "gambler_fallacy should have option B"
+        )
+        assert "C)" in instance.control_prompt, (
+            "gambler_fallacy should have option C"
+        )
+        assert "Reply with just A, B, or C" in instance.control_prompt, (
+            "gambler_fallacy should specify answer format"
+        )
+
+    def test_gambler_fallacy_rational_is_equal_likelihood(self, generator):
+        """Test rational answer is C (equally likely - independence).
+
+        For a fair coin, each flip is independent, so heads and tails
+        are always equally likely regardless of previous outcomes.
+        """
+        instance = generator.generate_instance("gambler_fallacy", Domain.INDIVIDUAL)
+        assert instance.expected_rational_response == "C", (
+            "gambler_fallacy: rational should be C (independence principle)"
+        )
+        # Biased believes correction is due, expects tails after streak of heads
+        assert instance.expected_biased_response == "B", (
+            "gambler_fallacy: biased should be B (tails is 'due')"
+        )
+
+    def test_no_arbitrary_numeric_targets(self, generator):
+        """Test that biases don't have arbitrary numeric targets.
+
+        base_rate_neglect and gambler_fallacy should now use categorical
+        choices (A/B/C) rather than arbitrary numeric values.
+        """
+        for bias_id in ["base_rate_neglect", "gambler_fallacy"]:
+            instance = generator.generate_instance(bias_id)
+            # Should be categorical, not numeric
+            assert instance.expected_rational_response in ["A", "B", "C"], (
+                f"{bias_id}: rational should be categorical, got {instance.expected_rational_response}"
+            )
+            assert instance.expected_biased_response in ["A", "B", "C"], (
+                f"{bias_id}: biased should be categorical, got {instance.expected_biased_response}"
+            )
+
+    def test_rational_differs_from_biased(self, generator):
+        """Test that rational and biased answers differ for all three biases.
+
+        This ensures the bias test is valid - if rational == biased,
+        the test cannot distinguish between biased and unbiased responses.
+        """
+        for bias_id in ["anchoring_effect", "base_rate_neglect", "gambler_fallacy"]:
+            instance = generator.generate_instance(bias_id)
+            assert instance.expected_rational_response != instance.expected_biased_response, (
+                f"{bias_id}: rational and biased must differ"
+            )
+
+
+class TestChoiceFormatPromptContract:
+    """Tests for Part D: Choice-Format Prompt Contract.
+
+    These tests verify that the 6 biases with A/B/C choice format
+    (conjunction_fallacy, sunk_cost_fallacy, status_quo_bias,
+    endowment_effect, confirmation_bias, hindsight_bias) include
+    explicit Answer: format instructions in their templates.
+    """
+
+    # Biases that should have explicit Answer: format instructions
+    CHOICE_FORMAT_BIASES = [
+        "conjunction_fallacy",
+        "sunk_cost_fallacy",
+        "status_quo_bias",
+        "endowment_effect",
+        "confirmation_bias",
+        "hindsight_bias",
+    ]
+
+    def test_choice_templates_have_answer_format(self):
+        """Verify all choice-based bias templates include Answer: format instruction."""
+        for bias_id in self.CHOICE_FORMAT_BIASES:
+            assert bias_id in BIAS_TEMPLATES, f"Missing template for {bias_id}"
+            templates = BIAS_TEMPLATES[bias_id]
+
+            for template_key, template_text in templates.items():
+                if not isinstance(template_text, str):
+                    continue
+
+                assert "Answer:" in template_text, (
+                    f"{bias_id}.{template_key} missing 'Answer:' format instruction"
+                )
+
+                assert re.search(r"Respond with your choice in this format:", template_text), (
+                    f"{bias_id}.{template_key} missing format instruction line"
+                )
+
+    def test_control_and_treatment_have_matching_format(self):
+        """Verify both control and treatment use same Answer: format."""
+        for bias_id in self.CHOICE_FORMAT_BIASES:
+            templates = BIAS_TEMPLATES[bias_id]
+
+            control = templates.get("control", "")
+            treatment_keys = [k for k in templates if k.startswith("treatment")]
+
+            control_has_format = "Answer:" in control
+
+            for tkey in treatment_keys:
+                treatment = templates[tkey]
+                treatment_has_format = "Answer:" in treatment
+
+                assert control_has_format == treatment_has_format, (
+                    f"{bias_id}: Control and {tkey} have inconsistent Answer: format"
+                )
+
+    def test_two_option_biases_use_a_or_b_format(self):
+        """Verify 2-option biases use [A or B] format."""
+        two_option_biases = [
+            "conjunction_fallacy",
+            "sunk_cost_fallacy",
+            "status_quo_bias",
+            "endowment_effect",
+            "hindsight_bias",
+        ]
+
+        for bias_id in two_option_biases:
+            templates = BIAS_TEMPLATES[bias_id]
+            for template_key, template_text in templates.items():
+                if not isinstance(template_text, str):
+                    continue
+                assert "[A or B]" in template_text, (
+                    f"{bias_id}.{template_key} should use [A or B] format for 2-option choice"
+                )
+
+    def test_three_option_biases_use_a_b_or_c_format(self):
+        """Verify 3-option biases use [A, B, or C] format."""
+        three_option_biases = ["confirmation_bias"]
+
+        for bias_id in three_option_biases:
+            templates = BIAS_TEMPLATES[bias_id]
+            for template_key, template_text in templates.items():
+                if not isinstance(template_text, str):
+                    continue
+                assert "[A, B, or C]" in template_text, (
+                    f"{bias_id}.{template_key} should use [A, B, or C] format for 3-option choice"
+                )
+
+
+class TestAnswerTypeMetadata:
+    """Verify generator sets answer_type metadata for structured outputs."""
+
+    @pytest.fixture
+    def generator(self):
+        """Create a generator with fixed seed for reproducibility."""
+        return TestCaseGenerator(seed=42)
+
+    @pytest.mark.parametrize("bias_id", [
+        "conjunction_fallacy",
+        "sunk_cost_fallacy",
+        "status_quo_bias",
+        "endowment_effect",
+        "confirmation_bias",
+        "hindsight_bias",
+        "gain_loss_framing",
+        "certainty_effect",
+        "present_bias",
+        "base_rate_neglect",
+        "gambler_fallacy",
+    ])
+    def test_choice_biases_use_option_answer_type(self, generator, bias_id):
+        instance = generator.generate_instance(bias_id, Domain.INDIVIDUAL)
+        assert instance.metadata.get("answer_type") == "option", (
+            f"{bias_id} should set answer_type='option'"
+        )
+
+    def test_loss_aversion_uses_yes_no_answer_type(self, generator):
+        instance = generator.generate_instance("loss_aversion", Domain.INDIVIDUAL)
+        assert instance.metadata.get("answer_type") == "yes_no", (
+            "loss_aversion should set answer_type='yes_no'"
+        )
+
+    def test_overconfidence_uses_confidence_answer_type(self, generator):
+        instance = generator.generate_instance("overconfidence_effect", Domain.INDIVIDUAL)
+        assert instance.metadata.get("answer_type") == "confidence", (
+            "overconfidence_effect should set answer_type='confidence'"
+        )
+
+
+class TestAvailabilityBiasPromptContract:
+    """Tests for Part G: Availability bias prompt/output contract."""
+
+    @pytest.fixture
+    def generator(self):
+        """Create a generator with fixed seed for reproducibility."""
+        return TestCaseGenerator(seed=42)
+
+    def test_availability_bias_requires_single_numeric_answer(self, generator):
+        """Availability bias should request a single numeric answer with Answer: marker."""
+        instance = generator.generate_instance("availability_bias", Domain.INDIVIDUAL)
+        assert "Answer:" in instance.control_prompt, (
+            "availability_bias control prompt should include 'Answer:' marker"
+        )
+        assert "single numeric estimate" in instance.control_prompt.lower(), (
+            "availability_bias should request a single numeric estimate"
+        )
+        assert instance.expected_rational_response.isdigit(), (
+            "availability_bias rational answer should be numeric"
+        )
+        assert instance.expected_biased_response.isdigit(), (
+            "availability_bias biased answer should be numeric"
+        )
+
+class TestAnswerExtractionWithNewFormat:
+    """Tests that AnswerExtractor handles the new Answer: format.
+
+    These tests verify the extraction patterns work correctly with
+    responses formatted per the new prompt contract (Answer: A/B/C).
+    """
+
+    @pytest.fixture
+    def extractor(self):
+        """Create an AnswerExtractor for testing."""
+        from kahne_bench.engines.evaluator import AnswerExtractor
+        return AnswerExtractor()
+
+    def test_extract_answer_from_formatted_response(self, extractor):
+        """Verify extraction of Answer: A/B/C format responses."""
+        test_cases = [
+            ("Answer: A", "A"),
+            ("Answer: B", "B"),
+            ("Answer: C", "C"),
+            ("I've considered the options carefully.\n\nAnswer: A", "A"),
+            ("Based on my analysis:\nAnswer: B", "B"),
+            ("answer: a", "A"),
+            ("Answer:A", "A"),
+            ("Answer: A\n\nThis is because...", "A"),
+        ]
+
+        for response, expected in test_cases:
+            result = extractor.extract(response, "option")
+            assert result is not None, f"Failed to extract from: {response}"
+            assert result.upper() == expected, (
+                f"Failed for response '{response}': expected '{expected}', got '{result}'"
+            )
+
+    def test_extraction_success_rate_target(self, extractor):
+        """Verify >95% extraction success on realistic Answer: format responses."""
+        responses = [
+            "After careful consideration, Option A is better.\n\nAnswer: A",
+            "Looking at this objectively, Option B is preferable.\n\nAnswer: B",
+            "Both options have merit, but I'll go with C.\n\nAnswer: C",
+            "Answer: A",
+            "Answer: B\n\nMy reasoning is as follows...",
+            "I would recommend:\nAnswer: A",
+            "The rational choice here is clear.\n\nAnswer: B",
+            "Given the constraints, my choice is:\nAnswer: A",
+            "While this is difficult, I must choose.\nAnswer: A\nThough B also has appeal.",
+            "**Answer: B**",
+        ]
+
+        successes = 0
+        for response in responses:
+            result = extractor.extract(response, "option")
+            if result and result.upper() in ["A", "B", "C"]:
+                successes += 1
+
+        success_rate = successes / len(responses)
+        assert success_rate >= 0.95, (
+            f"Extraction success rate {success_rate:.1%} below 95% target"
+        )
+
+    @pytest.fixture
+    def generator(self):
+        """Create a generator with fixed seed for reproducibility."""
+        return TestCaseGenerator(seed=42)
+
+    def test_generated_prompts_have_answer_format(self, generator):
+        """Verify generated instances include Answer: format in prompts."""
+        choice_biases = [
+            "conjunction_fallacy",
+            "sunk_cost_fallacy",
+            "status_quo_bias",
+            "endowment_effect",
+            "confirmation_bias",
+            "hindsight_bias",
+        ]
+
+        for bias_id in choice_biases:
+            instance = generator.generate_instance(bias_id, Domain.INDIVIDUAL)
+
+            # Check control prompt
+            assert "Answer:" in instance.control_prompt, (
+                f"{bias_id}: control prompt missing Answer: format"
+            )
+
+            # Check treatment prompts
+            for intensity in TriggerIntensity:
+                treatment = instance.get_treatment(intensity)
+                assert "Answer:" in treatment, (
+                    f"{bias_id}: treatment {intensity.value} missing Answer: format"
+                )

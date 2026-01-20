@@ -119,7 +119,7 @@ class TestAnswerExtractor:
     def test_extract_yes_no_accept(self):
         extractor = AnswerExtractor()
         response = "I would recommend accepting this offer."
-        assert extractor.extract(response, "yes_no") == "accepting"
+        assert extractor.extract(response, "yes_no") == "yes"
 
     def test_extract_yes_no_reject(self):
         extractor = AnswerExtractor()
@@ -145,6 +145,105 @@ class TestAnswerExtractor:
         confidence = extractor.extract_confidence(response)
         assert confidence is None
 
+    # === Part B: Enhanced Confidence Extraction Tests ===
+
+    def test_extract_confidence_explicit_marker_preferred(self):
+        """Explicit 'Confidence:' line should be preferred over inline mentions."""
+        extractor = AnswerExtractor()
+        # Response has "85" as trivia answer and "70%" as stated confidence
+        response = "The answer is 85. Confidence: 70%"
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 0.70, f"Expected 0.70 but got {confidence} - should extract from 'Confidence:' not '85'"
+
+    def test_extract_confidence_decimal_fraction(self):
+        """Support 0-1 fractional format."""
+        extractor = AnswerExtractor()
+        response = "I believe this is correct.\nConfidence: 0.85"
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 0.85
+
+    def test_extract_confidence_decimal_fraction_no_leading_zero(self):
+        """Support .XX fractional format without leading zero."""
+        extractor = AnswerExtractor()
+        response = "My answer is X.\nConfidence: .75"
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 0.75
+
+    def test_extract_confidence_explicit_marker_newline(self):
+        """Confidence on its own line (explicit marker)."""
+        extractor = AnswerExtractor()
+        response = """Answer: Canberra
+Confidence: 90%"""
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 0.90
+
+    def test_extract_confidence_explicit_marker_without_percent(self):
+        """Confidence: 85 (integer without percent sign)."""
+        extractor = AnswerExtractor()
+        response = "The capital is Canberra.\nConfidence: 85"
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 0.85
+
+    def test_extract_confidence_trivia_answer_not_confused(self):
+        """Overconfidence test: trivia answer (1914) should not be extracted as confidence."""
+        extractor = AnswerExtractor()
+        response = """Answer: 1914
+Confidence: 75%"""
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 0.75, f"Expected 0.75 but got {confidence} - extracted trivia answer instead"
+
+    def test_extract_confidence_numeric_answer_ignored(self):
+        """Numeric answer like '206 bones' should not be confused with confidence."""
+        extractor = AnswerExtractor()
+        response = """The adult human body has 206 bones.
+Confidence: 65%"""
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 0.65
+
+    def test_extract_confidence_inline_fallback_percentage(self):
+        """Inline '85% confident' works as fallback when no explicit marker."""
+        extractor = AnswerExtractor()
+        response = "I am 85% confident the answer is B."
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 0.85
+
+    def test_extract_confidence_inline_fallback_certain(self):
+        """Inline '70% certain' works as fallback."""
+        extractor = AnswerExtractor()
+        response = "I'm 70% certain about this."
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 0.70
+
+    def test_extract_confidence_edge_case_zero(self):
+        """Handle 0% confidence."""
+        extractor = AnswerExtractor()
+        response = "I have no idea.\nConfidence: 0%"
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 0.0
+
+    def test_extract_confidence_edge_case_hundred(self):
+        """Handle 100% confidence."""
+        extractor = AnswerExtractor()
+        response = "I am absolutely certain.\nConfidence: 100%"
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 1.0
+
+    def test_extract_confidence_out_of_range_clamped(self):
+        """Values > 100 should be clamped to 1.0."""
+        extractor = AnswerExtractor()
+        response = "Confidence: 150%"
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 1.0
+
+    def test_extract_confidence_explicit_overrides_inline(self):
+        """When both explicit and inline present, explicit wins."""
+        extractor = AnswerExtractor()
+        response = """I am 95% confident in my analysis.
+The answer is X.
+Confidence: 60%"""
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 0.60, "Explicit 'Confidence:' line should override inline '95% confident'"
+
     def test_fallback_option_extraction(self):
         extractor = AnswerExtractor()
         response = "There are many factors to consider... C seems best."
@@ -155,6 +254,178 @@ class TestAnswerExtractor:
         response = "The project costs 1,000,000 and we expect 2,500,000 in revenue."
         result = extractor.extract(response, "numeric")
         assert result == "1000000"  # First number (changed from last to fix gambler_fallacy extraction)
+
+
+class TestAnswerLineExtraction:
+    """Tests for priority Answer: line extraction.
+
+    Part A of benchmark improvements: extraction must prefer explicit Answer:
+    lines for numeric and option outputs; ignore unrelated numbers.
+    """
+
+    # Option extraction with Answer: line
+
+    def test_option_answer_line_basic(self):
+        """Answer: A format extracts A."""
+        extractor = AnswerExtractor()
+        response = "After consideration, I think B is reasonable.\n\nAnswer: A"
+        result = extractor.extract(response, "option")
+        assert result == "A"
+
+    def test_option_answer_line_overrides_earlier_mention(self):
+        """Answer: line takes priority over earlier option mentions."""
+        extractor = AnswerExtractor()
+        response = "I would choose B initially, but after analysis...\n\nAnswer: C"
+        result = extractor.extract(response, "option")
+        assert result == "C"
+
+    def test_option_answer_line_markdown_bold(self):
+        """**Answer:** format is handled."""
+        extractor = AnswerExtractor()
+        response = "Analysis complete.\n\n**Answer:** D"
+        result = extractor.extract(response, "option")
+        assert result == "D"
+
+    def test_option_answer_line_with_option_keyword(self):
+        """Answer: Option B format works."""
+        extractor = AnswerExtractor()
+        response = "My reasoning...\n\nAnswer: Option B"
+        result = extractor.extract(response, "option")
+        assert result == "B"
+
+    # Numeric extraction with Answer: line
+
+    def test_numeric_answer_line_basic(self):
+        """Answer: 45000 format extracts 45000."""
+        extractor = AnswerExtractor()
+        response = "Rule of thumb suggests 10% annually.\n\nAnswer: 45000"
+        result = extractor.extract(response, "numeric")
+        assert result == "45000"
+
+    def test_numeric_answer_line_overrides_earlier_number(self):
+        """Answer: line takes priority over earlier numbers."""
+        extractor = AnswerExtractor()
+        response = "Based on the anchor of 100, my estimate is 80.\n\nAnswer: 65"
+        result = extractor.extract(response, "numeric")
+        assert result == "65"
+
+    def test_numeric_answer_line_with_comma(self):
+        """Answer: 45,000 extracts 45000 (comma removed)."""
+        extractor = AnswerExtractor()
+        response = "Considering all factors...\n\nAnswer: 45,000"
+        result = extractor.extract(response, "numeric")
+        assert result == "45000"
+
+    def test_numeric_answer_line_with_currency(self):
+        """Answer: $50,000 extracts 50000."""
+        extractor = AnswerExtractor()
+        response = "My estimate:\n\nAnswer: $50,000"
+        result = extractor.extract(response, "numeric")
+        assert result == "50000"
+
+    def test_numeric_answer_line_decimal(self):
+        """Answer: 0.75 extracts 0.75."""
+        extractor = AnswerExtractor()
+        response = "The probability is...\n\nAnswer: 0.75"
+        result = extractor.extract(response, "numeric")
+        assert result == "0.75"
+
+    def test_numeric_answer_line_approximately(self):
+        """Answer: approximately 1000 extracts 1000."""
+        extractor = AnswerExtractor()
+        response = "Answer: approximately 1,000"
+        result = extractor.extract(response, "numeric")
+        assert result == "1000"
+
+    def test_answer_line_ignores_confidence_line(self):
+        """Confidence: 80% is not confused with Answer:."""
+        extractor = AnswerExtractor()
+        response = "Answer: 42\nConfidence: 80%"
+        result = extractor.extract(response, "numeric")
+        assert result == "42"
+
+    # Fallback behavior (no Answer: line)
+
+    def test_no_answer_line_falls_through_numeric(self):
+        """Without Answer: line, existing numeric patterns are used."""
+        extractor = AnswerExtractor()
+        response = "My estimate is approximately 5000 dollars."
+        result = extractor.extract(response, "numeric")
+        assert result == "5000"
+
+    def test_no_answer_line_falls_through_option(self):
+        """Without Answer: line, existing option patterns work."""
+        extractor = AnswerExtractor()
+        response = "I would choose option B because it's better."
+        result = extractor.extract(response, "option")
+        assert result == "B"
+
+    # Edge cases
+
+    def test_answer_line_newline_after_colon(self):
+        """Answer:\n42 format works."""
+        extractor = AnswerExtractor()
+        response = "Analysis:\n\nAnswer:\n42"
+        result = extractor.extract(response, "numeric")
+        assert result == "42"
+
+    def test_answer_line_at_start(self):
+        """Answer: at start of response works."""
+        extractor = AnswerExtractor()
+        response = "Answer: B\n\nExplanation: B is better because..."
+        result = extractor.extract(response, "option")
+        assert result == "B"
+
+    # Real-world verbose response tests
+
+    def test_real_world_verbose_response_numeric(self):
+        """Real-world verbose response with Answer: line at end."""
+        extractor = AnswerExtractor()
+        response = """
+        Let me analyze this carefully.
+
+        The anchor was 100, but I should ignore that.
+        A rule of thumb would suggest 10% growth, giving us about 110.
+        However, looking at the actual data...
+
+        After careful consideration of all factors:
+
+        Answer: 45000
+        Confidence: 75%
+        """
+        result = extractor.extract(response, "numeric")
+        assert result == "45000"
+
+    def test_real_world_verbose_response_option(self):
+        """Real-world verbose response with Answer: line at end."""
+        extractor = AnswerExtractor()
+        response = """
+        This is a classic framing problem.
+
+        Option A saves 200 people for certain.
+        Option B has a 1/3 chance of saving 600.
+
+        While B has the same expected value, the certainty of A is appealing.
+        Initially I might lean toward B...
+
+        Answer: A
+        """
+        result = extractor.extract(response, "option")
+        assert result == "A"
+
+    def test_confidence_extraction_as_answer_type(self):
+        """Confidence answer_type should extract from Confidence: line."""
+        extractor = AnswerExtractor()
+        response = "Answer: Canberra\nConfidence: 85%"
+        result = extractor.extract(response, "confidence")
+        assert result == "85"
+
+    def test_confidence_extraction_fractional_as_answer_type(self):
+        """Confidence answer_type should handle fractional confidence."""
+        extractor = AnswerExtractor()
+        response = "Answer: 1914\nConfidence: 0.75"
+        result = extractor.extract(response, "confidence")
+        assert result == "75"
 
 
 class TestBiasEvaluator:
@@ -1061,6 +1332,38 @@ class TestBugFixes:
         result = extractor.extract(error_response, "option")
         # Without the evaluator-level check, this would incorrectly return "A"
         # The fix ensures extraction is never called on ERROR responses
+
+    # Bug 4: Confidence extraction confused with trivia answers (Part B)
+    def test_overconfidence_extracts_confidence_not_answer(self):
+        """Bug fix: Overconfidence scoring must use stated confidence, not trivia answer."""
+        extractor = AnswerExtractor()
+        # This is a realistic overconfidence_effect response format
+        response = """The capital of Australia is Sydney.
+
+Answer: Sydney
+Confidence: 90%"""
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 0.90, f"Expected 0.90 but got {confidence}"
+
+    def test_overconfidence_year_answer_ignored(self):
+        """Bug fix: Year-based trivia answer (1914) should not be extracted as confidence."""
+        extractor = AnswerExtractor()
+        response = """World War I began in 1914.
+
+Answer: 1914
+Confidence: 80%"""
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 0.80, f"Expected 0.80 but got {confidence} - year '1914' was extracted"
+
+    def test_overconfidence_chemical_symbol_answer(self):
+        """Bug fix: Non-numeric trivia answers work correctly."""
+        extractor = AnswerExtractor()
+        response = """The chemical symbol for gold is Au.
+
+Answer: Au
+Confidence: 95%"""
+        confidence = extractor.extract_confidence(response)
+        assert confidence == 0.95
 
 
 class TestErrorSimulatingProvider:

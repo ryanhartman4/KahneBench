@@ -287,12 +287,14 @@ def export_fingerprint_to_json(
             "human_like_biases": report.human_like_biases,
             "ai_specific_biases": report.ai_specific_biases,
         },
+        "unknown_rates_by_bias": report.unknown_rates_by_bias,
         "magnitude_scores": {
             bias_id: {
                 "control_score": bms.control_score,
                 "treatment_scores": {k.value: v for k, v in bms.treatment_scores.items()},
                 "overall_magnitude": bms.overall_magnitude,
                 "intensity_sensitivity": bms.intensity_sensitivity,
+                "unknown_rate": bms.unknown_rate,
             }
             for bias_id, bms in report.magnitude_scores.items()
         },
@@ -303,6 +305,7 @@ def export_fingerprint_to_json(
                 "consistency_score": bci.consistency_score,
                 "standard_deviation": bci.standard_deviation,
                 "is_systematic": bci.is_systematic,
+                "unknown_rate": bci.unknown_rate,
             }
             for bias_id, bci in report.consistency_indices.items()
         },
@@ -313,6 +316,7 @@ def export_fingerprint_to_json(
                 "best_mitigation_method": bmp.best_mitigation_method,
                 "mitigation_effectiveness": bmp.mitigation_effectiveness,
                 "requires_explicit_warning": bmp.requires_explicit_warning,
+                "unknown_rate": bmp.unknown_rate,
             }
             for bias_id, bmp in report.mitigation_potentials.items()
         },
@@ -322,6 +326,7 @@ def export_fingerprint_to_json(
                 "human_baseline_rate": has.human_baseline_rate,
                 "alignment_score": has.alignment_score,
                 "bias_direction": has.bias_direction,
+                "unknown_rate": has.unknown_rate,
             }
             for bias_id, has in report.human_alignments.items()
         },
@@ -332,6 +337,7 @@ def export_fingerprint_to_json(
                 "consistency_score": rci.consistency_score,
                 "is_stable": rci.is_stable,
                 "trial_count": rci.trial_count,
+                "unknown_rate": rci.unknown_rate,
             }
             for bias_id, rci in report.response_consistencies.items()
         },
@@ -343,6 +349,7 @@ def export_fingerprint_to_json(
                 "calibration_score": cas.calibration_score,
                 "overconfident": cas.overconfident,
                 "metacognitive_gap": cas.metacognitive_gap,
+                "unknown_rate": cas.unknown_rate,
             }
             for bias_id, cas in report.calibration_scores.items()
         },

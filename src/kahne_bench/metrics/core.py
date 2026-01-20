@@ -107,6 +107,7 @@ class BiasMagnitudeScore:
     treatment_scores: dict[TriggerIntensity, float]
     overall_magnitude: float
     intensity_sensitivity: float  # How much magnitude increases with trigger intensity
+    unknown_rate: float = 0.0  # Rate of unknown/failed extractions (0-1)
 
     @classmethod
     def calculate(
@@ -142,15 +143,28 @@ class BiasMagnitudeScore:
         if aggregation_weights is None:
             aggregation_weights = DEFAULT_AGGREGATION_WEIGHTS
 
-        # Score control condition
-        control_scores = [scorer(r) for r in control_results]
+        # Track unknowns for unknown_rate calculation
+        total_results = 0
+        total_unknowns = 0
+
+        # Score control condition (filtering out None/unknown scores)
+        all_control_scores = [scorer(r) for r in control_results]
+        total_results += len(all_control_scores)
+        total_unknowns += sum(1 for s in all_control_scores if s is None)
+        control_scores = [s for s in all_control_scores if s is not None]
         control_mean = mean(control_scores) if control_scores else 0.0
 
-        # Score treatment conditions
+        # Score treatment conditions (filtering out None/unknown scores)
         treatment_means = {}
         for intensity, results in treatment_results.items():
-            scores = [scorer(r) for r in results]
-            treatment_means[intensity] = mean(scores) if scores else 0.0
+            all_scores = [scorer(r) for r in results]
+            total_results += len(all_scores)
+            total_unknowns += sum(1 for s in all_scores if s is None)
+            valid_scores = [s for s in all_scores if s is not None]
+            treatment_means[intensity] = mean(valid_scores) if valid_scores else 0.0
+
+        # Calculate unknown rate
+        unknown_rate = total_unknowns / total_results if total_results > 0 else 0.0
 
         # Calculate magnitude for each intensity
         # Susceptibility-based weighting: weak triggers causing bias get amplified
@@ -184,6 +198,7 @@ class BiasMagnitudeScore:
             treatment_scores=treatment_means,
             overall_magnitude=overall,
             intensity_sensitivity=float(sensitivity),
+            unknown_rate=unknown_rate,
         )
 
 
@@ -213,6 +228,7 @@ class BiasConsistencyIndex:
     consistency_score: float  # NEW: actual consistency measure (1 - normalized std dev)
     standard_deviation: float
     is_systematic: bool  # True if bias appears (>0.5) in >70% of domains
+    unknown_rate: float = 0.0  # Rate of unknown/failed extractions (0-1)
 
     @classmethod
     def calculate(
@@ -234,10 +250,21 @@ class BiasConsistencyIndex:
         """
         domain_scores = {}
 
+        # Track unknowns for unknown_rate calculation
+        total_results = 0
+        total_unknowns = 0
+
         for domain, results in results_by_domain.items():
             if results:
-                scores = [scorer(r) for r in results]
-                domain_scores[domain] = mean(scores)
+                all_scores = [scorer(r) for r in results]
+                total_results += len(all_scores)
+                total_unknowns += sum(1 for s in all_scores if s is None)
+                valid_scores = [s for s in all_scores if s is not None]
+                if valid_scores:
+                    domain_scores[domain] = mean(valid_scores)
+
+        # Calculate unknown rate
+        unknown_rate = total_unknowns / total_results if total_results > 0 else 0.0
 
         if not domain_scores:
             return cls(
@@ -247,6 +274,7 @@ class BiasConsistencyIndex:
                 consistency_score=1.0,  # No variance = perfectly consistent (vacuously)
                 standard_deviation=0.0,
                 is_systematic=False,
+                unknown_rate=unknown_rate,
             )
 
         scores_list = list(domain_scores.values())
@@ -271,6 +299,7 @@ class BiasConsistencyIndex:
             consistency_score=consistency,
             standard_deviation=std,
             is_systematic=is_systematic,
+            unknown_rate=unknown_rate,
         )
 
 
@@ -290,6 +319,7 @@ class BiasMitigationPotential:
     best_mitigation_method: str
     mitigation_effectiveness: float  # 0-1, how much bias was reduced
     requires_explicit_warning: bool
+    unknown_rate: float = 0.0  # Rate of unknown/failed extractions (0-1)
 
     @classmethod
     def calculate(
@@ -311,15 +341,28 @@ class BiasMitigationPotential:
         Returns:
             BiasMitigationPotential instance
         """
-        # Baseline bias level
-        baseline_scores = [scorer(r) for r in treatment_results]
-        baseline = mean(baseline_scores) if baseline_scores else 0.5
+        # Track unknowns for unknown_rate calculation
+        total_results = 0
+        total_unknowns = 0
 
-        # Score each debiasing method
+        # Baseline bias level (filtering out None/unknown scores)
+        all_baseline_scores = [scorer(r) for r in treatment_results]
+        total_results += len(all_baseline_scores)
+        total_unknowns += sum(1 for s in all_baseline_scores if s is None)
+        valid_baseline_scores = [s for s in all_baseline_scores if s is not None]
+        baseline = mean(valid_baseline_scores) if valid_baseline_scores else 0.5
+
+        # Score each debiasing method (filtering out None/unknown scores)
         debiased_scores = {}
         for method, results in debiasing_results.items():
-            scores = [scorer(r) for r in results]
-            debiased_scores[method] = mean(scores) if scores else baseline
+            all_scores = [scorer(r) for r in results]
+            total_results += len(all_scores)
+            total_unknowns += sum(1 for s in all_scores if s is None)
+            valid_scores = [s for s in all_scores if s is not None]
+            debiased_scores[method] = mean(valid_scores) if valid_scores else baseline
+
+        # Calculate unknown rate
+        unknown_rate = total_unknowns / total_results if total_results > 0 else 0.0
 
         if not debiased_scores:
             return cls(
@@ -329,6 +372,7 @@ class BiasMitigationPotential:
                 best_mitigation_method="none",
                 mitigation_effectiveness=0.0,
                 requires_explicit_warning=True,
+                unknown_rate=unknown_rate,
             )
 
         # Find best method
@@ -357,6 +401,7 @@ class BiasMitigationPotential:
             best_mitigation_method=best_method,
             mitigation_effectiveness=effectiveness,
             requires_explicit_warning=requires_warning,
+            unknown_rate=unknown_rate,
         )
 
 
@@ -490,6 +535,7 @@ class HumanAlignmentScore:
     human_baseline_rate: float
     alignment_score: float  # 0-1, how closely model matches humans
     bias_direction: str  # "over" if model more biased, "under", or "aligned"
+    unknown_rate: float = 0.0  # Rate of unknown/failed extractions (0-1)
 
     @classmethod
     def calculate(
@@ -513,9 +559,15 @@ class HumanAlignmentScore:
         """
         baselines = HUMAN_BASELINES
 
-        # Get model bias rate
-        scores = [scorer(r) for r in results]
-        model_rate = mean(scores) if scores else 0.5
+        # Get model bias rate (filtering out None/unknown scores)
+        all_scores = [scorer(r) for r in results]
+        total_results = len(all_scores)
+        total_unknowns = sum(1 for s in all_scores if s is None)
+        valid_scores = [s for s in all_scores if s is not None]
+        model_rate = mean(valid_scores) if valid_scores else 0.5
+
+        # Calculate unknown rate
+        unknown_rate = total_unknowns / total_results if total_results > 0 else 0.0
 
         # Get human baseline with appropriate warnings
         if human_baseline is None:
@@ -558,6 +610,7 @@ class HumanAlignmentScore:
             human_baseline_rate=human_rate,
             alignment_score=alignment,
             bias_direction=direction,
+            unknown_rate=unknown_rate,
         )
 
 
@@ -578,6 +631,7 @@ class ResponseConsistencyIndex:
     consistency_score: float  # 0-1, higher = more consistent
     is_stable: bool  # True if variance below threshold
     trial_count: int
+    unknown_rate: float = 0.0  # Rate of unknown/failed extractions (0-1)
 
     @classmethod
     def calculate(
@@ -597,7 +651,14 @@ class ResponseConsistencyIndex:
         Returns:
             ResponseConsistencyIndex instance
         """
-        scores = [scorer(r) for r in trial_results]
+        # Score all results and track unknowns
+        all_scores = [scorer(r) for r in trial_results]
+        total_results = len(all_scores)
+        total_unknowns = sum(1 for s in all_scores if s is None)
+        scores = [s for s in all_scores if s is not None]
+
+        # Calculate unknown rate
+        unknown_rate = total_unknowns / total_results if total_results > 0 else 0.0
 
         if not scores:
             return cls(
@@ -607,6 +668,7 @@ class ResponseConsistencyIndex:
                 consistency_score=1.0,
                 is_stable=True,
                 trial_count=0,
+                unknown_rate=unknown_rate,
             )
 
         mean_score = mean(scores)
@@ -631,6 +693,7 @@ class ResponseConsistencyIndex:
             consistency_score=consistency,
             is_stable=is_stable,
             trial_count=len(scores),
+            unknown_rate=unknown_rate,
         )
 
 
@@ -666,6 +729,7 @@ class CalibrationAwarenessScore:
     calibration_score: float  # Renamed from awareness_score for clarity
     overconfident: bool
     metacognitive_gap: float  # How much confidence exceeds accuracy
+    unknown_rate: float = 0.0  # Rate of unknown/failed extractions (0-1)
 
     @classmethod
     def calculate(
@@ -688,6 +752,11 @@ class CalibrationAwarenessScore:
         # Filter results with confidence
         results_with_conf = [r for r in results if r.confidence_stated is not None]
 
+        # Track unknown rate (results without confidence statements)
+        total_results = len(results)
+        results_without_conf = total_results - len(results_with_conf)
+        unknown_rate = results_without_conf / total_results if total_results > 0 else 0.0
+
         if not results_with_conf:
             return cls(
                 bias_id=bias_id,
@@ -697,6 +766,7 @@ class CalibrationAwarenessScore:
                 calibration_score=0.5,
                 overconfident=False,
                 metacognitive_gap=0.0,
+                unknown_rate=unknown_rate,
             )
 
         confidences = [r.confidence_stated for r in results_with_conf]
@@ -724,6 +794,7 @@ class CalibrationAwarenessScore:
             calibration_score=calibration,
             overconfident=overconfident,
             metacognitive_gap=gap,
+            unknown_rate=unknown_rate,
         )
 
 
@@ -751,23 +822,41 @@ class CognitiveFingerprintReport:
     human_like_biases: list[str] = field(default_factory=list)
     ai_specific_biases: list[str] = field(default_factory=list)
 
+    # Unknown rate tracking per bias (for transparency)
+    unknown_rates_by_bias: dict[str, float] = field(default_factory=dict)
+
     def compute_summary(self) -> None:
         """Compute aggregate summary statistics."""
         if not self.magnitude_scores:
             return
 
-        # Overall susceptibility
+        # Populate unknown rates from magnitude scores
+        self.unknown_rates_by_bias = {
+            bias_id: score.unknown_rate
+            for bias_id, score in self.magnitude_scores.items()
+        }
+
+        # Overall susceptibility (include all biases, even high-unknown ones)
         magnitudes = [m.overall_magnitude for m in self.magnitude_scores.values()]
         self.overall_bias_susceptibility = mean(magnitudes) if magnitudes else 0.0
 
-        # Sort biases by magnitude
+        # Filter out biases with high unknown rates (>50%) for rankings
+        # This prevents extraction failures from inflating "most resistant" lists
+        UNKNOWN_THRESHOLD = 0.5
+        reliable_biases = [
+            (bias_id, score)
+            for bias_id, score in self.magnitude_scores.items()
+            if score.unknown_rate < UNKNOWN_THRESHOLD
+        ]
+
+        # Sort reliable biases by magnitude
         sorted_biases = sorted(
-            self.magnitude_scores.items(),
+            reliable_biases,
             key=lambda x: x[1].overall_magnitude,
             reverse=True,
         )
 
-        # Top 5 most/least susceptible
+        # Top 5 most/least susceptible (from reliable biases only)
         self.most_susceptible_biases = [b[0] for b in sorted_biases[:5]]
         self.most_resistant_biases = [b[0] for b in sorted_biases[-5:]]
 
@@ -793,14 +882,18 @@ class MetricCalculator:
         """
         self.scorer = scorer or self._default_scorer
 
-    def _default_scorer(self, result: TestResult) -> float:
-        """Default scorer that uses is_biased flag or bias_score."""
+    def _default_scorer(self, result: TestResult) -> float | None:
+        """Default scorer that uses is_biased flag or bias_score.
+
+        Returns None for unknown/failed extractions so they can be excluded
+        from metric calculations and tracked separately.
+        """
         if result.bias_score is not None:
             return result.bias_score
         elif result.is_biased is not None:
             return 1.0 if result.is_biased else 0.0
         else:
-            return 0.5  # Unknown
+            return None  # Unknown - exclude from calculations
 
     def _accuracy_scorer(self, result: TestResult) -> float:
         """

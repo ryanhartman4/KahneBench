@@ -41,21 +41,24 @@ class DomainScenario:
 
 
 # Domain-specific scenario templates for ecological validity
+# NOTE: typical_decisions should be numeric/estimable for anchoring bias tests
+# Categorical decisions (test selection, protocol choice) are handled separately
 DOMAIN_SCENARIOS: dict[Domain, list[DomainScenario]] = {
     Domain.INDIVIDUAL: [
         DomainScenario(
             domain=Domain.INDIVIDUAL,
             context="personal financial planning",
             actors=["financial advisor", "individual investor", "retiree"],
-            typical_decisions=["investment allocation", "major purchase", "savings rate"],
-            value_ranges={"amount": (1000, 100000), "percentage": (1, 50)},
+            # Numeric decisions suitable for anchoring tests
+            typical_decisions=["portfolio value estimate", "emergency fund amount", "monthly budget"],
+            value_ranges={"amount": (5000, 50000), "percentage": (10, 25)},
         ),
         DomainScenario(
             domain=Domain.INDIVIDUAL,
             context="consumer choice",
             actors=["shopper", "consumer", "buyer"],
-            typical_decisions=["product selection", "brand choice", "purchase timing"],
-            value_ranges={"price": (10, 5000), "discount": (5, 50)},
+            typical_decisions=["fair price estimate", "budget amount", "discount threshold"],
+            value_ranges={"price": (50, 500), "discount": (10, 40)},
         ),
     ],
     Domain.PROFESSIONAL: [
@@ -63,22 +66,23 @@ DOMAIN_SCENARIOS: dict[Domain, list[DomainScenario]] = {
             domain=Domain.PROFESSIONAL,
             context="medical diagnosis",
             actors=["physician", "cardiologist", "oncologist"],
-            typical_decisions=["treatment selection", "diagnostic test", "referral"],
-            value_ranges={"probability": (1, 95), "patients": (10, 10000)},
+            # Numeric decisions - probability estimates suitable for anchoring
+            typical_decisions=["disease probability estimate", "treatment success rate", "patient count estimate"],
+            value_ranges={"probability": (10, 60), "patients": (50, 500), "percentage": (20, 70)},
         ),
         DomainScenario(
             domain=Domain.PROFESSIONAL,
             context="business strategy",
             actors=["CEO", "manager", "consultant"],
-            typical_decisions=["market entry", "hiring", "product launch"],
-            value_ranges={"revenue": (100000, 10000000), "employees": (10, 1000)},
+            typical_decisions=["revenue forecast", "headcount estimate", "market share projection"],
+            value_ranges={"revenue": (100000, 1000000), "employees": (10, 200), "percentage": (5, 40)},
         ),
         DomainScenario(
             domain=Domain.PROFESSIONAL,
             context="legal analysis",
             actors=["attorney", "judge", "legal analyst"],
-            typical_decisions=["case strategy", "settlement", "verdict prediction"],
-            value_ranges={"damages": (10000, 10000000), "probability": (10, 90)},
+            typical_decisions=["damages estimate", "settlement value", "case success probability"],
+            value_ranges={"damages": (50000, 500000), "probability": (20, 80), "percentage": (20, 80)},
         ),
     ],
     Domain.SOCIAL: [
@@ -86,15 +90,15 @@ DOMAIN_SCENARIOS: dict[Domain, list[DomainScenario]] = {
             domain=Domain.SOCIAL,
             context="salary negotiation",
             actors=["job candidate", "hiring manager", "recruiter"],
-            typical_decisions=["offer acceptance", "counter-offer", "benefit selection"],
-            value_ranges={"salary": (50000, 500000), "bonus": (5, 50)},
+            typical_decisions=["salary estimate", "bonus percentage", "total compensation value"],
+            value_ranges={"salary": (60000, 150000), "bonus": (5, 25), "percentage": (5, 25)},
         ),
         DomainScenario(
             domain=Domain.SOCIAL,
             context="team collaboration",
             actors=["team lead", "project manager", "team member"],
-            typical_decisions=["resource allocation", "task assignment", "conflict resolution"],
-            value_ranges={"time": (1, 100), "resources": (1000, 100000)},
+            typical_decisions=["project timeline estimate", "resource budget", "team size recommendation"],
+            value_ranges={"time": (2, 24), "resources": (10000, 100000), "count": (3, 15)},
         ),
     ],
     Domain.TEMPORAL: [
@@ -102,15 +106,15 @@ DOMAIN_SCENARIOS: dict[Domain, list[DomainScenario]] = {
             domain=Domain.TEMPORAL,
             context="retirement planning",
             actors=["pre-retiree", "financial planner", "pension advisor"],
-            typical_decisions=["contribution rate", "retirement age", "withdrawal strategy"],
-            value_ranges={"years": (5, 40), "savings": (100000, 5000000)},
+            typical_decisions=["retirement savings target", "annual contribution amount", "withdrawal amount"],
+            value_ranges={"years": (5, 30), "savings": (100000, 1000000), "percentage": (3, 15)},
         ),
         DomainScenario(
             domain=Domain.TEMPORAL,
             context="career development",
             actors=["professional", "career coach", "mentor"],
-            typical_decisions=["skill investment", "job change timing", "education"],
-            value_ranges={"months": (3, 36), "cost": (1000, 100000)},
+            typical_decisions=["training budget", "expected salary increase", "time to promotion estimate"],
+            value_ranges={"months": (6, 36), "cost": (2000, 20000), "percentage": (5, 30)},
         ),
     ],
     Domain.RISK: [
@@ -118,15 +122,15 @@ DOMAIN_SCENARIOS: dict[Domain, list[DomainScenario]] = {
             domain=Domain.RISK,
             context="environmental policy",
             actors=["policy maker", "environmental scientist", "regulator"],
-            typical_decisions=["emission limits", "resource allocation", "risk threshold"],
-            value_ranges={"probability": (0.1, 30), "impact": (1000, 1000000000)},
+            typical_decisions=["emission reduction target", "compliance cost estimate", "risk probability"],
+            value_ranges={"probability": (5, 30), "impact": (100000, 10000000), "percentage": (10, 50)},
         ),
         DomainScenario(
             domain=Domain.RISK,
             context="technology adoption",
             actors=["CTO", "IT manager", "security analyst"],
-            typical_decisions=["system migration", "security protocol", "vendor selection"],
-            value_ranges={"cost": (10000, 10000000), "probability": (1, 50)},
+            typical_decisions=["implementation cost estimate", "downtime estimate", "failure rate estimate"],
+            value_ranges={"cost": (50000, 500000), "probability": (1, 20), "percentage": (1, 20)},
         ),
     ],
 }
@@ -140,8 +144,12 @@ You are evaluating {context}.
 
 {decision_maker} needs to estimate {target_quantity}.
 
+{range_hint}
+
 Based on available information and your expertise, provide your best estimate.
-What is your estimate for {target_quantity}?
+Provide your answer as a single number only.
+
+Answer:
 """,
         "treatment": """
 You are evaluating {context}.
@@ -149,21 +157,25 @@ You are evaluating {context}.
 {decision_maker} recently saw the number {anchor_value} in an unrelated context.
 Now they need to estimate {target_quantity}.
 
+{range_hint}
+
 Based on available information and your expertise, provide your best estimate.
-What is your estimate for {target_quantity}?
+Provide your answer as a single number only.
+
+Answer:
 """,
     },
     "gain_loss_framing": {
         "control": """
 You are advising on {context}.
 
-A situation affects {total_affected} people. Consider two programs with IDENTICAL expected outcomes:
-- Program A: A fixed outcome affecting {fixed_outcome} people
-- Program B: A {prob}% probability of affecting all {total_affected} people, and a {comp_prob}% probability of affecting no one
+A situation affects {total_affected} people. Consider two programs:
+- Program A: A fixed outcome affecting {fixed_outcome} people (EV = {ev_a} people)
+- Program B: A {prob}% probability of affecting all {total_affected} people, and a {comp_prob}% probability of affecting no one (EV = {ev_b} people)
 
-Expected value: Both programs have the same expected outcome of {expected_outcome} people affected.
+A rational decision-maker should select the option with the higher expected value.
 
-Which program do you recommend and why?
+Which program do you recommend? Reply with A or B.
 """,
         "treatment_gain": """
 You are advising on {context}.
@@ -172,7 +184,7 @@ A disease threatens {total_affected} lives. Consider two programs:
 - Program A: {gain_sure} people will be saved for certain.
 - Program B: There is a {prob}% probability that all {gain_all} will be saved, and a {comp_prob}% probability that no one will be saved.
 
-Which program do you recommend and why?
+Which program do you recommend? Reply with A or B.
 """,
         "treatment_loss": """
 You are advising on {context}.
@@ -181,23 +193,33 @@ A disease threatens {total_affected} lives. Consider two programs:
 - Program A: {loss_sure} people will die for certain.
 - Program B: There is a {prob}% probability that no one will die, and a {comp_prob}% probability that all {loss_all} will die.
 
-Which program do you recommend and why?
+Which program do you recommend? Reply with A or B.
 """,
     },
     "base_rate_neglect": {
         "control": """
-In a population, {base_rate}% are {category_a} and {comp_rate}% are {category_b}.
+In a population, {base_rate}% are engineers and {comp_rate}% are lawyers.
 
 A person is randomly selected from this population.
-Without any additional information, what is the probability this person is {category_a}?
+Without any additional information, which is more likely?
+
+A) This person is {category_a}
+B) This person is {category_b}
+
+Reply with just A or B.
 """,
         "treatment": """
-In a population, {base_rate}% are {category_a} and {comp_rate}% are {category_b}.
+In a population, {base_rate}% are engineers and {comp_rate}% are lawyers.
 
 A person is randomly selected from this population. Here is a description:
 "{description}"
 
-What is the probability this person is {category_a}?
+Which is more likely?
+
+A) This person is {category_a}
+B) This person is {category_b}
+
+Reply with just A or B.
 """,
     },
     "conjunction_fallacy": {
@@ -209,7 +231,10 @@ Which is more probable?
 Option A: {person_name} is {general_category}
 Option B: {person_name} is {general_category} AND {specific_detail}
 
-Which option is more probable? (Reply with just A or B)
+Which option is more probable?
+
+Respond with your choice in this format:
+Answer: [A or B]
 """,
         "treatment": """
 {person_name} is described as: {description}
@@ -221,7 +246,10 @@ Which is more probable?
 Option A: {person_name} is {general_category}
 Option B: {person_name} is {general_category} AND {specific_detail}
 
-Which option is more probable? (Reply with just A or B)
+Which option is more probable?
+
+Respond with your choice in this format:
+Answer: [A or B]
 """,
     },
     "loss_aversion": {
@@ -248,21 +276,23 @@ Do you accept this gamble? Explain your reasoning.
     },
     "availability_bias": {
         "control": """
-Estimate the annual frequency of deaths in the United States from:
-A) {common_cause}
-B) {rare_cause}
+Estimate the annual number of deaths in the United States from {rare_cause}.
+For context, {common_cause} is a common cause of death.
 
-Provide numerical estimates for each.
+Provide a single numeric estimate only.
+
+Answer:
 """,
         "treatment": """
 Recently, there have been several highly publicized incidents of {rare_cause}.
 News coverage has featured dramatic stories of victims and their families.
 
-Estimate the annual frequency of deaths in the United States from:
-A) {common_cause}
-B) {rare_cause}
+Estimate the annual number of deaths in the United States from {rare_cause}.
+For context, {common_cause} is a common cause of death.
 
-Provide numerical estimates for each.
+Provide a single numeric estimate only.
+
+Answer:
 """,
     },
     "overconfidence_effect": {
@@ -300,6 +330,9 @@ Option A: Continue the project
 Option B: Abandon the project
 
 Which option do you choose?
+
+Respond with your choice in this format:
+Answer: [A or B]
 """,
         "treatment": """
 A project has already consumed ${sunk_cost} of investment.
@@ -312,6 +345,9 @@ Option A: Continue the project to recover the sunk costs
 Option B: Abandon the project and cut your losses
 
 Which option do you choose?
+
+Respond with your choice in this format:
+Answer: [A or B]
 """,
     },
     "status_quo_bias": {
@@ -322,6 +358,9 @@ Option A: {option_a_description}
 Option B: {option_b_description}
 
 Based on the features, which option do you choose?
+
+Respond with your choice in this format:
+Answer: [A or B]
 """,
         "treatment": """
 You are currently using Option A for your {context}: {option_a_description}
@@ -336,34 +375,56 @@ Option A: Stay with your current option
 Option B: Switch to the better option
 
 Which option do you choose?
+
+Respond with your choice in this format:
+Answer: [A or B]
 """,
     },
     "present_bias": {
         "control": """
 Choose between:
-A) Receive ${amount_small} in {delay_short} days
-B) Receive ${amount_large} in {delay_long} days
+A) Receive ${amount_small} today
+B) Receive ${amount_large} in {delay_days} days
+
+Assuming a {annual_rate}% annual discount rate, the present value of Option B is ${pv_later}.
+
+A rational decision-maker should select the option with the higher present value.
 
 Reply with just the letter (A or B).
 """,
         "treatment": """
 Choose between:
 A) Receive ${amount_small} today
-B) Receive ${amount_large} in {delay_long} days
+B) Receive ${amount_large} in {delay_days} days
+
+The money today is guaranteed and immediately available.
+The future amount requires waiting and carries uncertainty.
 
 Reply with just the letter (A or B).
 """,
     },
     "gambler_fallacy": {
         "control": """
-A fair coin has been flipped. You need to predict the next flip.
+A fair coin will be flipped.
 
-What is the probability of heads on the next flip?
+For the next flip, which statement is true?
+
+A) Heads is more likely than tails
+B) Tails is more likely than heads
+C) Heads and tails are equally likely
+
+Reply with just A, B, or C.
 """,
         "treatment": """
 A fair coin has been flipped and landed on heads {streak_length} times in a row.
 
-What is the probability of heads on the next flip?
+For the next flip, which statement is true?
+
+A) Heads is more likely than tails
+B) Tails is more likely than heads
+C) Heads and tails are equally likely
+
+Reply with just A, B, or C.
 """,
     },
     "endowment_effect": {
@@ -378,6 +439,9 @@ Option A: Yes, this is a fair offer at market value
 Option B: No, the item is worth more than market value
 
 Which option do you choose?
+
+Respond with your choice in this format:
+Answer: [A or B]
 """,
         "treatment": """
 You own a {item} that you've had for a while. It has become part of your possessions.
@@ -390,6 +454,9 @@ Option A: Yes, accept the fair market value offer
 Option B: No, demand more than market value because it's mine
 
 Which option do you choose?
+
+Respond with your choice in this format:
+Answer: [A or B]
 """,
     },
     "confirmation_bias": {
@@ -403,6 +470,9 @@ Option B: Focus primarily on gathering evidence that challenges the hypothesis
 Option C: Seek both supporting and challenging evidence equally
 
 Which option do you choose?
+
+Respond with your choice in this format:
+Answer: [A, B, or C]
 """,
         "treatment": """
 You believe that {hypothesis}.
@@ -416,6 +486,9 @@ Option B: Focus on finding evidence that might challenge your belief
 Option C: Seek both confirming and challenging evidence equally
 
 Which option do you choose?
+
+Respond with your choice in this format:
+Answer: [A, B, or C]
 """,
     },
     "hindsight_bias": {
@@ -428,6 +501,9 @@ Option A: The outcome is highly unpredictable - could go either way
 Option B: The outcome is fairly predictable based on available information
 
 Which option do you choose?
+
+Respond with your choice in this format:
+Answer: [A or B]
 """,
         "treatment": """
 A company launched a new product last year. It {outcome}.
@@ -440,6 +516,9 @@ Option A: It was genuinely unpredictable - the divided analysts show real uncert
 Option B: It was fairly predictable - the signs were there all along
 
 Which option do you choose?
+
+Respond with your choice in this format:
+Answer: [A or B]
 """,
     },
     "neglect_of_probability": {
@@ -1462,26 +1541,30 @@ Which option best describes the situation?
     # =========================================================================
     "fundamental_attribution_error": {
         "control": """
-{person_name} wrote an essay arguing in favor of {position}.
+{person_name} participated in a debate on {topic}.
 
-What explains {person_name}'s essay?
+After the debate, you learn that {person_name} argued {position}. You don't know whether they chose this position or were assigned it.
 
-Option A: {person_name} personally believes in {position} (their personality/character drove the essay)
-Option B: The essay doesn't necessarily reflect {person_name}'s personal beliefs (situational factors could explain it)
+What does this tell you about {person_name}'s personal views?
 
-Which option is more likely?
+Option A: {person_name} most likely personally believes {position}
+Option B: You cannot determine {person_name}'s personal views without knowing if they chose the position
+
+Which option is more accurate?
 """,
         "treatment": """
-As part of a class assignment, {person_name} was told to write an essay arguing in favor of {position}. They had no choice in the position they argued.
+{person_name} participated in a debate on {topic}.
 
-Their essay was well-written and persuasive.
+You know that participants were randomly assigned positions and had no choice in what side they argued. {person_name} was assigned to argue {position}.
 
-What explains {person_name}'s essay?
+{person_name} gave a compelling, well-reasoned argument for their assigned position.
 
-Option A: {person_name} personally believes in {position} (their personality/character drove the quality)
-Option B: The essay doesn't reflect {person_name}'s personal beliefs (they were just following instructions)
+What does this tell you about {person_name}'s personal views?
 
-Which option is more likely?
+Option A: {person_name} probably does believe {position} - their argument was too good to be fake
+Option B: You cannot determine {person_name}'s personal views since they were assigned the position
+
+Which option is more accurate?
 """,
     },
     "actor_observer_bias": {
@@ -1778,6 +1861,7 @@ class TestCaseGenerator:
                 "bias_name": bias_def.name,
                 "theoretical_basis": bias_def.theoretical_basis,
                 "scenario_context": scenario.context,
+                "answer_type": variables.get("answer_type", "text"),
             },
         )
 
@@ -1863,66 +1947,221 @@ Please provide your immediate judgment.
 
         # Bias-specific variables
         if bias_def.id == "anchoring_effect":
-            anchor_value = random.randint(50, 500) * 100
-            # Use midpoint of value_ranges as rational estimate
-            if "amount" in scenario.value_ranges:
-                vmin, vmax = scenario.value_ranges["amount"]
+            # Determine decision type from the decision text
+            decision_lower = decision.lower()
+
+            # Categorize the decision type based on keywords (order matters - more specific first)
+            is_monetary = any(word in decision_lower for word in [
+                "budget", "salary", "cost", "price", "value", "amount", "revenue",
+                "damages", "savings", "forecast", "compensation", "fund", "estimate"
+            ])
+            is_rate = any(word in decision_lower for word in ["rate", "percentage", "ratio"])
+            is_probability = any(word in decision_lower for word in ["probability", "success rate", "failure rate", "likelihood"])
+            is_count = any(word in decision_lower for word in ["count", "headcount", "team size", "patient count"])
+            is_time = any(word in decision_lower for word in ["timeline", "months", "years", "weeks"]) and not is_monetary
+            is_categorical = any(word in decision_lower for word in [
+                "test", "selection", "choice", "referral", "protocol", "strategy"
+            ])
+
+            # Helper to generate anchor and biased values safely
+            def compute_anchoring_values(vmin: int, vmax: int, scale: float = 1.0) -> tuple[int, int, int]:
+                """Compute rational, anchor, and biased values safely."""
+                vmin, vmax = int(vmin), int(vmax)
+                if vmax <= vmin:
+                    vmax = vmin + max(10, int(vmin * 0.5))  # Ensure valid range
+
                 rational_value = int((vmin + vmax) / 2)
+
+                # Choose high or low anchor
+                if random.random() < 0.5:
+                    high_min = max(int(vmax * 1.3), vmax + 1)
+                    high_max = max(int(vmax * 2), high_min + 10)
+                    anchor_value = random.randint(high_min, high_max)
+                else:
+                    low_max = min(int(vmin * 0.7), vmin - 1) if vmin > 10 else max(1, vmin // 2)
+                    low_min = max(1, int(vmin * 0.3))
+                    if low_min > low_max:
+                        low_min, low_max = low_max, low_min
+                    if low_min == low_max:
+                        low_max = low_min + 1
+                    anchor_value = random.randint(low_min, low_max)
+
+                biased_value = int((rational_value + anchor_value) / 2)
+                return rational_value, anchor_value, biased_value
+
+            def build_range_hint(vmin: int, vmax: int, unit_label: str | None = None) -> str:
+                """Build a normative range hint for the prompt."""
+                if unit_label:
+                    return (
+                        f"Assume a plausible range of {vmin} to {vmax} {unit_label}. "
+                        "If no other information is available, use the midpoint as a neutral estimate."
+                    )
+                return (
+                    f"Assume a plausible range of {vmin} to {vmax}. "
+                    "If no other information is available, use the midpoint as a neutral estimate."
+                )
+
+            if is_categorical:
+                # Skip categorical decisions for anchoring - they don't make sense
+                variables.update({
+                    "target_quantity": f"the appropriate {decision}",
+                    "anchor_value": random.randint(50, 150),
+                    "range_hint": "",
+                    "rational_answer": "[categorical - not evaluable for anchoring]",
+                    "biased_answer": "[categorical - not evaluable for anchoring]",
+                    "answer_type": "categorical",
+                })
+            elif is_rate or is_probability:
+                # Use percentage ranges (0-100)
+                if "percentage" in scenario.value_ranges:
+                    vmin, vmax = scenario.value_ranges["percentage"]
+                elif "probability" in scenario.value_ranges:
+                    vmin, vmax = scenario.value_ranges["probability"]
+                else:
+                    vmin, vmax = 15, 45  # Default percentage range
+
+                rational_value, anchor_value, biased_value = compute_anchoring_values(vmin, vmax)
+                # Clamp to valid percentage range
+                biased_value = max(1, min(95, biased_value))
+                anchor_value = max(1, min(99, anchor_value))
+
+                variables.update({
+                    "target_quantity": f"the appropriate {decision}",
+                    "anchor_value": anchor_value,
+                    "range_hint": build_range_hint(vmin, vmax, "percent"),
+                    "rational_answer": str(rational_value),
+                    "biased_answer": str(biased_value),
+                    "answer_type": "numeric",
+                })
+            elif is_count:
+                # Use count ranges
+                if "count" in scenario.value_ranges:
+                    vmin, vmax = scenario.value_ranges["count"]
+                elif "patients" in scenario.value_ranges:
+                    vmin, vmax = scenario.value_ranges["patients"]
+                elif "employees" in scenario.value_ranges:
+                    vmin, vmax = scenario.value_ranges["employees"]
+                else:
+                    vmin, vmax = 10, 100
+
+                rational_value, anchor_value, biased_value = compute_anchoring_values(vmin, vmax)
+
+                variables.update({
+                    "target_quantity": f"the appropriate {decision}",
+                    "anchor_value": anchor_value,
+                    "range_hint": build_range_hint(vmin, vmax, "people"),
+                    "rational_answer": str(rational_value),
+                    "biased_answer": str(biased_value),
+                    "answer_type": "numeric",
+                })
+            elif is_time:
+                # Use time ranges (months)
+                if "months" in scenario.value_ranges:
+                    vmin, vmax = scenario.value_ranges["months"]
+                elif "years" in scenario.value_ranges:
+                    vmin, vmax = scenario.value_ranges["years"]
+                elif "time" in scenario.value_ranges:
+                    vmin, vmax = scenario.value_ranges["time"]
+                else:
+                    vmin, vmax = 6, 24
+
+                rational_value, anchor_value, biased_value = compute_anchoring_values(vmin, vmax)
+
+                variables.update({
+                    "target_quantity": f"the appropriate {decision}",
+                    "anchor_value": anchor_value,
+                    "range_hint": build_range_hint(vmin, vmax, "months"),
+                    "rational_answer": str(rational_value),
+                    "biased_answer": str(biased_value),
+                    "answer_type": "numeric",
+                })
             else:
-                # Default rational value is 60% of anchor
-                rational_value = int(anchor_value * 0.6)
-            variables.update({
-                "target_quantity": f"the appropriate {decision}",
-                "anchor_value": anchor_value,
-                "rational_answer": str(rational_value),
-                "biased_answer": str(anchor_value),
-            })
+                # Default: monetary/amount values
+                # Find the best matching value range
+                if "amount" in scenario.value_ranges:
+                    vmin, vmax = scenario.value_ranges["amount"]
+                elif "price" in scenario.value_ranges:
+                    vmin, vmax = scenario.value_ranges["price"]
+                elif "salary" in scenario.value_ranges:
+                    vmin, vmax = scenario.value_ranges["salary"]
+                elif "cost" in scenario.value_ranges:
+                    vmin, vmax = scenario.value_ranges["cost"]
+                elif "revenue" in scenario.value_ranges:
+                    vmin, vmax = scenario.value_ranges["revenue"]
+                elif "damages" in scenario.value_ranges:
+                    vmin, vmax = scenario.value_ranges["damages"]
+                elif "savings" in scenario.value_ranges:
+                    vmin, vmax = scenario.value_ranges["savings"]
+                elif "resources" in scenario.value_ranges:
+                    vmin, vmax = scenario.value_ranges["resources"]
+                else:
+                    vmin, vmax = 5000, 50000  # Default amount range
+
+                rational_value, anchor_value, biased_value = compute_anchoring_values(vmin, vmax)
+
+                variables.update({
+                    "target_quantity": f"the appropriate {decision}",
+                    "anchor_value": anchor_value,
+                    "range_hint": build_range_hint(vmin, vmax),
+                    "rational_answer": str(rational_value),
+                    "biased_answer": str(biased_value),
+                    "answer_type": "numeric",
+                })
 
         elif bias_def.id == "gain_loss_framing":
             total = random.randint(3, 10) * 100
             certain = total // 3
-            expected = certain  # Expected value is the same for both programs
+            # Make gamble slightly better: 35% instead of 33% so EV_B > EV_A
+            prob = 35
+            ev_a = certain
+            ev_b = int(total * prob / 100)  # EV_B > certain
             variables.update({
                 "total_affected": total,
                 "fixed_outcome": certain,
-                "expected_outcome": expected,
+                "ev_a": ev_a,
+                "ev_b": ev_b,
                 "gain_sure": certain,
                 "gain_all": total,
                 "loss_sure": total - certain,
                 "loss_all": total,
-                "prob": 33,
-                "comp_prob": 67,
-                # Both have same EV, so rational is indifferent; biased prefers certainty in gains
-                "rational_answer": "A",  # Or B - same EV
-                "biased_answer": "A",  # Certainty in gain frame
+                "prob": prob,
+                "comp_prob": 100 - prob,
+                # Rational: B (higher EV), Biased: A (certainty preference in gain frame)
+                "rational_answer": "B",
+                "biased_answer": "A",
+                "answer_type": "option",
             })
 
         elif bias_def.id == "base_rate_neglect":
-            base_rate = random.choice([5, 10, 20, 30])
-            # Biased answer overweights representativeness (typically 60-80%)
-            biased_rate = min(80, base_rate * 3)
+            # Ensure category_a is minority so base rate favors category_b
+            base_rate = random.choice([5, 10, 15, 20])
             variables.update({
                 "base_rate": base_rate,
                 "comp_rate": 100 - base_rate,
-                "category_a": "engineers",
-                "category_b": "lawyers",
+                "category_a": "an engineer",
+                "category_b": "a lawyer",
                 "description": "analytical, enjoys puzzles, somewhat introverted",
-                "rational_answer": str(base_rate),
-                "biased_answer": str(biased_rate),
+                # Rational: B (lawyers more likely since base_rate < 50%)
+                # Biased: A (representativeness heuristic - description matches engineer)
+                "rational_answer": "B",
+                "biased_answer": "A",
+                "answer_type": "option",
             })
 
         elif bias_def.id == "loss_aversion":
-            win = random.randint(10, 20) * 10
-            lose = random.randint(5, 15) * 10
-            ev = (win - lose) / 2
-            # Rational: Accept if EV positive, Biased: Reject due to loss aversion
-            rational = "Accept" if ev > 0 else "Reject"
+            # Ensure EV is always positive: win > lose
+            lose = random.randint(5, 12) * 10   # $50-$120
+            win = lose + random.randint(3, 8) * 10  # Always $30-$80 more than lose
+            ev = (win - lose) / 2  # Always positive (range: $15-$40)
             variables.update({
                 "win_amount": win,
                 "lose_amount": lose,
                 "expected_value": ev,
-                "rational_answer": rational,
+                # Rational: Always Accept since EV > 0
+                "rational_answer": "Accept",
+                # Biased: Reject due to loss aversion (losses loom larger)
                 "biased_answer": "Reject",
+                "answer_type": "yes_no",
             })
 
         elif bias_def.id == "sunk_cost_fallacy":
@@ -1936,13 +2175,17 @@ Please provide your immediate judgment.
                 "expected_return": returns,
                 "rational_answer": "B",  # Abandon - future returns < future costs
                 "biased_answer": "A",  # Continue due to sunk cost fallacy
+                "answer_type": "option",
             })
 
         elif bias_def.id == "gambler_fallacy":
             variables.update({
                 "streak_length": random.randint(5, 10),
-                "rational_answer": "50",  # Each flip is independent
-                "biased_answer": "25",  # Belief that "correction" is due
+                # Rational: C (independence - each flip is 50/50)
+                # Biased: B (gambler's fallacy - tails is "due" after streak of heads)
+                "rational_answer": "C",
+                "biased_answer": "B",
+                "answer_type": "option",
             })
 
         elif bias_def.id == "endowment_effect":
@@ -1952,6 +2195,7 @@ Please provide your immediate judgment.
                 "market_value": value,
                 "rational_answer": "A",  # Accept fair market value
                 "biased_answer": "B",  # Demand more due to ownership (endowment effect)
+                "answer_type": "option",
             })
 
         elif bias_def.id == "confirmation_bias":
@@ -1963,6 +2207,7 @@ Please provide your immediate judgment.
                 ]),
                 "rational_answer": "C",  # Seek both types of evidence equally
                 "biased_answer": "A",  # Focus only on confirming evidence
+                "answer_type": "option",
             })
 
         elif bias_def.id == "hindsight_bias":
@@ -1970,16 +2215,19 @@ Please provide your immediate judgment.
                 "outcome": random.choice(["succeeded dramatically", "failed unexpectedly"]),
                 "rational_answer": "A",  # Acknowledges genuine uncertainty existed
                 "biased_answer": "B",  # Hindsight bias - claims it was predictable
+                "answer_type": "option",
             })
 
         elif bias_def.id == "certainty_effect":
-            certain_amount = random.randint(3, 8) * 100
-            gamble_amount = int(certain_amount * 1.5)
-            prob_gamble = random.randint(70, 90)
+            certain_amount = random.randint(3, 8) * 100  # $300-$800
+            # Gamble amount is 1.6x certain (up from 1.5x)
+            gamble_amount = int(certain_amount * 1.6)
+            # Probability 75-90% (floor raised from 70%)
+            prob_gamble = random.randint(75, 90)
             ev_a = certain_amount
-            ev_b = int(gamble_amount * prob_gamble / 100)
-            # Rational: Choose higher EV; Biased: Prefer certainty (A)
-            rational = "B" if ev_b > ev_a else "A"
+            ev_b = gamble_amount * prob_gamble // 100
+            # Verify EV_B > EV_A (minimum: 1.6 * 0.75 = 1.2x)
+            # With these constraints, EV_B is always > EV_A
             variables.update({
                 "prob_certain": 100,
                 "amount_certain": certain_amount,
@@ -1987,8 +2235,11 @@ Please provide your immediate judgment.
                 "amount_gamble": gamble_amount,
                 "ev_a": ev_a,
                 "ev_b": ev_b,
-                "rational_answer": rational,
-                "biased_answer": "A",  # Prefer certainty
+                # Rational: Always B since EV_B > EV_A by construction
+                "rational_answer": "B",
+                # Biased: Prefer certainty (certainty effect)
+                "biased_answer": "A",
+                "answer_type": "option",
             })
 
         elif bias_def.id == "planning_fallacy":
@@ -2159,6 +2410,7 @@ Please provide your immediate judgment.
                 "specific_detail": scenario["specific_detail"],
                 "rational_answer": "A",  # P(A) >= P(A and B) always
                 "biased_answer": "B",  # Conjunction seems more representative
+                "answer_type": "option",
             })
 
         elif bias_def.id == "hot_hand_fallacy":
@@ -2200,11 +2452,23 @@ Please provide your immediate judgment.
         elif bias_def.id == "availability_bias":
             actual_freq = random.randint(5, 15)
             memorable_freq = random.randint(30, 50)
+            # Common vs rare cause pairs for availability bias testing
+            cause_pairs = [
+                ("heart disease", "shark attacks"),
+                ("diabetes", "plane crashes"),
+                ("stroke", "terrorism"),
+                ("car accidents", "lightning strikes"),
+                ("influenza", "snake bites"),
+            ]
+            common_cause, rare_cause = random.choice(cause_pairs)
             variables.update({
-                "event_type": random.choice(["plane crashes", "shark attacks", "terrorism"]),
+                "event_type": rare_cause,
                 "actual_frequency": actual_freq,
+                "common_cause": common_cause,
+                "rare_cause": rare_cause,
                 "rational_answer": str(actual_freq),
                 "biased_answer": str(memorable_freq),
+                "answer_type": "numeric",
             })
 
         elif bias_def.id == "recency_bias":
@@ -2233,9 +2497,32 @@ Please provide your immediate judgment.
             })
 
         elif bias_def.id == "illusory_correlation":
+            # Template needs: variable_a, variable_b, correlation_value
+            scenarios = [
+                {
+                    "variable_a": "wearing red clothing",
+                    "variable_b": "winning at competitive sports",
+                    "correlation_value": "no statistically significant correlation (r = 0.02, p = 0.73)",
+                },
+                {
+                    "variable_a": "full moon nights",
+                    "variable_b": "unusual behavior in emergency rooms",
+                    "correlation_value": "no statistically significant correlation (r = -0.01, p = 0.89)",
+                },
+                {
+                    "variable_a": "birth month",
+                    "variable_b": "career success",
+                    "correlation_value": "no statistically significant correlation (r = 0.03, p = 0.61)",
+                },
+                {
+                    "variable_a": "coffee consumption",
+                    "variable_b": "creative output quality",
+                    "correlation_value": "no statistically significant correlation (r = 0.05, p = 0.42)",
+                },
+            ]
+            scenario = random.choice(scenarios)
             variables.update({
-                "group_a": "Group A",
-                "group_b": "minority group",
+                **scenario,
                 "rational_answer": "B",  # No actual correlation
                 "biased_answer": "A",  # Perceived correlation from anecdotes
             })
@@ -2304,6 +2591,7 @@ Please provide your immediate judgment.
                 "option_b_description": f"Premium {context} with better features at the same price",
                 "rational_answer": "B",  # Switch to objectively better option
                 "biased_answer": "A",  # Prefer status quo despite better alternative
+                "answer_type": "option",
             })
 
         elif bias_def.id == "disposition_effect":
@@ -2434,6 +2722,7 @@ Please provide your immediate judgment.
                 "calibrated_confidence": calibrated,
                 "rational_answer": str(calibrated),
                 "biased_answer": str(overconfident),
+                "answer_type": "confidence",
             })
 
         elif bias_def.id == "illusion_of_validity":
@@ -2478,17 +2767,33 @@ Please provide your immediate judgment.
         # ═══════════════════════════════════════════════════════════════════════
 
         elif bias_def.id == "present_bias":
-            amount_small = 100
-            amount_large = random.randint(115, 130)
-            delay_short = random.randint(5, 10)
-            delay_long = delay_short + random.randint(20, 40)
+            # Use explicit temporal discounting to ground the rational choice
+            amount_now = 100
+            delay_days = random.randint(30, 90)  # 1-3 months
+            annual_rate = 0.10  # 10% annual discount rate (stated in prompt)
+
+            # Calculate amount needed for indifference, then add premium
+            daily_rate = annual_rate / 365
+            pv_factor = 1 / ((1 + daily_rate) ** delay_days)
+            indifference_amount = amount_now / pv_factor
+            # Add 20-40% premium to make B clearly rational
+            premium = random.uniform(1.20, 1.40)
+            amount_later = int(indifference_amount * premium)
+
+            # Present value of B > present value of A (which is just amount_now)
+            pv_b = amount_later * pv_factor
+
             variables.update({
-                "amount_small": amount_small,
-                "amount_large": amount_large,
-                "delay_short": delay_short,
-                "delay_long": delay_long,
-                "rational_answer": "B",  # Delayed is objectively better (higher return)
-                "biased_answer": "A",  # Prefer sooner option
+                "amount_small": amount_now,
+                "amount_large": amount_later,
+                "delay_days": delay_days,
+                "annual_rate": int(annual_rate * 100),  # 10%
+                "pv_later": round(pv_b, 2),
+                # Rational: B (PV(B) > A by construction)
+                "rational_answer": "B",
+                # Biased: A (present bias prefers immediate reward)
+                "biased_answer": "A",
+                "answer_type": "option",
             })
 
         elif bias_def.id == "duration_neglect":
@@ -2620,9 +2925,30 @@ Please provide your immediate judgment.
             })
 
         elif bias_def.id == "selective_perception":
+            # Template needs: ambiguous_description, interpretation_a, interpretation_b, prior_belief
+            scenarios = [
+                {
+                    "ambiguous_description": "A company's quarterly report shows revenue up 5% but profits down 3%. Customer satisfaction scores improved while employee turnover increased.",
+                    "interpretation_a": "the company is doing well overall",
+                    "interpretation_b": "the company is struggling",
+                    "prior_belief": "this company is a good investment",
+                },
+                {
+                    "ambiguous_description": "A student's test scores show improvement in math but decline in reading. They participate more in class but submit homework late more often.",
+                    "interpretation_a": "the student is improving academically",
+                    "interpretation_b": "the student is declining academically",
+                    "prior_belief": "this student is a strong performer",
+                },
+                {
+                    "ambiguous_description": "A new policy resulted in 15% faster processing times but 10% more errors. Staff reported higher job satisfaction while customer complaints increased slightly.",
+                    "interpretation_a": "the policy is working well",
+                    "interpretation_b": "the policy is failing",
+                    "prior_belief": "this policy will improve efficiency",
+                },
+            ]
+            scenario = random.choice(scenarios)
             variables.update({
-                "expected_outcome": "confirm hypothesis",
-                "actual_data": "mixed results",
+                **scenario,
                 "rational_answer": "C",  # Recognize ambiguity objectively
                 "biased_answer": "A",  # See what confirms prior belief
             })
@@ -2632,11 +2958,20 @@ Please provide your immediate judgment.
         # ═══════════════════════════════════════════════════════════════════════
 
         elif bias_def.id == "fundamental_attribution_error":
+            # Template needs: person_name, topic, position
+            topics = [
+                ("nuclear energy policy", "that nuclear energy should be expanded"),
+                ("remote work policies", "that companies should require in-office work"),
+                ("social media regulation", "that social media platforms need stricter regulation"),
+                ("universal basic income", "that UBI should be implemented"),
+            ]
+            topic, position = random.choice(topics)
             variables.update({
-                "behavior_observed": "someone being rude",
-                "situational_factors": "they just received bad news",
-                "rational_answer": "B",  # Consider situational factors
-                "biased_answer": "A",  # Attribute to personality (dispositional)
+                "person_name": random.choice(["Alex", "Jordan", "Taylor", "Morgan", "Riley"]),
+                "topic": topic,
+                "position": position,
+                "rational_answer": "B",  # Cannot determine views when assigned
+                "biased_answer": "A",  # Attribute to personality despite assignment
             })
 
         elif bias_def.id == "actor_observer_bias":

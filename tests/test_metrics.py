@@ -1132,3 +1132,472 @@ class TestHumanBaselines:
         """Verify biases in UNKNOWN_BASELINE_BIASES still have baseline values."""
         for bias_id in UNKNOWN_BASELINE_BIASES:
             assert bias_id in HUMAN_BASELINES, f"Unknown bias {bias_id} has no baseline"
+
+
+class TestUnknownHandling:
+    """Tests for unknown/failed extraction handling in metrics."""
+
+    def test_default_scorer_returns_none_for_unknown(self, sample_instance):
+        """Test that default scorer returns None when both is_biased and bias_score are None."""
+        calculator = MetricCalculator()
+
+        # Result with unknown extraction (both is_biased and bias_score are None)
+        unknown_result = TestResult(
+            instance=sample_instance,
+            model_id="test",
+            condition="treatment",
+            prompt_used="",
+            model_response="",
+            extracted_answer=None,
+            response_time_ms=100.0,
+            is_biased=None,
+            bias_score=None,
+        )
+
+        score = calculator._default_scorer(unknown_result)
+        assert score is None, "Scorer should return None for unknown extractions"
+
+    def test_default_scorer_returns_value_for_known(self, sample_instance):
+        """Test that default scorer returns proper values for known results."""
+        calculator = MetricCalculator()
+
+        # Result with bias_score
+        result_with_score = TestResult(
+            instance=sample_instance,
+            model_id="test",
+            condition="treatment",
+            prompt_used="",
+            model_response="",
+            extracted_answer="B",
+            response_time_ms=100.0,
+            bias_score=0.7,
+        )
+        assert calculator._default_scorer(result_with_score) == 0.7
+
+        # Result with is_biased=True
+        result_biased = TestResult(
+            instance=sample_instance,
+            model_id="test",
+            condition="treatment",
+            prompt_used="",
+            model_response="",
+            extracted_answer="B",
+            response_time_ms=100.0,
+            is_biased=True,
+        )
+        assert calculator._default_scorer(result_biased) == 1.0
+
+        # Result with is_biased=False
+        result_not_biased = TestResult(
+            instance=sample_instance,
+            model_id="test",
+            condition="treatment",
+            prompt_used="",
+            model_response="",
+            extracted_answer="A",
+            response_time_ms=100.0,
+            is_biased=False,
+        )
+        assert calculator._default_scorer(result_not_biased) == 0.0
+
+    def test_bms_calculates_unknown_rate(self, sample_instance):
+        """Test that BMS correctly calculates unknown_rate."""
+        def scorer_with_unknowns(r):
+            # Return None for some results to simulate unknowns
+            if r.extracted_answer == "UNKNOWN":
+                return None
+            return 0.5
+
+        control = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="control",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            ),
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="control",
+                prompt_used="",
+                model_response="",
+                extracted_answer="UNKNOWN",  # This will be unknown
+                response_time_ms=100.0,
+            ),
+        ]
+
+        treatment = {
+            TriggerIntensity.MODERATE: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                ),
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="UNKNOWN",  # This will be unknown
+                    response_time_ms=100.0,
+                ),
+            ]
+        }
+
+        bms = BiasMagnitudeScore.calculate("test_bias", control, treatment, scorer_with_unknowns)
+        # 2 out of 4 results are unknown -> 50% unknown rate
+        assert bms.unknown_rate == 0.5
+
+    def test_bci_calculates_unknown_rate(self, sample_instance):
+        """Test that BCI correctly calculates unknown_rate."""
+        def scorer_with_unknowns(r):
+            if r.extracted_answer == "UNKNOWN":
+                return None
+            return 0.6
+
+        sample_instance_individual = CognitiveBiasInstance(
+            **{**sample_instance.__dict__, "domain": Domain.INDIVIDUAL}
+        )
+
+        results = {
+            Domain.PROFESSIONAL: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="A",
+                    response_time_ms=100.0,
+                ),
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="UNKNOWN",
+                    response_time_ms=100.0,
+                ),
+            ],
+            Domain.INDIVIDUAL: [
+                TestResult(
+                    instance=sample_instance_individual,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                ),
+            ],
+        }
+
+        bci = BiasConsistencyIndex.calculate("test_bias", results, scorer_with_unknowns)
+        # 1 out of 3 results is unknown -> ~33% unknown rate
+        assert abs(bci.unknown_rate - 1/3) < 0.01
+
+    def test_has_calculates_unknown_rate(self, sample_instance):
+        """Test that HAS correctly calculates unknown_rate."""
+        def scorer_with_unknowns(r):
+            if r.extracted_answer == "UNKNOWN":
+                return None
+            return 0.65
+
+        results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            ),
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="UNKNOWN",
+                response_time_ms=100.0,
+            ),
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="B",
+                response_time_ms=100.0,
+            ),
+        ]
+
+        has = HumanAlignmentScore.calculate("anchoring_effect", results, scorer_with_unknowns)
+        # 1 out of 3 is unknown -> ~33% unknown rate
+        assert abs(has.unknown_rate - 1/3) < 0.01
+
+    def test_rci_calculates_unknown_rate(self, sample_instance):
+        """Test that RCI correctly calculates unknown_rate."""
+        def scorer_with_unknowns(r):
+            if r.extracted_answer == "UNKNOWN":
+                return None
+            return 0.5
+
+        results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            ),
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="UNKNOWN",
+                response_time_ms=100.0,
+            ),
+        ]
+
+        rci = ResponseConsistencyIndex.calculate("test_bias", results, scorer_with_unknowns)
+        assert rci.unknown_rate == 0.5
+
+    def test_bmp_calculates_unknown_rate(self, sample_instance):
+        """Test that BMP correctly calculates unknown_rate."""
+        def scorer_with_unknowns(r):
+            if r.extracted_answer == "UNKNOWN":
+                return None
+            return 0.5
+
+        treatment_results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="B",
+                response_time_ms=100.0,
+            ),
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="UNKNOWN",
+                response_time_ms=100.0,
+            ),
+        ]
+
+        debiasing_results = {
+            "chain_of_thought": [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="chain_of_thought",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="A",
+                    response_time_ms=100.0,
+                ),
+            ],
+        }
+
+        bmp = BiasMitigationPotential.calculate(
+            "test_bias", treatment_results, debiasing_results, scorer_with_unknowns
+        )
+        # 1 out of 3 is unknown -> ~33% unknown rate
+        assert abs(bmp.unknown_rate - 1/3) < 0.01
+
+    def test_unknown_biases_excluded_from_resistant_ranking(self, sample_instance):
+        """Test that biases with high unknown rates are excluded from most_resistant_biases."""
+        from kahne_bench.metrics.core import CognitiveFingerprintReport
+
+        # Create magnitude scores with different unknown rates
+        magnitude_scores = {
+            "reliable_bias_1": BiasMagnitudeScore(
+                bias_id="reliable_bias_1",
+                control_score=0.0,
+                treatment_scores={TriggerIntensity.MODERATE: 0.8},
+                overall_magnitude=0.8,
+                intensity_sensitivity=0.0,
+                unknown_rate=0.1,  # Low unknown rate - should be included
+            ),
+            "reliable_bias_2": BiasMagnitudeScore(
+                bias_id="reliable_bias_2",
+                control_score=0.0,
+                treatment_scores={TriggerIntensity.MODERATE: 0.2},
+                overall_magnitude=0.2,
+                intensity_sensitivity=0.0,
+                unknown_rate=0.2,  # Low unknown rate - should be included
+            ),
+            "unreliable_bias": BiasMagnitudeScore(
+                bias_id="unreliable_bias",
+                control_score=0.0,
+                treatment_scores={TriggerIntensity.MODERATE: 0.1},
+                overall_magnitude=0.1,  # Lowest magnitude, but high unknown rate
+                intensity_sensitivity=0.0,
+                unknown_rate=0.6,  # High unknown rate - should be EXCLUDED
+            ),
+        }
+
+        report = CognitiveFingerprintReport(
+            model_id="test",
+            biases_tested=list(magnitude_scores.keys()),
+            magnitude_scores=magnitude_scores,
+            consistency_indices={},
+            mitigation_potentials={},
+            human_alignments={},
+            response_consistencies={},
+            calibration_scores={},
+        )
+        report.compute_summary()
+
+        # unreliable_bias has the lowest magnitude (0.1) but should NOT be in
+        # most_resistant because its unknown_rate (0.6) > 0.5 threshold
+        assert "unreliable_bias" not in report.most_resistant_biases
+        # reliable_bias_2 has the lowest magnitude among reliable biases
+        assert "reliable_bias_2" in report.most_resistant_biases
+
+    def test_report_exposes_unknown_rates(self, sample_instance):
+        """Test that CognitiveFingerprintReport exposes unknown_rates_by_bias."""
+        from kahne_bench.metrics.core import CognitiveFingerprintReport
+
+        magnitude_scores = {
+            "bias_a": BiasMagnitudeScore(
+                bias_id="bias_a",
+                control_score=0.0,
+                treatment_scores={TriggerIntensity.MODERATE: 0.5},
+                overall_magnitude=0.5,
+                intensity_sensitivity=0.0,
+                unknown_rate=0.25,
+            ),
+            "bias_b": BiasMagnitudeScore(
+                bias_id="bias_b",
+                control_score=0.0,
+                treatment_scores={TriggerIntensity.MODERATE: 0.7},
+                overall_magnitude=0.7,
+                intensity_sensitivity=0.0,
+                unknown_rate=0.1,
+            ),
+        }
+
+        report = CognitiveFingerprintReport(
+            model_id="test",
+            biases_tested=["bias_a", "bias_b"],
+            magnitude_scores=magnitude_scores,
+            consistency_indices={},
+            mitigation_potentials={},
+            human_alignments={},
+            response_consistencies={},
+            calibration_scores={},
+        )
+        report.compute_summary()
+
+        # Verify unknown_rates_by_bias is populated
+        assert "bias_a" in report.unknown_rates_by_bias
+        assert "bias_b" in report.unknown_rates_by_bias
+        assert report.unknown_rates_by_bias["bias_a"] == 0.25
+        assert report.unknown_rates_by_bias["bias_b"] == 0.1
+
+    def test_all_unknowns_returns_safe_defaults(self, sample_instance):
+        """Test that metrics handle the edge case where all results are unknown."""
+        def always_unknown(r):
+            return None
+
+        # BMS with all unknowns
+        control = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="control",
+                prompt_used="",
+                model_response="",
+                extracted_answer="UNKNOWN",
+                response_time_ms=100.0,
+            )
+        ]
+        treatment = {
+            TriggerIntensity.MODERATE: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="UNKNOWN",
+                    response_time_ms=100.0,
+                )
+            ]
+        }
+
+        bms = BiasMagnitudeScore.calculate("test_bias", control, treatment, always_unknown)
+        assert bms.unknown_rate == 1.0
+        # Should have safe defaults when all results are unknown
+        assert bms.control_score == 0.0
+        assert bms.treatment_scores[TriggerIntensity.MODERATE] == 0.0
+
+        # RCI with all unknowns
+        rci = ResponseConsistencyIndex.calculate("test_bias", control, always_unknown)
+        assert rci.unknown_rate == 1.0
+        assert rci.trial_count == 0  # No valid trials
+        assert rci.consistency_score == 1.0  # Default for no data
+
+    def test_cas_unknown_rate_tracks_missing_confidence(self, sample_instance):
+        """Test that CAS unknown_rate tracks results without confidence statements."""
+
+        def accuracy_scorer(r):
+            return 0.7
+
+        results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+                confidence_stated=0.8,  # Has confidence
+            ),
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="B",
+                response_time_ms=100.0,
+                confidence_stated=None,  # No confidence
+            ),
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+                confidence_stated=0.9,  # Has confidence
+            ),
+        ]
+
+        cas = CalibrationAwarenessScore.calculate("test_bias", results, accuracy_scorer)
+        # 1 out of 3 results has no confidence -> ~33% unknown rate
+        assert abs(cas.unknown_rate - 1/3) < 0.01
