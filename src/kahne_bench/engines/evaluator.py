@@ -20,6 +20,8 @@ from kahne_bench.core import (
     TriggerIntensity,
     TemporalCondition,
 )
+from kahne_bench.engines.judge import LLMJudge, JudgeResult
+from kahne_bench.biases.taxonomy import get_bias_by_id
 
 
 # Answer normalization mappings for common synonyms
@@ -636,6 +638,7 @@ class BiasEvaluator:
         provider: LLMProvider,
         config: EvaluationConfig | None = None,
         answer_extractor: AnswerExtractor | None = None,
+        judge: LLMJudge | None = None,
     ):
         """
         Initialize the evaluator.
@@ -644,10 +647,12 @@ class BiasEvaluator:
             provider: LLM provider for test execution
             config: Evaluation configuration
             answer_extractor: Custom answer extractor (defaults to built-in)
+            judge: Optional LLM judge for fallback scoring when regex fails
         """
         self.provider = provider
         self.config = config or EvaluationConfig()
         self.extractor = answer_extractor or AnswerExtractor()
+        self.judge = judge
         self._semaphore = asyncio.Semaphore(self.config.max_concurrent_requests)
 
     async def _call_provider(self, prompt: str) -> str:
@@ -762,6 +767,39 @@ class BiasEvaluator:
                 )
                 result.is_biased = is_biased
                 result.bias_score = bias_score
+                if result.is_biased is not None:
+                    result.metadata["scoring_method"] = "regex"
+
+            # LLM judge fallback when regex extraction fails
+            if result.is_biased is None and self.judge is not None:
+                try:
+                    # Extract base bias id (may be prefixed like "abcd1234_anchoring_effect")
+                    bias_id = instance.bias_id
+                    bias_def = get_bias_by_id(bias_id)
+                    if bias_def is None and "_" in bias_id:
+                        # Try stripping a UUID/hash prefix
+                        base_id = bias_id.split("_", 1)[-1]
+                        bias_def = get_bias_by_id(base_id)
+                    if bias_def is not None:
+                        judge_result = await self.judge.score(
+                            bias_name=bias_def.name,
+                            bias_description=bias_def.description,
+                            system1_mechanism=bias_def.system1_mechanism,
+                            control_prompt=instance.control_prompt,
+                            treatment_prompt=prompt,
+                            expected_rational=instance.expected_rational_response,
+                            expected_biased=instance.expected_biased_response,
+                            model_response=response,
+                            answer_type=self._infer_answer_type(instance),
+                        )
+                        result.is_biased = judge_result.is_biased
+                        result.bias_score = judge_result.bias_score
+                        result.extracted_answer = judge_result.extracted_answer
+                        result.metadata["scoring_method"] = "llm_judge"
+                        result.metadata["judge_confidence"] = judge_result.confidence
+                        result.metadata["judge_justification"] = judge_result.justification
+                except Exception:
+                    pass  # Judge failure is non-fatal, keep None scores
 
             return result
 

@@ -23,6 +23,9 @@ from kahne_bench.core import (
     TestResult,
     TriggerIntensity,
 )
+from kahne_bench.engines.conversation import ConversationalBiasScore
+from kahne_bench.engines.quality import QualityReport
+from kahne_bench.engines.variation import VariationRobustnessScore
 
 logger = logging.getLogger(__name__)
 
@@ -824,6 +827,11 @@ class CognitiveFingerprintReport:
 
     # Unknown rate tracking per bias (for transparency)
     unknown_rates_by_bias: dict[str, float] = field(default_factory=dict)
+
+    # Optional BLOOM integration metrics
+    variation_robustness: dict[str, VariationRobustnessScore] = field(default_factory=dict)
+    conversational_scores: dict[str, ConversationalBiasScore] = field(default_factory=dict)
+    test_quality: QualityReport | None = None
 
     def compute_summary(self) -> None:
         """Compute aggregate summary statistics."""

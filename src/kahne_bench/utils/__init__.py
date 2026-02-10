@@ -15,6 +15,8 @@ from kahne_bench.utils.io import (
     export_session_to_json,
     export_fingerprint_to_json,
     export_fingerprint_to_csv,
+    export_quality_report_to_json,
+    export_transcripts_to_json,
     generate_summary_report,
 )
 
@@ -31,5 +33,7 @@ __all__ = [
     "export_session_to_json",
     "export_fingerprint_to_json",
     "export_fingerprint_to_csv",
+    "export_quality_report_to_json",
+    "export_transcripts_to_json",
     "generate_summary_report",
 ]

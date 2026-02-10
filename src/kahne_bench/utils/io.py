@@ -20,6 +20,9 @@ from kahne_bench.core import (
     TestScale,
     TriggerIntensity,
 )
+from kahne_bench.engines.conversation import ConversationalBiasScore, ConversationTranscript
+from kahne_bench.engines.quality import QualityReport, QualityScores
+from kahne_bench.engines.variation import VariationRobustnessScore
 from kahne_bench.metrics.core import CognitiveFingerprintReport
 
 # Type variable for enum parsing
@@ -264,6 +267,74 @@ def export_session_to_json(
         json.dump(data, f, indent=indent, ensure_ascii=False)
 
 
+def export_quality_report_to_json(
+    report: QualityReport,
+    filepath: str | Path,
+    indent: int = 2,
+) -> None:
+    """
+    Export a test quality report to JSON.
+
+    Args:
+        report: The quality report to export
+        filepath: Output file path
+        indent: JSON indentation level
+    """
+    data = {
+        "total_instances": report.total_instances,
+        "assessed_instances": report.assessed_instances,
+        "mean_realism": report.mean_realism,
+        "mean_elicitation_difficulty": report.mean_elicitation_difficulty,
+        "mean_detection_awareness": report.mean_detection_awareness,
+        "low_quality_instances": report.low_quality_instances,
+        "quality_distribution": report.quality_distribution,
+        "generated_at": datetime.now().isoformat(),
+    }
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=indent, ensure_ascii=False)
+
+
+def export_transcripts_to_json(
+    transcripts: list[ConversationTranscript],
+    filepath: str | Path,
+    indent: int = 2,
+) -> None:
+    """
+    Export conversation transcripts to JSON.
+
+    Args:
+        transcripts: List of conversation transcripts to export
+        filepath: Output file path
+        indent: JSON indentation level
+    """
+    data = []
+    for transcript in transcripts:
+        turns_data = []
+        for turn in transcript.turns:
+            turns_data.append({
+                "turn_number": turn.turn_number,
+                "role": turn.role,
+                "content": turn.content,
+                "extracted_answer": turn.extracted_answer,
+                "bias_score": turn.bias_score,
+                "metadata": turn.metadata,
+            })
+
+        data.append({
+            "bias_id": transcript.bias_id,
+            "domain": transcript.domain.value,
+            "model_id": transcript.model_id,
+            "turns": turns_data,
+            "final_bias_score": transcript.final_bias_score,
+            "bias_evolution": transcript.bias_evolution,
+            "persistence_score": transcript.persistence_score,
+        })
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=indent, ensure_ascii=False)
+
+
 def export_fingerprint_to_json(
     report: CognitiveFingerprintReport,
     filepath: str | Path,
@@ -355,6 +426,45 @@ def export_fingerprint_to_json(
         },
         "generated_at": datetime.now().isoformat(),
     }
+
+    # Only include BLOOM metrics if they have data
+    if hasattr(report, "variation_robustness") and report.variation_robustness:
+        data["variation_robustness"] = {
+            bias_id: {
+                "dimension_scores": vrs.dimension_scores,
+                "baseline_score": vrs.baseline_score,
+                "most_vulnerable_dimension": vrs.most_vulnerable_dimension,
+                "most_robust_dimension": vrs.most_robust_dimension,
+                "robustness_score": vrs.robustness_score,
+                "mean_deviation": vrs.mean_deviation,
+            }
+            for bias_id, vrs in report.variation_robustness.items()
+        }
+
+    if hasattr(report, "conversational_scores") and report.conversational_scores:
+        data["conversational_scores"] = {
+            bias_id: {
+                "initial_bias_score": cbs.initial_bias_score,
+                "final_bias_score": cbs.final_bias_score,
+                "mean_bias_score": cbs.mean_bias_score,
+                "persistence": cbs.persistence,
+                "challenge_resistance": cbs.challenge_resistance,
+                "drift_direction": cbs.drift_direction,
+                "turn_count": cbs.turn_count,
+            }
+            for bias_id, cbs in report.conversational_scores.items()
+        }
+
+    if hasattr(report, "test_quality") and report.test_quality is not None:
+        data["test_quality"] = {
+            "total_instances": report.test_quality.total_instances,
+            "assessed_instances": report.test_quality.assessed_instances,
+            "mean_realism": report.test_quality.mean_realism,
+            "mean_elicitation_difficulty": report.test_quality.mean_elicitation_difficulty,
+            "mean_detection_awareness": report.test_quality.mean_detection_awareness,
+            "low_quality_instances": report.test_quality.low_quality_instances,
+            "quality_distribution": report.test_quality.quality_distribution,
+        }
 
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=indent, ensure_ascii=False)

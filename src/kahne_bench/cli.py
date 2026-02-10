@@ -23,12 +23,106 @@ from kahne_bench.engines.compound import CompoundTestGenerator
 
 console = Console()
 
+PROVIDER_CHOICES = ["openai", "anthropic", "fireworks", "xai", "gemini", "mock"]
+
 
 def validate_positive(ctx, param, value):
     """Click callback to validate that a value is at least 1."""
     if value is not None and value < 1:
         raise click.BadParameter(f"must be at least 1, got {value}")
     return value
+
+
+def _create_provider(provider: str, model: str | None) -> tuple:
+    """Create an LLM provider and resolve model_id.
+
+    Returns (provider_instance, model_id) tuple.
+    """
+    import os
+
+    if provider == "mock":
+        from dataclasses import dataclass
+        import random
+
+        @dataclass
+        class MockProvider:
+            model: str = "mock-model"
+
+            async def complete(
+                self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0
+            ) -> str:
+                choices = ["Option A", "Option B", "Program A", "Program B", "Yes", "No"]
+                choice = random.choice(choices)
+                confidence = random.randint(50, 95)
+                return (
+                    f"After careful consideration, I would choose {choice}. "
+                    f"I am {confidence}% confident in this decision."
+                )
+
+        model_id = model or "mock-model"
+        return MockProvider(model=model_id), model_id
+
+    elif provider == "openai":
+        if not os.getenv("OPENAI_API_KEY"):
+            console.print("[red]Error: OPENAI_API_KEY environment variable not set[/red]")
+            sys.exit(1)
+        from openai import AsyncOpenAI
+        from kahne_bench.engines.evaluator import OpenAIProvider
+
+        client = AsyncOpenAI()
+        model_id = model or "gpt-4o"
+        return OpenAIProvider(client=client, model=model_id), model_id
+
+    elif provider == "anthropic":
+        if not os.getenv("ANTHROPIC_API_KEY"):
+            console.print("[red]Error: ANTHROPIC_API_KEY environment variable not set[/red]")
+            sys.exit(1)
+        from anthropic import AsyncAnthropic
+        from kahne_bench.engines.evaluator import AnthropicProvider
+
+        client = AsyncAnthropic()
+        model_id = model or "claude-sonnet-4-20250514"
+        return AnthropicProvider(client=client, model=model_id), model_id
+
+    elif provider == "fireworks":
+        if not os.getenv("FIREWORKS_API_KEY"):
+            console.print("[red]Error: FIREWORKS_API_KEY environment variable not set[/red]")
+            sys.exit(1)
+        from openai import AsyncOpenAI
+        from kahne_bench.engines.evaluator import OpenAIProvider
+
+        client = AsyncOpenAI(
+            api_key=os.getenv("FIREWORKS_API_KEY"),
+            base_url="https://api.fireworks.ai/inference/v1",
+        )
+        model_id = model or "accounts/fireworks/models/llama-v3p1-70b-instruct"
+        return OpenAIProvider(client=client, model=model_id), model_id
+
+    elif provider == "xai":
+        if not os.getenv("XAI_API_KEY"):
+            console.print("[red]Error: XAI_API_KEY environment variable not set[/red]")
+            sys.exit(1)
+        from xai_sdk import Client
+        from kahne_bench.engines.evaluator import XAIProvider
+
+        client = Client(api_key=os.getenv("XAI_API_KEY"), timeout=3600)
+        model_id = model or "grok-4-1-fast-reasoning"
+        return XAIProvider(client=client, model=model_id), model_id
+
+    elif provider == "gemini":
+        if not os.getenv("GOOGLE_API_KEY"):
+            console.print("[red]Error: GOOGLE_API_KEY environment variable not set[/red]")
+            sys.exit(1)
+        from google import genai
+        from kahne_bench.engines.evaluator import GeminiProvider
+
+        client = genai.Client()
+        model_id = model or "gemini-3-pro-preview"
+        return GeminiProvider(client=client, model=model_id), model_id
+
+    else:
+        console.print(f"[red]Unknown provider: {provider}[/red]")
+        sys.exit(1)
 
 
 @click.group()
@@ -280,7 +374,7 @@ def info():
 
 @main.command()
 @click.option("--input", "-i", "input_file", required=True, help="Input JSON file with test cases")
-@click.option("--provider", "-p", type=click.Choice(["openai", "anthropic", "fireworks", "xai", "gemini", "mock"]), default="mock",
+@click.option("--provider", "-p", type=click.Choice(PROVIDER_CHOICES), default="mock",
               help="LLM provider (fireworks for open-source models, xai for Grok, gemini for Google)")
 @click.option("--model", "-m", default=None, help="Model name to evaluate")
 @click.option("--trials", "-n", default=3, callback=validate_positive, help="Number of trials per condition")
@@ -290,7 +384,12 @@ def info():
               help="Benchmark tier")
 @click.option("--concurrency", "-c", default=50, callback=validate_positive,
               help="Max concurrent API requests (default: 50, increase for faster runs)")
-def evaluate(input_file: str, provider: str, model: str | None, trials: int, output: str, fingerprint: str, tier: str, concurrency: int):
+@click.option("--judge-provider", type=click.Choice(PROVIDER_CHOICES), default=None,
+              help="LLM provider for judge fallback scoring (when regex extraction fails)")
+@click.option("--judge-model", default=None, help="Model for judge fallback scoring")
+def evaluate(input_file: str, provider: str, model: str | None, trials: int, output: str,
+             fingerprint: str, tier: str, concurrency: int,
+             judge_provider: str | None, judge_model: str | None):
     """Evaluate an LLM for cognitive biases.
 
     Run a complete bias evaluation on a model using pre-generated test cases
@@ -303,8 +402,8 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
         # Evaluate with OpenAI:
         kahne-bench evaluate -i test_cases.json -p openai -m gpt-4o
 
-        # Generate and evaluate in one command:
-        kahne-bench generate -o test_cases.json && kahne-bench evaluate -i test_cases.json -p openai
+        # Evaluate with LLM judge fallback:
+        kahne-bench evaluate -i test_cases.json -p openai -m gpt-4o --judge-provider openai --judge-model gpt-4o
     """
     from rich.progress import Progress, BarColumn, TaskProgressColumn, TimeRemainingColumn
 
@@ -325,122 +424,17 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
         sys.exit(1)
 
     # Set up provider
-    if provider == "mock":
-        from dataclasses import dataclass
-        import random
+    llm_provider, model_id = _create_provider(provider, model)
+    console.print(f"[green]Using {provider} provider with model: {model_id}[/green]")
 
-        @dataclass
-        class MockProvider:
-            """Mock provider for testing the CLI without API calls."""
-            model: str = "mock-model"
+    # Set up optional LLM judge
+    judge = None
+    if judge_provider:
+        from kahne_bench.engines.judge import LLMJudge
 
-            async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str:
-                # Generate a mock response
-                choices = ["Option A", "Option B", "Program A", "Program B", "Yes", "No"]
-                choice = random.choice(choices)
-                confidence = random.randint(50, 95)
-                return f"After careful consideration, I would choose {choice}. I am {confidence}% confident in this decision."
-
-        llm_provider = MockProvider(model=model or "mock-model")
-        model_id = model or "mock-model"
-        console.print("[yellow]Using mock provider (for testing only)[/yellow]")
-
-    elif provider == "openai":
-        import os
-        if not os.getenv("OPENAI_API_KEY"):
-            console.print("[red]Error: OPENAI_API_KEY environment variable not set[/red]")
-            sys.exit(1)
-
-        try:
-            from openai import AsyncOpenAI
-            from kahne_bench.engines.evaluator import OpenAIProvider
-
-            client = AsyncOpenAI()
-            model_id = model or "gpt-4o"
-            llm_provider = OpenAIProvider(client=client, model=model_id)
-            console.print(f"[green]Using OpenAI provider with model: {model_id}[/green]")
-        except ImportError:
-            console.print("[red]Error: openai package not installed. Run: pip install openai[/red]")
-            sys.exit(1)
-
-    elif provider == "anthropic":
-        import os
-        if not os.getenv("ANTHROPIC_API_KEY"):
-            console.print("[red]Error: ANTHROPIC_API_KEY environment variable not set[/red]")
-            sys.exit(1)
-
-        try:
-            from anthropic import AsyncAnthropic
-            from kahne_bench.engines.evaluator import AnthropicProvider
-
-            client = AsyncAnthropic()
-            model_id = model or "claude-sonnet-4-20250514"
-            llm_provider = AnthropicProvider(client=client, model=model_id)
-            console.print(f"[green]Using Anthropic provider with model: {model_id}[/green]")
-        except ImportError:
-            console.print("[red]Error: anthropic package not installed. Run: pip install anthropic[/red]")
-            sys.exit(1)
-
-    elif provider == "fireworks":
-        import os
-        if not os.getenv("FIREWORKS_API_KEY"):
-            console.print("[red]Error: FIREWORKS_API_KEY environment variable not set[/red]")
-            sys.exit(1)
-
-        try:
-            from openai import AsyncOpenAI
-            from kahne_bench.engines.evaluator import OpenAIProvider
-
-            # Fireworks uses OpenAI-compatible API
-            client = AsyncOpenAI(
-                api_key=os.getenv("FIREWORKS_API_KEY"),
-                base_url="https://api.fireworks.ai/inference/v1"
-            )
-            model_id = model or "accounts/fireworks/models/llama-v3p1-70b-instruct"
-            llm_provider = OpenAIProvider(client=client, model=model_id)
-            console.print(f"[green]Using Fireworks provider with model: {model_id}[/green]")
-        except ImportError:
-            console.print("[red]Error: openai package not installed. Run: pip install openai[/red]")
-            sys.exit(1)
-
-    elif provider == "xai":
-        import os
-        if not os.getenv("XAI_API_KEY"):
-            console.print("[red]Error: XAI_API_KEY environment variable not set[/red]")
-            sys.exit(1)
-
-        try:
-            from xai_sdk import Client
-            from kahne_bench.engines.evaluator import XAIProvider
-
-            client = Client(
-                api_key=os.getenv("XAI_API_KEY"),
-                timeout=3600,  # Extended timeout for reasoning models
-            )
-            model_id = model or "grok-4-1-fast-reasoning"
-            llm_provider = XAIProvider(client=client, model=model_id)
-            console.print(f"[green]Using xAI provider with model: {model_id}[/green]")
-        except ImportError:
-            console.print("[red]Error: xai-sdk package not installed. Run: pip install xai-sdk[/red]")
-            sys.exit(1)
-
-    elif provider == "gemini":
-        import os
-        if not os.getenv("GOOGLE_API_KEY"):
-            console.print("[red]Error: GOOGLE_API_KEY environment variable not set[/red]")
-            sys.exit(1)
-
-        try:
-            from google import genai
-            from kahne_bench.engines.evaluator import GeminiProvider
-
-            client = genai.Client()
-            model_id = model or "gemini-3-pro-preview"
-            llm_provider = GeminiProvider(client=client, model=model_id)
-            console.print(f"[green]Using Gemini provider with model: {model_id}[/green]")
-        except ImportError:
-            console.print("[red]Error: google-genai package not installed. Run: pip install google-genai[/red]")
-            sys.exit(1)
+        judge_llm, judge_model_id = _create_provider(judge_provider, judge_model)
+        judge = LLMJudge(provider=judge_llm)
+        console.print(f"[green]LLM judge enabled ({judge_provider}: {judge_model_id})[/green]")
 
     # Configure evaluation
     from kahne_bench.core import TriggerIntensity
@@ -456,7 +450,7 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
         max_concurrent_requests=concurrency,
     )
 
-    evaluator = BiasEvaluator(llm_provider, config)
+    evaluator = BiasEvaluator(llm_provider, config, judge=judge)
 
     # Run evaluation
     console.print(f"\n[bold]Starting evaluation of {len(instances)} test instances...[/bold]")
@@ -572,6 +566,199 @@ def report(fingerprint_file: str):
     except Exception as e:
         console.print(f"[red]Error reading fingerprint file: {e}[/red]")
         sys.exit(1)
+
+
+@main.command("assess-quality")
+@click.option("--input", "-i", "input_file", required=True, help="Input JSON file with test cases")
+@click.option("--provider", "-p", type=click.Choice(PROVIDER_CHOICES), default="mock",
+              help="LLM provider for quality assessment")
+@click.option("--model", "-m", default=None, help="Model for quality assessment")
+@click.option("--sample-rate", default=0.2, type=float, help="Fraction of instances to assess (0.0-1.0)")
+@click.option("--output", "-o", default="quality_report.json", help="Output file for quality report")
+def assess_quality(input_file: str, provider: str, model: str | None, sample_rate: float, output: str):
+    """Assess the quality of generated test cases using LLM-as-judge.
+
+    Evaluates test cases on realism, elicitation difficulty, and detection
+    awareness. Helps identify low-quality test cases that may be too obvious
+    or unrealistic.
+
+    Examples:
+        kahne-bench assess-quality -i test_cases.json -p mock
+
+        kahne-bench assess-quality -i test_cases.json -p openai -m gpt-4o --sample-rate 0.3
+    """
+    from kahne_bench.utils.io import import_instances_from_json, export_quality_report_to_json
+    from kahne_bench.engines.quality import QualityJudge
+
+    console.print(f"[cyan]Loading test cases from {input_file}...[/cyan]")
+    try:
+        instances = import_instances_from_json(input_file)
+        if not instances:
+            console.print("[red]Error: Input file contains no test instances[/red]")
+            sys.exit(1)
+        console.print(f"[green]Loaded {len(instances)} test instances[/green]")
+    except Exception as e:
+        console.print(f"[red]Error loading test cases: {e}[/red]")
+        sys.exit(1)
+
+    llm_provider, model_id = _create_provider(provider, model)
+    console.print(f"[green]Using {provider} provider ({model_id}) for quality assessment[/green]")
+
+    quality_judge = QualityJudge(provider=llm_provider, sample_rate=sample_rate)
+
+    console.print(f"\n[bold]Assessing quality of {len(instances)} instances "
+                  f"(sampling {sample_rate:.0%})...[/bold]")
+
+    async def run_assessment():
+        return await quality_judge.assess_batch(instances)
+
+    quality_report = asyncio.run(run_assessment())
+
+    export_quality_report_to_json(quality_report, output)
+
+    console.print(f"\n[bold green]Quality report saved to {output}[/bold green]")
+    console.print(f"  Assessed: {quality_report.assessed_instances}/{quality_report.total_instances}")
+    console.print(f"  Mean Realism: {quality_report.mean_realism:.1f}/10")
+    console.print(f"  Mean Elicitation Difficulty: {quality_report.mean_elicitation_difficulty:.1f}/10")
+    console.print(f"  Mean Detection Awareness: {quality_report.mean_detection_awareness:.1f}/10")
+    if quality_report.low_quality_instances:
+        console.print(f"  [yellow]Low quality instances: {len(quality_report.low_quality_instances)}[/yellow]")
+
+
+@main.command("generate-bloom")
+@click.option("--provider", "-p", type=click.Choice(PROVIDER_CHOICES), default="mock",
+              help="LLM provider for scenario generation")
+@click.option("--model", "-m", default=None, help="Model for scenario generation")
+@click.option("--bias", "-b", multiple=True, help="Bias IDs to generate scenarios for")
+@click.option("--domain", "-d", type=click.Choice([d.value for d in Domain]), multiple=True,
+              help="Domains to generate for (default: professional)")
+@click.option("--scenarios", "-n", default=3, callback=validate_positive,
+              help="Scenarios per bias-domain pair")
+@click.option("--output", "-o", default="bloom_tests.json", help="Output file")
+def generate_bloom(provider: str, model: str | None, bias: tuple, domain: tuple,
+                   scenarios: int, output: str):
+    """Generate test cases using BLOOM-style LLM-driven pipeline.
+
+    Uses a two-stage process: (1) deep understanding of each bias via LLM,
+    then (2) diverse scenario generation with extractable answers.
+
+    Examples:
+        kahne-bench generate-bloom -p mock --bias anchoring_effect --scenarios 3
+
+        kahne-bench generate-bloom -p openai -m gpt-4o --bias anchoring_effect --domain professional -n 5
+    """
+    from kahne_bench.engines.bloom_generator import BloomBiasGenerator
+    from kahne_bench.utils.io import export_instances_to_json
+
+    llm_provider, model_id = _create_provider(provider, model)
+    console.print(f"[green]Using {provider} provider ({model_id}) for BLOOM generation[/green]")
+
+    generator = BloomBiasGenerator(provider=llm_provider, num_scenarios=scenarios)
+
+    bias_ids = list(bias) if bias else ["anchoring_effect"]
+    domains = [Domain(d) for d in domain] if domain else [Domain.PROFESSIONAL]
+
+    console.print(f"\n[bold]Generating BLOOM scenarios...[/bold]")
+    console.print(f"  Biases: {', '.join(bias_ids)}")
+    console.print(f"  Domains: {', '.join(d.value for d in domains)}")
+    console.print(f"  Scenarios per pair: {scenarios}")
+
+    async def run_generation():
+        return await generator.generate_batch(
+            bias_ids=bias_ids,
+            domains=domains,
+            scenarios_per_bias=scenarios,
+        )
+
+    instances = asyncio.run(run_generation())
+
+    if not instances:
+        console.print("[yellow]No instances generated (check bias IDs and provider)[/yellow]")
+        sys.exit(1)
+
+    export_instances_to_json(instances, output)
+    console.print(f"\n[bold green]Generated {len(instances)} test instances -> {output}[/bold green]")
+
+
+@main.command("evaluate-conversation")
+@click.option("--input", "-i", "input_file", required=True, help="Input JSON file with test cases")
+@click.option("--provider", "-p", "target_provider", type=click.Choice(PROVIDER_CHOICES), default="mock",
+              help="LLM provider for target model")
+@click.option("--model", "-m", "target_model", default=None, help="Target model to evaluate")
+@click.option("--orchestrator-provider", type=click.Choice(PROVIDER_CHOICES), default=None,
+              help="LLM provider for orchestrator (default: same as target)")
+@click.option("--orchestrator-model", default=None, help="Model for orchestrator")
+@click.option("--max-turns", default=8, callback=validate_positive, help="Max conversation turns")
+@click.option("--output", "-o", default="transcripts.json", help="Output file for transcripts")
+def evaluate_conversation(input_file: str, target_provider: str, target_model: str | None,
+                          orchestrator_provider: str | None, orchestrator_model: str | None,
+                          max_turns: int, output: str):
+    """Evaluate bias persistence through multi-turn conversations.
+
+    An orchestrator LLM plays the "user" role, probing the target model
+    for cognitive bias across multiple conversation turns using strategies
+    like probing, challenging, and reinforcing.
+
+    Examples:
+        kahne-bench evaluate-conversation -i test_cases.json -p mock
+
+        kahne-bench evaluate-conversation -i test_cases.json -p openai -m gpt-4o \\
+            --orchestrator-provider anthropic --orchestrator-model claude-sonnet-4-5-20250929
+    """
+    from kahne_bench.utils.io import import_instances_from_json, export_transcripts_to_json
+    from kahne_bench.engines.conversation import ConversationalEvaluator
+
+    console.print(f"[cyan]Loading test cases from {input_file}...[/cyan]")
+    try:
+        instances = import_instances_from_json(input_file)
+        if not instances:
+            console.print("[red]Error: Input file contains no test instances[/red]")
+            sys.exit(1)
+        console.print(f"[green]Loaded {len(instances)} test instances[/green]")
+    except Exception as e:
+        console.print(f"[red]Error loading test cases: {e}[/red]")
+        sys.exit(1)
+
+    target_llm, target_id = _create_provider(target_provider, target_model)
+    console.print(f"[green]Target: {target_provider} ({target_id})[/green]")
+
+    orch_prov = orchestrator_provider or target_provider
+    orch_mod = orchestrator_model or target_model
+    orchestrator_llm, orch_id = _create_provider(orch_prov, orch_mod)
+    console.print(f"[green]Orchestrator: {orch_prov} ({orch_id})[/green]")
+
+    conv_evaluator = ConversationalEvaluator(
+        target_provider=target_llm,
+        orchestrator_provider=orchestrator_llm,
+        max_turns=max_turns,
+    )
+
+    console.print(f"\n[bold]Running conversational evaluation ({max_turns} turns max)...[/bold]")
+
+    async def run_conversations():
+        transcripts = []
+        for i, instance in enumerate(instances):
+            console.print(f"  [{i + 1}/{len(instances)}] {instance.bias_id}...")
+            transcript = await conv_evaluator.evaluate_conversation(
+                instance=instance,
+                model_id=target_id,
+            )
+            transcripts.append(transcript)
+        return transcripts
+
+    transcripts = asyncio.run(run_conversations())
+
+    export_transcripts_to_json(transcripts, output)
+
+    console.print(f"\n[bold green]Saved {len(transcripts)} transcripts -> {output}[/bold green]")
+    for t in transcripts[:3]:
+        direction = "stable"
+        if t.bias_evolution:
+            if t.bias_evolution[-1] > t.bias_evolution[0] + 0.1:
+                direction = "increasing"
+            elif t.bias_evolution[-1] < t.bias_evolution[0] - 0.1:
+                direction = "decreasing"
+        console.print(f"  {t.bias_id}: persistence={t.persistence_score:.2f}, drift={direction}")
 
 
 if __name__ == "__main__":
