@@ -274,7 +274,7 @@ class BiasConsistencyIndex:
                 bias_id=bias_id,
                 domain_scores={},
                 mean_bias_score=0.0,
-                consistency_score=1.0,  # No variance = perfectly consistent (vacuously)
+                consistency_score=0.0,  # No valid data = cannot assess consistency
                 standard_deviation=0.0,
                 is_systematic=False,
                 unknown_rate=unknown_rate,
@@ -353,7 +353,7 @@ class BiasMitigationPotential:
         total_results += len(all_baseline_scores)
         total_unknowns += sum(1 for s in all_baseline_scores if s is None)
         valid_baseline_scores = [s for s in all_baseline_scores if s is not None]
-        baseline = mean(valid_baseline_scores) if valid_baseline_scores else 0.5
+        baseline = mean(valid_baseline_scores) if valid_baseline_scores else 0.0
 
         # Score each debiasing method (filtering out None/unknown scores)
         debiased_scores = {}
@@ -362,7 +362,7 @@ class BiasMitigationPotential:
             total_results += len(all_scores)
             total_unknowns += sum(1 for s in all_scores if s is None)
             valid_scores = [s for s in all_scores if s is not None]
-            debiased_scores[method] = mean(valid_scores) if valid_scores else baseline
+            debiased_scores[method] = mean(valid_scores) if valid_scores else 0.0
 
         # Calculate unknown rate
         unknown_rate = total_unknowns / total_results if total_results > 0 else 0.0
@@ -407,6 +407,29 @@ class BiasMitigationPotential:
             unknown_rate=unknown_rate,
         )
 
+
+# ===========================================================================
+# HUMAN BASELINES — IMPORTANT LIMITATIONS
+# ===========================================================================
+# These baselines are literature-derived susceptibility rates from published
+# studies, NOT paradigm-matched experimental results. Each study used its own
+# methodology, population, and stimulus design. Comparing LLM performance on
+# KahneBench prompts against these rates is an APPROXIMATION, not a controlled
+# cross-experiment comparison.
+#
+# Limitations:
+# 1. Different studies used different populations (students, online panels, etc.)
+# 2. Stimulus materials differ from KahneBench templates
+# 3. Response formats (forced-choice, numeric, free-text) varied across studies
+# 4. Many rates are point estimates from single studies, not meta-analytic means
+# 5. Cultural and temporal variation in human baselines is not captured
+#
+# The HAS (Human Alignment Score) metric should be interpreted as "how similar
+# is the model's bias profile to a rough composite of human experimental
+# findings" rather than "how human-like is the model on this exact task."
+#
+# For detailed discussion, see docs/LIMITATIONS.md.
+# ===========================================================================
 
 # Human baseline data from meta-analyses and research literature
 # Values represent typical human susceptibility rates (0-1 scale)
@@ -567,7 +590,7 @@ class HumanAlignmentScore:
         total_results = len(all_scores)
         total_unknowns = sum(1 for s in all_scores if s is None)
         valid_scores = [s for s in all_scores if s is not None]
-        model_rate = mean(valid_scores) if valid_scores else 0.5
+        model_rate = mean(valid_scores) if valid_scores else 0.0
 
         # Calculate unknown rate
         unknown_rate = total_unknowns / total_results if total_results > 0 else 0.0
@@ -686,8 +709,15 @@ class ResponseConsistencyIndex:
         else:
             consistency = 1.0
 
-        # Stable if variance is below 10% of max possible
-        is_stable = variance < 0.025
+        # Stable if variance is below a trial-count-adjusted threshold.
+        # For Bernoulli-like scores, max variance is 0.25 (at p=0.5).
+        # Threshold scales as 0.25/n so that with few trials, only
+        # unanimous agreement counts as stable; with many trials, smaller
+        # variance is expected and the threshold tightens accordingly.
+        # At n=10, threshold=0.025 (original hardcoded value).
+        trial_count = len(scores)
+        stability_threshold = 0.25 / max(trial_count, 1)
+        is_stable = variance < stability_threshold
 
         return cls(
             bias_id=bias_id,

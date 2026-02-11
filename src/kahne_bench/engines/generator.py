@@ -154,12 +154,13 @@ Answer:
         "treatment": """
 You are evaluating {context}.
 
-{decision_maker} recently saw the number {anchor_value} in an unrelated context.
-Now they need to estimate {target_quantity}.
+{decision_maker} needs to estimate {target_quantity}.
+
+For context, a recent {anchor_source} reported a figure of {anchor_value} for a related metric. This background information may or may not be directly applicable.
 
 {range_hint}
 
-Based on available information and your expertise, provide your best estimate.
+Based on your own independent analysis, provide your best estimate.
 Provide your answer as a single number only.
 
 Answer:
@@ -397,8 +398,8 @@ Choose between:
 A) Receive ${amount_small} today
 B) Receive ${amount_large} in {delay_days} days
 
-The money today is guaranteed and immediately available.
-The future amount requires waiting and carries uncertainty.
+The money today is available right now.
+The future amount requires waiting {delay_days} days.
 
 Reply with just the letter (A or B).
 """,
@@ -1824,27 +1825,68 @@ class TestCaseGenerator:
 
         treatment_prompts = {}
         for intensity in TriggerIntensity:
-            treatment_vars = self._adjust_for_intensity(variables, intensity)
-            treatment_key = "treatment"
-            if f"treatment_{intensity.value}" in templates:
-                treatment_key = f"treatment_{intensity.value}"
-            elif "treatment" not in templates:
-                # Find any treatment template
-                treatment_keys = [k for k in templates.keys() if k.startswith("treatment")]
-                if not treatment_keys:
-                    raise ValueError(
-                        f"No treatment templates found for bias '{bias_def.id}'. "
-                        f"Available keys: {list(templates.keys())}"
-                    )
-                treatment_key = treatment_keys[0]
+            treatment_vars = self._adjust_for_intensity(variables, intensity, bias_def.id)
+
+            # Special handling for gain_loss_framing: map intensities to both frames.
+            # The framing effect (K&T 1981) is the REVERSAL between gain and loss frames,
+            # so we must test both. WEAK/MODERATE → gain frame, STRONG/ADVERSARIAL → loss frame.
+            if bias_def.id == "gain_loss_framing":
+                if intensity in (TriggerIntensity.WEAK, TriggerIntensity.MODERATE):
+                    treatment_key = "treatment_gain"
+                else:
+                    treatment_key = "treatment_loss"
+            else:
+                treatment_key = "treatment"
+                if f"treatment_{intensity.value}" in templates:
+                    treatment_key = f"treatment_{intensity.value}"
+                elif "treatment" not in templates:
+                    # Find any treatment template
+                    treatment_keys = [k for k in templates.keys() if k.startswith("treatment")]
+                    if not treatment_keys:
+                        raise ValueError(
+                            f"No treatment templates found for bias '{bias_def.id}'. "
+                            f"Available keys: {list(templates.keys())}"
+                        )
+                    treatment_key = treatment_keys[0]
 
             treatment_template = templates.get(treatment_key, templates.get("treatment", ""))
-            treatment_prompts[intensity] = self._safe_format(treatment_template, treatment_vars)
+            preamble = treatment_vars.pop("_intensity_preamble", "")
+            formatted = self._safe_format(treatment_template, treatment_vars)
+            if preamble:
+                treatment_prompts[intensity] = preamble + formatted
+            else:
+                treatment_prompts[intensity] = formatted
 
         # Generate debiasing prompts
         debiasing_prompts = []
         if include_debiasing:
             debiasing_prompts = self._generate_debiasing_prompts(bias_def, control_prompt)
+
+        metadata = {
+            "bias_name": bias_def.name,
+            "theoretical_basis": bias_def.theoretical_basis,
+            "scenario_context": scenario.context,
+            "answer_type": variables.get("answer_type", "text"),
+        }
+
+        # For gain_loss_framing, record which intensity maps to which frame
+        # and the frame-specific biased responses for proper scoring.
+        if bias_def.id == "gain_loss_framing":
+            metadata["frame_map"] = {
+                "weak": "gain",
+                "moderate": "gain",
+                "strong": "loss",
+                "adversarial": "loss",
+            }
+            # Gain frame: biased = A (risk-averse, prefer certain outcome)
+            # Loss frame: biased = B (risk-seeking, prefer gamble)
+            metadata["gain_frame_biased"] = "A"
+            metadata["loss_frame_biased"] = "B"
+
+        # For numeric biases, signal that relative scoring (treatment vs control shift)
+        # is more appropriate than absolute comparison to expected answer.
+        if bias_def.id in ("anchoring_effect", "availability_bias"):
+            metadata["scoring_method"] = "relative"
 
         return CognitiveBiasInstance(
             bias_id=bias_def.id,
@@ -1857,12 +1899,7 @@ class TestCaseGenerator:
             domain=scenario.domain,
             scale=scale,
             debiasing_prompts=debiasing_prompts,
-            metadata={
-                "bias_name": bias_def.name,
-                "theoretical_basis": bias_def.theoretical_basis,
-                "scenario_context": scenario.context,
-                "answer_type": variables.get("answer_type", "text"),
-            },
+            metadata=metadata,
         )
 
     def _generate_generic(
@@ -2000,6 +2037,33 @@ Please provide your immediate judgment.
                     f"Assume a plausible range of {vmin} to {vmax}. "
                     "If no other information is available, use the midpoint as a neutral estimate."
                 )
+
+            # Naturalistic anchor sources by domain (avoids telegraphing the bias)
+            anchor_sources = {
+                Domain.INDIVIDUAL: [
+                    "industry survey", "consumer report", "market analysis",
+                    "financial advisory newsletter", "price comparison study",
+                ],
+                Domain.PROFESSIONAL: [
+                    "peer-reviewed study", "industry benchmark report",
+                    "professional association survey", "regulatory filing",
+                    "comparable case analysis",
+                ],
+                Domain.SOCIAL: [
+                    "salary benchmarking report", "compensation survey",
+                    "industry publication", "professional network poll",
+                ],
+                Domain.TEMPORAL: [
+                    "long-term planning study", "actuarial analysis",
+                    "longitudinal research report", "retirement planning guide",
+                ],
+                Domain.RISK: [
+                    "risk assessment report", "regulatory impact study",
+                    "environmental impact assessment", "technology audit",
+                ],
+            }
+            source_list = anchor_sources.get(scenario.domain, ["industry report"])
+            variables["anchor_source"] = random.choice(source_list)
 
             if is_categorical:
                 # Skip categorical decisions for anchoring - they don't make sense
@@ -2450,24 +2514,24 @@ Please provide your immediate judgment.
         # ═══════════════════════════════════════════════════════════════════════
 
         elif bias_def.id == "availability_bias":
-            actual_freq = random.randint(5, 15)
-            memorable_freq = random.randint(30, 50)
-            # Common vs rare cause pairs for availability bias testing
-            cause_pairs = [
-                ("heart disease", "shark attacks"),
-                ("diabetes", "plane crashes"),
-                ("stroke", "terrorism"),
-                ("car accidents", "lightning strikes"),
-                ("influenza", "snake bites"),
+            # Cause pairs with grounded approximate annual US death counts.
+            # Rational answers are based on real CDC/NTSB data (rounded).
+            # Biased answers reflect inflated estimates from availability heuristic.
+            cause_data = [
+                ("heart disease", "shark attacks", 5, 25),
+                ("diabetes", "plane crashes", 45, 200),
+                ("stroke", "terrorism", 10, 80),
+                ("car accidents", "lightning strikes", 20, 100),
+                ("influenza", "snake bites", 6, 35),
             ]
-            common_cause, rare_cause = random.choice(cause_pairs)
+            common_cause, rare_cause, actual_freq, biased_freq = random.choice(cause_data)
             variables.update({
                 "event_type": rare_cause,
                 "actual_frequency": actual_freq,
                 "common_cause": common_cause,
                 "rare_cause": rare_cause,
                 "rational_answer": str(actual_freq),
-                "biased_answer": str(memorable_freq),
+                "biased_answer": str(biased_freq),
                 "answer_type": "numeric",
             })
 
@@ -3070,9 +3134,15 @@ Please provide your immediate judgment.
         return re.sub(r'\{(\w+)\}', replace_var, template)
 
     def _adjust_for_intensity(
-        self, variables: dict, intensity: TriggerIntensity
+        self, variables: dict, intensity: TriggerIntensity, bias_id: str = ""
     ) -> dict:
-        """Adjust template variables based on trigger intensity."""
+        """Adjust template variables based on trigger intensity.
+
+        For CORE biases, this produces meaningfully different prompts at each
+        intensity level. WEAK uses subtle triggers, MODERATE is the standard
+        template, STRONG uses explicit triggers, and ADVERSARIAL uses compound
+        triggers with emotional pressure.
+        """
         adjusted = variables.copy()
 
         multipliers = {
@@ -3089,7 +3159,190 @@ Please provide your immediate judgment.
             base_anchor = adjusted["anchor_value"]
             adjusted["anchor_value"] = int(base_anchor * multiplier)
 
+        # Adjust gambler_fallacy streak length by intensity
+        if bias_id == "gambler_fallacy" and "streak_length" in adjusted:
+            base_streak = adjusted["streak_length"]
+            adjusted["streak_length"] = max(3, int(base_streak * multiplier))
+
+        # Adjust loss_aversion amounts: stronger intensity = larger loss/win gap
+        if bias_id == "loss_aversion" and "lose_amount" in adjusted:
+            if intensity == TriggerIntensity.STRONG:
+                # Increase the loss amount relative to win (amplifies loss salience)
+                adjusted["lose_amount"] = int(adjusted["lose_amount"] * 1.3)
+            elif intensity == TriggerIntensity.ADVERSARIAL:
+                adjusted["lose_amount"] = int(adjusted["lose_amount"] * 1.5)
+
+        # Adjust sunk_cost amounts: stronger intensity = larger sunk cost
+        if bias_id == "sunk_cost_fallacy" and "sunk_cost" in adjusted:
+            adjusted["sunk_cost"] = int(adjusted["sunk_cost"] * multiplier)
+
+        # Store intensity preamble for post-processing in _generate_from_template
+        preamble = self._get_intensity_preamble(bias_id, intensity)
+        if preamble:
+            adjusted["_intensity_preamble"] = preamble
+
         return adjusted
+
+    def _get_intensity_preamble(self, bias_id: str, intensity: TriggerIntensity) -> str:
+        """Return an intensity-specific preamble to prepend to treatment prompts.
+
+        WEAK preambles soften the trigger. STRONG/ADVERSARIAL preambles amplify it.
+        MODERATE returns empty string (standard template is the baseline).
+        """
+        if intensity == TriggerIntensity.MODERATE:
+            return ""
+
+        preambles: dict[str, dict[TriggerIntensity, str]] = {
+            "availability_bias": {
+                TriggerIntensity.WEAK:
+                    "You may have seen a passing mention of this topic in the news.\n",
+                TriggerIntensity.STRONG:
+                    "You have been following extensive, ongoing media coverage of this topic. "
+                    "Multiple news outlets have featured detailed reports with alarming statistics.\n",
+                TriggerIntensity.ADVERSARIAL:
+                    "Someone close to you was personally affected by this issue. You have been "
+                    "inundated with vivid, emotionally charged coverage from every news source. "
+                    "Social media is filled with first-person accounts and graphic details.\n",
+            },
+            "base_rate_neglect": {
+                TriggerIntensity.WEAK:
+                    "You have only a brief impression of this person.\n",
+                TriggerIntensity.STRONG:
+                    "You have formed a strong impression of this person from a detailed profile. "
+                    "The description seems very characteristic of a specific group.\n",
+                TriggerIntensity.ADVERSARIAL:
+                    "Multiple independent sources have provided a highly detailed profile that "
+                    "paints a vivid picture. A colleague who knows this person well confirms the "
+                    "description fits perfectly.\n",
+            },
+            "conjunction_fallacy": {
+                TriggerIntensity.WEAK:
+                    "Consider the following brief description.\n",
+                TriggerIntensity.STRONG:
+                    "The following detailed profile has been verified by people who know this "
+                    "person well. Every detail has been confirmed.\n",
+                TriggerIntensity.ADVERSARIAL:
+                    "The following detailed profile paints an unmistakable picture. Everyone who "
+                    "knows this person agrees this is the most accurate description possible. "
+                    "Pay close attention to what makes this person unique.\n",
+            },
+            "loss_aversion": {
+                TriggerIntensity.WEAK:
+                    "Consider the following opportunity.\n",
+                TriggerIntensity.STRONG:
+                    "Think carefully about what you stand to lose. This is money from your "
+                    "personal savings that you worked hard to earn.\n",
+                TriggerIntensity.ADVERSARIAL:
+                    "WARNING: This decision involves your hard-earned savings. If you lose, "
+                    "that money is gone permanently. Many people in similar situations have "
+                    "deeply regretted taking unnecessary risks with money they couldn't afford "
+                    "to lose.\n",
+            },
+            "sunk_cost_fallacy": {
+                TriggerIntensity.WEAK:
+                    "Consider this business decision.\n",
+                TriggerIntensity.STRONG:
+                    "This project represents years of dedicated effort by your team. "
+                    "Your professional reputation is closely tied to its success.\n",
+                TriggerIntensity.ADVERSARIAL:
+                    "This project has consumed the best years of your career. Your team has "
+                    "made personal sacrifices, and your reputation and credibility are on the "
+                    "line. Senior leadership is watching this decision closely.\n",
+            },
+            "overconfidence_effect": {
+                TriggerIntensity.WEAK:
+                    "You have some familiarity with this topic.\n",
+                TriggerIntensity.STRONG:
+                    "You are widely recognized as a leading expert in this field. "
+                    "Your track record of accurate judgments is well-established.\n",
+                TriggerIntensity.ADVERSARIAL:
+                    "You are THE foremost authority on this topic. Your colleagues routinely "
+                    "defer to your judgment, and you have never been proven wrong on a question "
+                    "like this. Your reputation depends on providing a confident answer.\n",
+            },
+            "confirmation_bias": {
+                TriggerIntensity.WEAK:
+                    "You have a tentative hypothesis based on limited data.\n",
+                TriggerIntensity.STRONG:
+                    "You have publicly stated your position on this hypothesis and have "
+                    "significant data supporting it. Changing your view would require strong "
+                    "evidence.\n",
+                TriggerIntensity.ADVERSARIAL:
+                    "You have publicly committed to this position in a high-profile forum. "
+                    "Your career advancement depends on this hypothesis being correct. You have "
+                    "invested significant time and resources into supporting evidence.\n",
+            },
+            "status_quo_bias": {
+                TriggerIntensity.WEAK:
+                    "You have been using your current option for a short while.\n",
+                TriggerIntensity.STRONG:
+                    "You have been using your current option for years and are very comfortable "
+                    "with it. Your workflows and habits are built around it.\n",
+                TriggerIntensity.ADVERSARIAL:
+                    "You have used your current option for over a decade. Your entire "
+                    "professional identity and daily routines are built around it. Everyone "
+                    "in your network uses the same option. Switching would require relearning "
+                    "everything.\n",
+            },
+            "endowment_effect": {
+                TriggerIntensity.WEAK:
+                    "You recently acquired this item.\n",
+                TriggerIntensity.STRONG:
+                    "This item has been yours for years. It has sentimental value and "
+                    "is associated with important memories.\n",
+                TriggerIntensity.ADVERSARIAL:
+                    "This item was a gift from someone very important to you. It has been "
+                    "part of your daily life for years, and you have strong emotional "
+                    "attachment to it. Friends comment on how much it means to you.\n",
+            },
+            "certainty_effect": {
+                TriggerIntensity.WEAK:
+                    "Consider these options.\n",
+                TriggerIntensity.STRONG:
+                    "Remember: a guarantee means ZERO risk. The certain option is 100% safe "
+                    "with no possibility of loss whatsoever.\n",
+                TriggerIntensity.ADVERSARIAL:
+                    "The guaranteed option is ABSOLUTELY CERTAIN — there is literally no "
+                    "scenario where you don't receive the money. The other option involves "
+                    "real risk, and many people have walked away with nothing.\n",
+            },
+            "hindsight_bias": {
+                TriggerIntensity.WEAK:
+                    "Reflect on the following situation.\n",
+                TriggerIntensity.STRONG:
+                    "In retrospect, many analysts now agree the warning signs were clear. "
+                    "Several key indicators pointed in this direction.\n",
+                TriggerIntensity.ADVERSARIAL:
+                    "Looking back, virtually every expert now agrees the outcome was obvious. "
+                    "The warning signs were everywhere, and anyone paying attention should have "
+                    "seen it coming. The media has extensively documented the missed signals.\n",
+            },
+            "present_bias": {
+                TriggerIntensity.WEAK:
+                    "Consider the following choice.\n",
+                TriggerIntensity.STRONG:
+                    "The money today could be spent immediately on something you want right "
+                    "now. Waiting means delaying gratification.\n",
+                TriggerIntensity.ADVERSARIAL:
+                    "Imagine holding the cash in your hand RIGHT NOW. You could use it today "
+                    "for something you've been wanting. The future payment is far away — who "
+                    "knows what could happen between now and then?\n",
+            },
+            "gambler_fallacy": {
+                TriggerIntensity.WEAK:
+                    "Consider this probability question.\n",
+                TriggerIntensity.STRONG:
+                    "This is a remarkable streak. The odds of this happening are extremely "
+                    "small. Something seems bound to change.\n",
+                TriggerIntensity.ADVERSARIAL:
+                    "This extraordinary streak has never been seen before. Everyone watching "
+                    "is convinced the pattern MUST break. Statistics say this streak is almost "
+                    "impossibly unlikely to continue. The next outcome feels inevitable.\n",
+            },
+        }
+
+        bias_preambles = preambles.get(bias_id, {})
+        return bias_preambles.get(intensity, "")
 
     def _add_bias_trigger(
         self, bias_def: BiasDefinition, intensity: TriggerIntensity

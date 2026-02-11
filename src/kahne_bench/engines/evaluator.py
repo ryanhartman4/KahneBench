@@ -6,12 +6,15 @@ results for metric calculation.
 """
 
 import asyncio
+import logging
 import re
 import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Callable, Protocol
+
+logger = logging.getLogger(__name__)
 
 from kahne_bench.core import (
     CognitiveBiasInstance,
@@ -131,7 +134,6 @@ def normalize_answer(answer: str) -> str:
             # (e.g., "i accept" contains "accept" but not just "a" or "e")
             if len(variation) >= 3 and variation in answer_lower:
                 # Ensure it's a word boundary match (not substring of another word)
-                import re
                 if re.search(rf'\b{re.escape(variation)}\b', answer_lower):
                     return canonical
 
@@ -337,6 +339,27 @@ _ANSWER_LINE_NUMERIC = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 
+# Regex matching a negative-context phrase DIRECTLY before a number.
+# Catches anchor references like "based on 6500" but NOT conversational
+# usage like "Based on my analysis, the answer is 75000".
+_NEGATIVE_CONTEXT_RE = re.compile(
+    r"(?:"
+    r"based\s+on"
+    r"|anchored\s+(?:to|by|at)(?:\s+(?:the\s+)?(?:value|number|figure)(?:\s+of))?"
+    r"|influenced\s+by(?:\s+(?:the\s+)?(?:initial\s+)?(?:value|number|figure)(?:\s+of))?"
+    r"|start(?:ing)?\s+from"
+    r"|(?:the\s+)?anchor(?:\s+(?:was|is|of))?"
+    r"|reference\s+(?:value\s+)?(?:of|was|is)"
+    r"|initial\s+(?:value|estimate|number|figure)(?:\s+(?:of|was|is))?"
+    r"|(?:given|provided)(?:\s+(?:the\s+)?(?:value|number|figure))?(?:\s+(?:of|was|is))?"
+    r"|regardless\s+of"
+    r"|ignoring(?:\s+the)?"
+    r"|disregarding"
+    r")\s+\$?"
+    r"([\d,]+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+
 
 class AnswerExtractor:
     """
@@ -359,6 +382,19 @@ class AnswerExtractor:
             llm_extractor: Optional LLM for complex answer extraction
         """
         self.llm_extractor = llm_extractor
+
+    @staticmethod
+    def _has_negative_context(text: str, match_start: int) -> bool:
+        """Check if a number at match_start is in a negative/rejection context.
+
+        Uses regex to match anchor reference patterns where the negative phrase
+        is directly adjacent to the number (e.g., "based on 6500"), not
+        conversational usage (e.g., "Based on my analysis, ... 75000").
+        """
+        for m in _NEGATIVE_CONTEXT_RE.finditer(text):
+            if m.start(1) == match_start:
+                return True
+        return False
 
     def extract(self, response: str, expected_type: str = "option") -> str | None:
         """
@@ -442,6 +478,9 @@ class AnswerExtractor:
                     if value in ("accepting", "rejecting"):
                         return "yes" if value == "accepting" else "no"
                     return value
+                # For numeric, skip numbers in negative/anchor context
+                if self._has_negative_context(search_text, match.start(1)):
+                    continue
                 return match.group(1)
 
         # Fallback: look for the last mentioned option/value
@@ -494,17 +533,21 @@ class AnswerExtractor:
                 response,
                 re.IGNORECASE,
             )
-            if answer_context:
+            if answer_context and not self._has_negative_context(response, answer_context.start(1)):
                 return answer_context.group(1).replace(",", "")
 
-            # Find numbers with units (excluding confidence percentages)
-            numbers_with_units = re.findall(
+            # Find numbers with units (excluding confidence percentages),
+            # filtering out anchor/rejection context
+            valid_unit_numbers = []
+            for match in re.finditer(
                 r"\$?([\d,]+(?:\.\d+)?)\s*(?:dollars?|people|years|months|days|units?)\b",
                 response,
                 re.IGNORECASE,
-            )
-            if numbers_with_units:
-                return numbers_with_units[-1].replace(",", "")
+            ):
+                if not self._has_negative_context(response, match.start(1)):
+                    valid_unit_numbers.append(match.group(1))
+            if valid_unit_numbers:
+                return valid_unit_numbers[-1].replace(",", "")
 
             # Exclude numbers that are part of confidence statements
             response_no_confidence = re.sub(
@@ -513,8 +556,11 @@ class AnswerExtractor:
                 response,
                 flags=re.IGNORECASE,
             )
-            numbers = re.findall(r"[\d,]+(?:\.\d+)?", response_no_confidence)
-            return numbers[0].replace(",", "") if numbers else None
+            # Find all numbers, filtering out those in anchor/rejection context
+            for match in re.finditer(r"[\d,]+(?:\.\d+)?", response_no_confidence):
+                if not self._has_negative_context(response_no_confidence, match.start()):
+                    return match.group().replace(",", "")
+            return None
 
         elif expected_type == "yes_no":
             response_lower = response.lower()
@@ -798,8 +844,8 @@ class BiasEvaluator:
                         result.metadata["scoring_method"] = "llm_judge"
                         result.metadata["judge_confidence"] = judge_result.confidence
                         result.metadata["judge_justification"] = judge_result.justification
-                except Exception:
-                    pass  # Judge failure is non-fatal, keep None scores
+                except Exception as e:
+                    logger.warning("LLM judge failed for %s: %s", instance.bias_id, e)
 
             return result
 
@@ -888,6 +934,31 @@ class BiasEvaluator:
         session.end_time = datetime.now().isoformat()
         return session
 
+    @staticmethod
+    def _is_descriptive_answer(answer: str) -> bool:
+        """Check if an expected answer is a descriptive prose string.
+
+        Descriptive answers (e.g., "based on statistical data rather than
+        memorable examples") cannot be scored via regex matching and require
+        LLM judge fallback for proper evaluation.
+
+        Returns True for answers that are too long/complex for regex matching.
+        """
+        # Short answers (<=5 words) are concrete enough for regex matching
+        if len(answer.split()) <= 5:
+            return False
+        # Try to parse as a number — numeric answers are concrete
+        try:
+            float(answer.replace(",", "").replace("$", ""))
+            return False
+        except (ValueError, TypeError):
+            pass
+        # Single-word canonical answers (e.g., "accept", "reject", "a", "b") are concrete
+        if answer.strip().lower() in ANSWER_SYNONYMS:
+            return False
+        # Multi-word answers longer than 5 words are likely descriptive
+        return True
+
     def score_response(
         self,
         result: TestResult,
@@ -909,6 +980,17 @@ class BiasEvaluator:
         """
         # Handle placeholder expected answers at entry point
         if rational_answer.startswith("[") or biased_answer.startswith("["):
+            return None, None
+
+        # Detect descriptive expected answers that can't be matched via regex.
+        # These are long prose descriptions like "based on statistical data rather
+        # than memorable examples" — they require LLM judge for proper scoring.
+        if self._is_descriptive_answer(rational_answer) or self._is_descriptive_answer(biased_answer):
+            logger.debug(
+                "Descriptive expected answer for %s requires LLM judge: rational=%r, biased=%r",
+                result.instance.bias_id, rational_answer[:50], biased_answer[:50],
+            )
+            result.metadata["requires_llm_judge"] = True
             return None, None
 
         # Handle extraction failures
@@ -1025,6 +1107,20 @@ Now consider a similar but distinct situation:
                 response_time_ms=elapsed_ms,
                 metadata={"round": round_num, "temporal_condition": "persistent"},
             )
+
+            # Score the response for bias
+            if (instance.expected_rational_response and
+                instance.expected_biased_response and
+                not instance.expected_rational_response.startswith("[") and
+                not instance.expected_biased_response.startswith("[")):
+                is_biased, bias_score = self.score_response(
+                    result,
+                    instance.expected_rational_response,
+                    instance.expected_biased_response,
+                )
+                result.is_biased = is_biased
+                result.bias_score = bias_score
+
             results.append(result)
 
         return results
@@ -1052,7 +1148,7 @@ Now consider a similar but distinct situation:
         initial_response = await self.provider.complete(initial_prompt, self.config.max_tokens)
         elapsed_ms = (time.time() - start_time) * 1000
 
-        results.append(TestResult(
+        pre_result = TestResult(
             instance=instance,
             model_id=model_id,
             condition="adaptive_pre_feedback",
@@ -1061,7 +1157,22 @@ Now consider a similar but distinct situation:
             extracted_answer=self.extractor.extract(initial_response, self._infer_answer_type(instance)),
             response_time_ms=elapsed_ms,
             metadata={"temporal_condition": "adaptive", "phase": "pre_feedback"},
-        ))
+        )
+
+        # Score the pre-feedback response
+        if (instance.expected_rational_response and
+            instance.expected_biased_response and
+            not instance.expected_rational_response.startswith("[") and
+            not instance.expected_biased_response.startswith("[")):
+            is_biased, bias_score = self.score_response(
+                pre_result,
+                instance.expected_rational_response,
+                instance.expected_biased_response,
+            )
+            pre_result.is_biased = is_biased
+            pre_result.bias_score = bias_score
+
+        results.append(pre_result)
 
         # Corrective feedback
         feedback_prompt = f"""
@@ -1076,7 +1187,7 @@ Please reconsider, being careful to avoid this cognitive bias.
         feedback_response = await self.provider.complete(feedback_prompt, self.config.max_tokens)
         elapsed_ms = (time.time() - start_time) * 1000
 
-        results.append(TestResult(
+        post_result = TestResult(
             instance=instance,
             model_id=model_id,
             condition="adaptive_post_feedback",
@@ -1085,7 +1196,22 @@ Please reconsider, being careful to avoid this cognitive bias.
             extracted_answer=self.extractor.extract(feedback_response, self._infer_answer_type(instance)),
             response_time_ms=elapsed_ms,
             metadata={"temporal_condition": "adaptive", "phase": "post_feedback"},
-        ))
+        )
+
+        # Score the post-feedback response
+        if (instance.expected_rational_response and
+            instance.expected_biased_response and
+            not instance.expected_rational_response.startswith("[") and
+            not instance.expected_biased_response.startswith("[")):
+            is_biased, bias_score = self.score_response(
+                post_result,
+                instance.expected_rational_response,
+                instance.expected_biased_response,
+            )
+            post_result.is_biased = is_biased
+            post_result.bias_score = bias_score
+
+        results.append(post_result)
 
         return results
 

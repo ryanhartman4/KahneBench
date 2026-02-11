@@ -1434,3 +1434,209 @@ class TestErrorSimulatingProvider:
         )
         with pytest.raises(ConnectionError):
             await connection_provider.complete("test")
+
+
+class TestNegativeContextFiltering:
+    """Tests for negative-context filtering in numeric extraction.
+
+    Verifies that numbers mentioned as anchors/references (e.g., "based on 6500")
+    are NOT extracted as the model's answer, while legitimate answers are.
+    """
+
+    def test_based_on_anchor_rejected(self):
+        """'based on 6500' should not extract 6500 as the answer."""
+        extractor = AnswerExtractor()
+        response = "I decline to give a number based on 6500."
+        result = extractor.extract(response, "numeric")
+        assert result is None, f"Expected None but got '{result}' — anchor was extracted"
+
+    def test_anchored_to_value_rejected(self):
+        """'anchored to 10000' should not extract 10000."""
+        extractor = AnswerExtractor()
+        response = "I should not be anchored to 10000. My estimate is 7500."
+        result = extractor.extract(response, "numeric")
+        assert result == "7500", f"Expected '7500' but got '{result}'"
+
+    def test_starting_from_anchor_rejected(self):
+        """'starting from 500' should not extract 500."""
+        extractor = AnswerExtractor()
+        response = "Rather than starting from 500, I'll estimate 350 dollars."
+        result = extractor.extract(response, "numeric")
+        assert result == "350", f"Expected '350' but got '{result}'"
+
+    def test_influenced_by_anchor_rejected(self):
+        """'influenced by 8000' should not extract 8000."""
+        extractor = AnswerExtractor()
+        response = "Without being influenced by 8000, my answer is 5200."
+        result = extractor.extract(response, "numeric")
+        assert result == "5200", f"Expected '5200' but got '{result}'"
+
+    def test_the_anchor_was_rejected(self):
+        """'the anchor was 100' should not extract 100."""
+        extractor = AnswerExtractor()
+        response = "The anchor was 100 but my estimate is approximately 65."
+        result = extractor.extract(response, "numeric")
+        assert result == "65", f"Expected '65' but got '{result}'"
+
+    def test_regardless_of_anchor_rejected(self):
+        """'regardless of 5000' should not extract 5000."""
+        extractor = AnswerExtractor()
+        response = "Regardless of 5000, the real value is approximately 3200."
+        result = extractor.extract(response, "numeric")
+        assert result == "3200", f"Expected '3200' but got '{result}'"
+
+    def test_conversational_based_on_not_rejected(self):
+        """'Based on my analysis' should NOT trigger rejection for later numbers."""
+        extractor = AnswerExtractor()
+        response = "Based on my analysis of the data, my estimate is approximately 75000 dollars."
+        result = extractor.extract(response, "numeric")
+        assert result == "75000", f"Expected '75000' but got '{result}'"
+
+    def test_answer_line_overrides_negative_context(self):
+        """Explicit Answer: line always takes priority over context filtering."""
+        extractor = AnswerExtractor()
+        response = "The anchor was 100 and based on 6500...\n\nAnswer: 4200"
+        result = extractor.extract(response, "numeric")
+        assert result == "4200"
+
+    def test_real_world_verbose_rejection(self):
+        """Real-world verbose response where model rejects the anchor."""
+        extractor = AnswerExtractor()
+        response = """I notice you've provided an anchor value of 6500. As a careful
+reasoner, I should not be influenced by this initial figure. The population
+of this city, based on the actual census data, is approximately 2700000 people.
+
+I want to be transparent that I'm deliberately ignoring the anchor."""
+        result = extractor.extract(response, "numeric")
+        assert result == "2700000", f"Expected '2700000' but got '{result}'"
+
+
+class TestDescriptiveAnswerDetection:
+    """Tests for descriptive expected answer detection in score_response."""
+
+    def test_short_concrete_answer_not_descriptive(self):
+        """Short answers like 'accept' are not descriptive."""
+        assert BiasEvaluator._is_descriptive_answer("accept") is False
+        assert BiasEvaluator._is_descriptive_answer("50") is False
+        assert BiasEvaluator._is_descriptive_answer("option A") is False
+        assert BiasEvaluator._is_descriptive_answer("75000") is False
+
+    def test_long_prose_answer_is_descriptive(self):
+        """Long prose answers are descriptive and require LLM judge."""
+        assert BiasEvaluator._is_descriptive_answer(
+            "based on statistical data rather than memorable examples"
+        ) is True
+        assert BiasEvaluator._is_descriptive_answer(
+            "evaluate options based on objective criteria without anchoring"
+        ) is True
+
+    def test_score_response_returns_none_for_descriptive_answers(self):
+        """score_response returns None for descriptive expected answers."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = create_test_instance()
+
+        from kahne_bench.core import TestResult
+
+        result = TestResult(
+            instance=instance,
+            model_id="test",
+            condition="treatment",
+            prompt_used="test prompt",
+            model_response="I think we should use the statistical approach.",
+            extracted_answer="statistical",
+            response_time_ms=100.0,
+        )
+
+        is_biased, score = evaluator.score_response(
+            result,
+            "based on statistical data rather than memorable examples",
+            "based on vivid memorable examples rather than statistics",
+        )
+        assert is_biased is None
+        assert score is None
+        assert result.metadata.get("requires_llm_judge") is True
+
+
+class TestTemporalEvaluatorScoring:
+    """Tests that TemporalEvaluator properly scores responses."""
+
+    @pytest.mark.asyncio
+    async def test_persistent_scores_responses(self):
+        """evaluate_persistent should call score_response on results."""
+        # The mock returns "A" which won't match numeric expected answers,
+        # but the scoring code path should still execute
+        provider = MockLLMProvider(default_response="My answer is 100.")
+        config = EvaluationConfig(num_trials=1)
+        evaluator = TemporalEvaluator(provider, config)
+        instance = create_test_instance()  # expected_rational="50", expected_biased="100"
+
+        results = await evaluator.evaluate_persistent(instance, "test-model", num_rounds=2)
+
+        # With expected answers "50" and "100", and response "100",
+        # scoring should identify this as biased
+        for result in results:
+            assert result.bias_score is not None, "bias_score should be set by score_response"
+            assert result.is_biased is not None, "is_biased should be set by score_response"
+
+    @pytest.mark.asyncio
+    async def test_adaptive_scores_responses(self):
+        """evaluate_adaptive should call score_response on both pre and post results."""
+        provider = MockLLMProvider(default_response="My answer is 50.")
+        config = EvaluationConfig(num_trials=1)
+        evaluator = TemporalEvaluator(provider, config)
+        instance = create_test_instance()
+
+        results = await evaluator.evaluate_adaptive(instance, "test-model")
+
+        # Both results should have scores
+        for result in results:
+            assert result.bias_score is not None, (
+                f"bias_score should be set for condition={result.condition}"
+            )
+            assert result.is_biased is not None, (
+                f"is_biased should be set for condition={result.condition}"
+            )
+
+
+class TestJudgeExceptionLogging:
+    """Tests for proper exception logging in LLM judge fallback."""
+
+    @pytest.mark.asyncio
+    async def test_judge_failure_is_logged(self, caplog):
+        """LLM judge failures should be logged, not silently swallowed."""
+        import logging
+
+        class FailingJudgeProvider:
+            async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str:
+                raise RuntimeError("Rate limit exceeded")
+
+        from kahne_bench.engines.judge import LLMJudge
+
+        provider = MockLLMProvider(default_response="I would choose option A.")
+        judge = LLMJudge(provider=FailingJudgeProvider())
+        config = EvaluationConfig(
+            num_trials=1, include_control=False, include_debiasing=False,
+            intensities=[TriggerIntensity.MODERATE],
+        )
+        evaluator = BiasEvaluator(provider, config, judge=judge)
+
+        # Use an instance where regex extraction will fail so judge fallback is triggered
+        instance = CognitiveBiasInstance(
+            bias_id="anchoring_effect",
+            base_scenario="Test scenario",
+            bias_trigger="An anchor is mentioned",
+            domain=Domain.INDIVIDUAL,
+            scale=TestScale.MICRO,
+            control_prompt="What is X?",
+            treatment_prompts={TriggerIntensity.MODERATE: "Consider 100. What is X?"},
+            expected_rational_response="[some rational answer]",
+            expected_biased_response="[some biased answer]",
+        )
+
+        with caplog.at_level(logging.WARNING, logger="kahne_bench.engines.evaluator"):
+            results = await evaluator.evaluate_instance(instance, "test-model")
+
+        # Judge failure should be logged
+        assert any("LLM judge failed" in record.message for record in caplog.records), \
+            "Expected warning log about LLM judge failure"

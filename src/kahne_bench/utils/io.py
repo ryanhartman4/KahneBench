@@ -20,6 +20,7 @@ from kahne_bench.core import (
     TestScale,
     TriggerIntensity,
 )
+from kahne_bench.engines.bloom_generator import BiasUnderstanding, GeneratedScenario
 from kahne_bench.engines.conversation import ConversationalBiasScore, ConversationTranscript
 from kahne_bench.engines.quality import QualityReport, QualityScores
 from kahne_bench.engines.variation import VariationRobustnessScore
@@ -329,6 +330,66 @@ def export_transcripts_to_json(
             "final_bias_score": transcript.final_bias_score,
             "bias_evolution": transcript.bias_evolution,
             "persistence_score": transcript.persistence_score,
+        })
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=indent, ensure_ascii=False)
+
+
+def export_bloom_understanding_to_json(
+    understandings: list[BiasUnderstanding],
+    filepath: str | Path,
+    indent: int = 2,
+) -> None:
+    """
+    Export BLOOM bias understandings to JSON.
+
+    Args:
+        understandings: List of BiasUnderstanding objects from BLOOM stage 1
+        filepath: Output file path
+        indent: JSON indentation level
+    """
+    data = []
+    for u in understandings:
+        data.append({
+            "bias_id": u.bias_id,
+            "behavioral_markers": u.behavioral_markers,
+            "trigger_patterns": u.trigger_patterns,
+            "resistance_factors": u.resistance_factors,
+            "variation_dimensions": u.variation_dimensions,
+            "raw_understanding": u.raw_understanding,
+        })
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=indent, ensure_ascii=False)
+
+
+def export_bloom_scenarios_to_json(
+    scenarios: list[GeneratedScenario],
+    filepath: str | Path,
+    indent: int = 2,
+) -> None:
+    """
+    Export BLOOM generated scenarios to JSON.
+
+    Args:
+        scenarios: List of GeneratedScenario objects from BLOOM stage 2
+        filepath: Output file path
+        indent: JSON indentation level
+    """
+    data = []
+    for s in scenarios:
+        data.append({
+            "scenario_id": s.scenario_id,
+            "description": s.description,
+            "control_prompt": s.control_prompt,
+            "treatment_prompt": s.treatment_prompt,
+            "bias_trigger": s.bias_trigger,
+            "expected_rational": s.expected_rational,
+            "expected_biased": s.expected_biased,
+            "domain": s.domain.value,
+            "answer_type": s.answer_type,
+            "metadata": s.metadata,
         })
 
     with open(filepath, "w", encoding="utf-8") as f:

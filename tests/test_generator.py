@@ -1032,3 +1032,113 @@ class TestAnswerExtractionWithNewFormat:
                 assert "Answer:" in treatment, (
                     f"{bias_id}: treatment {intensity.value} missing Answer: format"
                 )
+
+
+class TestGainLossFramingBothFrames:
+    """Tests for P0 #3: Both gain and loss frames must be tested.
+
+    The canonical Kahneman & Tversky (1981) framing effect is the REVERSAL
+    between gain and loss frames: risk-averse in gains, risk-seeking in losses.
+    Testing only the gain frame misses half the phenomenon.
+    """
+
+    @pytest.fixture
+    def generator(self):
+        return TestCaseGenerator(seed=42)
+
+    def test_loss_frame_is_used(self, generator):
+        """Verify the loss frame template is actually used (was dead code before fix)."""
+        instance = generator.generate_instance("gain_loss_framing", Domain.INDIVIDUAL)
+        # STRONG and ADVERSARIAL should use loss frame (mentions "will die")
+        for intensity in (TriggerIntensity.STRONG, TriggerIntensity.ADVERSARIAL):
+            treatment = instance.get_treatment(intensity)
+            assert "will die" in treatment, (
+                f"Loss frame treatment at {intensity.value} should mention deaths. "
+                f"Got: {treatment[:200]}"
+            )
+
+    def test_gain_frame_is_used(self, generator):
+        """Verify the gain frame template is used for WEAK/MODERATE."""
+        instance = generator.generate_instance("gain_loss_framing", Domain.INDIVIDUAL)
+        for intensity in (TriggerIntensity.WEAK, TriggerIntensity.MODERATE):
+            treatment = instance.get_treatment(intensity)
+            assert "will be saved" in treatment, (
+                f"Gain frame treatment at {intensity.value} should mention saving. "
+                f"Got: {treatment[:200]}"
+            )
+
+    def test_gain_and_loss_frames_differ(self, generator):
+        """Verify gain and loss frame prompts are meaningfully different."""
+        instance = generator.generate_instance("gain_loss_framing", Domain.INDIVIDUAL)
+        gain_text = instance.get_treatment(TriggerIntensity.MODERATE)
+        loss_text = instance.get_treatment(TriggerIntensity.STRONG)
+        assert gain_text != loss_text, "Gain and loss frame prompts should differ"
+
+    def test_frame_map_metadata(self, generator):
+        """Verify frame_map metadata correctly labels each intensity's frame."""
+        instance = generator.generate_instance("gain_loss_framing", Domain.INDIVIDUAL)
+        frame_map = instance.metadata.get("frame_map")
+        assert frame_map is not None, "gain_loss_framing should have frame_map metadata"
+        assert frame_map["weak"] == "gain"
+        assert frame_map["moderate"] == "gain"
+        assert frame_map["strong"] == "loss"
+        assert frame_map["adversarial"] == "loss"
+
+    def test_frame_specific_biased_responses_in_metadata(self, generator):
+        """Verify metadata records different biased responses per frame."""
+        instance = generator.generate_instance("gain_loss_framing", Domain.INDIVIDUAL)
+        assert instance.metadata.get("gain_frame_biased") == "A"
+        assert instance.metadata.get("loss_frame_biased") == "B"
+
+
+class TestIntensityVariation:
+    """Tests for P0 #4: Intensity adjustment must work for all CORE biases.
+
+    Before the fix, only anchoring_effect had different prompts across
+    intensities. Now all CORE biases should produce measurably different
+    treatment prompts.
+    """
+
+    @pytest.fixture
+    def generator(self):
+        return TestCaseGenerator(seed=42)
+
+    @pytest.mark.parametrize("bias_id", [
+        "anchoring_effect",
+        "availability_bias",
+        "base_rate_neglect",
+        "conjunction_fallacy",
+        "loss_aversion",
+        "endowment_effect",
+        "status_quo_bias",
+        "certainty_effect",
+        "overconfidence_effect",
+        "confirmation_bias",
+        "sunk_cost_fallacy",
+        "present_bias",
+        "hindsight_bias",
+        "gambler_fallacy",
+        "gain_loss_framing",
+    ])
+    def test_core_bias_has_intensity_variation(self, generator, bias_id):
+        """Each CORE bias must produce at least 2 different treatment prompts."""
+        instance = generator.generate_instance(bias_id, Domain.INDIVIDUAL)
+        treatments = {
+            intensity: instance.get_treatment(intensity)
+            for intensity in TriggerIntensity
+        }
+        unique_treatments = set(treatments.values())
+        assert len(unique_treatments) >= 2, (
+            f"{bias_id}: Expected at least 2 different treatment prompts across "
+            f"intensities, but all {len(TriggerIntensity)} produced identical text"
+        )
+
+    def test_weak_intensity_is_softer_than_adversarial(self, generator):
+        """WEAK prompts should be shorter/softer than ADVERSARIAL."""
+        instance = generator.generate_instance("loss_aversion", Domain.INDIVIDUAL)
+        weak = instance.get_treatment(TriggerIntensity.WEAK)
+        adversarial = instance.get_treatment(TriggerIntensity.ADVERSARIAL)
+        # Adversarial should be longer due to added emotional pressure
+        assert len(adversarial) > len(weak), (
+            "ADVERSARIAL treatment should be longer than WEAK due to added context"
+        )

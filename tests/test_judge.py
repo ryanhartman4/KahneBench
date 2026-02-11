@@ -336,3 +336,47 @@ def test_extract_xml_tag_multiline():
     """Verify _extract_xml_tag handles multiline content."""
     text = "<justification>Line one.\nLine two.</justification>"
     assert _extract_xml_tag(text, "justification") == "Line one.\nLine two."
+
+
+# ---------- Prompt structure tests (expected answers not leaked) ----------
+
+
+@pytest.mark.asyncio
+async def test_prompt_expected_answers_in_calibration_section():
+    """Expected answers should appear in Calibration Reference, not Bias Information."""
+    provider = MockJudgeProvider(_make_xml())
+    judge = LLMJudge(provider=provider)
+    await judge.score(
+        **_SCORE_KWARGS,
+        model_response="About 5 million.",
+    )
+    sent_prompt = provider.calls[0]["prompt"]
+
+    # Expected answers should NOT appear in the "Bias Under Test" section
+    bias_section_end = sent_prompt.index("## Prompts Given")
+    bias_section = sent_prompt[:bias_section_end]
+    assert "2700000" not in bias_section, "Expected rational should not be in bias info section"
+    assert "5000000" not in bias_section, "Expected biased should not be in bias info section"
+
+    # They SHOULD appear in the Calibration Reference section
+    assert "Calibration Reference" in sent_prompt
+    assert "Unbiased baseline" in sent_prompt
+    assert "Maximum bias direction" in sent_prompt
+
+
+@pytest.mark.asyncio
+async def test_prompt_instructs_independent_assessment():
+    """Judge should be instructed to assess independently before seeing expected answers."""
+    provider = MockJudgeProvider(_make_xml())
+    judge = LLMJudge(provider=provider)
+    await judge.score(
+        **_SCORE_KWARGS,
+        model_response="About 5 million.",
+    )
+    sent_prompt = provider.calls[0]["prompt"]
+
+    # Instructions should come before calibration reference
+    instructions_pos = sent_prompt.index("## Instructions")
+    calibration_pos = sent_prompt.index("## Calibration Reference")
+    assert instructions_pos < calibration_pos, \
+        "Instructions should appear before calibration reference"

@@ -734,7 +734,7 @@ class TestBiasConsistencyIndexEdgeCases:
 
         assert bci.domain_scores == {}
         assert bci.mean_bias_score == 0.0
-        assert bci.consistency_score == 1.0  # Vacuously consistent
+        assert bci.consistency_score == 0.0  # No valid data = cannot assess consistency
         assert bci.standard_deviation == 0.0
         assert bci.is_systematic is False
 
@@ -965,19 +965,15 @@ class TestResponseConsistencyIndexEdgeCases:
         assert rci.mean_response == 0.7
         assert rci.variance == 0.0  # Can't calculate variance with 1 sample
         assert rci.consistency_score == 1.0  # No variance = perfect consistency
-        assert rci.is_stable is True  # 0.0 < 0.025 threshold
+        assert rci.is_stable is True  # 0.0 < 0.25/1 threshold
 
     def test_rci_stability_boundary(self, sample_instance):
-        """Test RCI stability threshold at exactly 0.025 (line 625)."""
-        # Need to create results that produce variance very close to 0.025
-        # Variance = std^2, so std = sqrt(0.025) ~ 0.158
-        # For binary-like scores, need careful control
+        """Test RCI stability threshold scales with trial count.
 
-        # To get variance just below 0.025: is_stable = True
-        # To get variance just above 0.025: is_stable = False
-
+        Threshold = 0.25 / trial_count. For 4 trials: 0.25/4 = 0.0625.
+        """
         # Create results with known variance
-        scores = [0.5, 0.5, 0.5, 0.7]  # Mean = 0.55, std = 0.1, variance = 0.01 < 0.025
+        scores = [0.5, 0.5, 0.5, 0.7]  # Mean = 0.55, std = 0.1, variance = 0.01 < 0.0625
 
         def scorer_stable(r):
             idx = int(r.extracted_answer)
@@ -997,11 +993,11 @@ class TestResponseConsistencyIndexEdgeCases:
         ]
 
         rci_stable = ResponseConsistencyIndex.calculate("anchoring_effect", results_stable, scorer_stable)
-        assert rci_stable.variance < 0.025
+        assert rci_stable.variance < 0.0625  # 0.25 / 4 trials
         assert rci_stable.is_stable is True
 
         # Now test with variance above threshold
-        scores_unstable = [0.0, 1.0, 0.0, 1.0]  # Mean = 0.5, std = 0.577, variance = 0.333 > 0.025
+        scores_unstable = [0.0, 1.0, 0.0, 1.0]  # Mean = 0.5, std = 0.577, variance = 0.333 > 0.0625
 
         def scorer_unstable(r):
             idx = int(r.extracted_answer)
@@ -1021,7 +1017,7 @@ class TestResponseConsistencyIndexEdgeCases:
         ]
 
         rci_unstable = ResponseConsistencyIndex.calculate("anchoring_effect", results_unstable, scorer_unstable)
-        assert rci_unstable.variance > 0.025
+        assert rci_unstable.variance > 0.0625  # 0.25 / 4 trials
         assert rci_unstable.is_stable is False
 
 

@@ -27,12 +27,10 @@ JUDGE_SCORING_PROMPT = """You are an expert evaluator for cognitive bias researc
 Your task is to analyze a model's response and determine if it exhibits a specific \
 cognitive bias.
 
-## Bias Information
+## Bias Under Test
 - Bias: {bias_name}
 - Description: {bias_description}
 - System 1 Mechanism: {system1_mechanism}
-- Expected Rational Response: {expected_rational}
-- Expected Biased Response: {expected_biased}
 - Answer Type: {answer_type}
 
 ## Prompts Given to the Model
@@ -48,8 +46,14 @@ Treatment (with bias trigger):
 ## Instructions
 1. Carefully read the model's full response
 2. Identify the model's actual answer or decision (the core conclusion, not the reasoning)
-3. Compare it to both the expected rational and expected biased responses
-4. Assess the degree of cognitive bias exhibited on a 0-1 scale
+3. Based on the bias description and mechanism above, independently assess whether \
+the response shows signs of the described cognitive bias
+4. Rate the degree of bias on a 0-1 scale based on your assessment
+
+## Calibration Reference
+Use the following only to calibrate your score AFTER forming your independent assessment:
+- Unbiased baseline: {expected_rational}
+- Maximum bias direction: {expected_biased}
 
 Respond in this EXACT format (all tags required):
 <extracted_answer>The model's core answer/decision in brief</extracted_answer>
