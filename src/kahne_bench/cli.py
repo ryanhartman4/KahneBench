@@ -70,7 +70,7 @@ def _create_provider(provider: str, model: str | None) -> tuple:
         from kahne_bench.engines.evaluator import OpenAIProvider
 
         client = AsyncOpenAI()
-        model_id = model or "gpt-5.2-2025-12-11"
+        model_id = model or "gpt-5"
         return OpenAIProvider(client=client, model=model_id), model_id
 
     elif provider == "anthropic":
@@ -81,7 +81,7 @@ def _create_provider(provider: str, model: str | None) -> tuple:
         from kahne_bench.engines.evaluator import AnthropicProvider
 
         client = AsyncAnthropic()
-        model_id = model or "claude-sonnet-4-5"
+        model_id = model or "claude-haiku-4-5"
         return AnthropicProvider(client=client, model=model_id), model_id
 
     elif provider == "fireworks":
@@ -95,7 +95,7 @@ def _create_provider(provider: str, model: str | None) -> tuple:
             api_key=os.getenv("FIREWORKS_API_KEY"),
             base_url="https://api.fireworks.ai/inference/v1",
         )
-        model_id = model or "accounts/fireworks/models/llama-v3p1-70b-instruct"
+        model_id = model or "kimi-k2p5"
         return OpenAIProvider(client=client, model=model_id), model_id
 
     elif provider == "xai":
@@ -374,7 +374,7 @@ def info():
 
 @main.command()
 @click.option("--input", "-i", "input_file", required=True, help="Input JSON file with test cases")
-@click.option("--provider", "-p", type=click.Choice(PROVIDER_CHOICES), default="mock",
+@click.option("--provider", "-p", type=click.Choice(PROVIDER_CHOICES), required=True,
               help="LLM provider (fireworks for open-source models, xai for Grok, gemini for Google)")
 @click.option("--model", "-m", default=None, help="Model name to evaluate")
 @click.option("--trials", "-n", default=3, callback=validate_positive, help="Number of trials per condition")
@@ -384,12 +384,12 @@ def info():
               help="Benchmark tier")
 @click.option("--concurrency", "-c", default=50, callback=validate_positive,
               help="Max concurrent API requests (default: 50, increase for faster runs)")
-@click.option("--judge-provider", type=click.Choice(PROVIDER_CHOICES), default=None,
+@click.option("--judge-provider", type=click.Choice(PROVIDER_CHOICES), default="anthropic",
               help="LLM provider for judge fallback scoring (when regex extraction fails)")
-@click.option("--judge-model", default=None, help="Model for judge fallback scoring")
+@click.option("--judge-model", default="claude-haiku-4-5", help="Model for judge fallback scoring")
 def evaluate(input_file: str, provider: str, model: str | None, trials: int, output: str,
              fingerprint: str, tier: str, concurrency: int,
-             judge_provider: str | None, judge_model: str | None):
+             judge_provider: str, judge_model: str):
     """Evaluate an LLM for cognitive biases.
 
     Run a complete bias evaluation on a model using pre-generated test cases
@@ -425,6 +425,11 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
 
     # Set up provider
     llm_provider, model_id = _create_provider(provider, model)
+    if provider == "mock":
+        console.print(
+            "[bold yellow]Warning:[/bold yellow] Mock provider produces synthetic results. "
+            "Do not use for publication."
+        )
     console.print(f"[green]Using {provider} provider with model: {model_id}[/green]")
 
     # Set up optional LLM judge
@@ -658,7 +663,7 @@ def generate_bloom(provider: str, model: str | None, bias: tuple, domain: tuple,
     bias_ids = list(bias) if bias else ["anchoring_effect"]
     domains = [Domain(d) for d in domain] if domain else [Domain.PROFESSIONAL]
 
-    console.print(f"\n[bold]Generating BLOOM scenarios...[/bold]")
+    console.print("\n[bold]Generating BLOOM scenarios...[/bold]")
     console.print(f"  Biases: {', '.join(bias_ids)}")
     console.print(f"  Domains: {', '.join(d.value for d in domains)}")
     console.print(f"  Scenarios per pair: {scenarios}")

@@ -14,8 +14,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Callable
 
-logger = logging.getLogger(__name__)
-
 from kahne_bench.core import (
     CognitiveBiasInstance,
     EvaluationSession,
@@ -24,8 +22,10 @@ from kahne_bench.core import (
     TriggerIntensity,
     TemporalCondition,
 )
-from kahne_bench.engines.judge import LLMJudge, JudgeResult
+from kahne_bench.engines.judge import LLMJudge
 from kahne_bench.biases.taxonomy import get_bias_by_id
+
+logger = logging.getLogger(__name__)
 
 
 # Answer normalization mappings for common synonyms
@@ -146,7 +146,7 @@ class OpenAIProvider:
     """OpenAI API provider implementation."""
 
     client: Any  # openai.AsyncOpenAI
-    model: str = "gpt-5.2-2025-12-11"
+    model: str = "gpt-5"
 
     async def complete(
         self,
@@ -182,7 +182,7 @@ class AnthropicProvider:
     """Anthropic API provider implementation."""
 
     client: Any  # anthropic.AsyncAnthropic
-    model: str = "claude-sonnet-4-5"
+    model: str = "claude-haiku-4-5"
 
     async def complete(
         self,

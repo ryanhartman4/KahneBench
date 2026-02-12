@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-import pytest_asyncio
 
 from kahne_bench.core import (
     CognitiveBiasInstance,
@@ -16,8 +15,6 @@ from kahne_bench.engines.bloom_generator import (
     BloomBiasGenerator,
     BiasUnderstanding,
     GeneratedScenario,
-    UNDERSTANDING_PROMPT,
-    IDEATION_PROMPT,
 )
 
 

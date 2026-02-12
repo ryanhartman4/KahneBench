@@ -7,8 +7,6 @@ Tests bias interactions and compounding effects using the Bias Interaction Matri
 import logging
 from dataclasses import dataclass
 
-logger = logging.getLogger(__name__)
-
 from kahne_bench.core import (
     CognitiveBiasInstance,
     Domain,
@@ -17,6 +15,8 @@ from kahne_bench.core import (
 )
 from kahne_bench.biases import BIAS_INTERACTION_MATRIX, get_bias_by_id
 from kahne_bench.engines.generator import TestCaseGenerator, DOMAIN_SCENARIOS
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass

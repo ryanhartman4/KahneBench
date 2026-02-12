@@ -6,7 +6,6 @@ import pytest
 from kahne_bench.core import (
     CognitiveBiasInstance,
     Domain,
-    TestScale,
     TriggerIntensity,
 )
 from kahne_bench.engines.variation import (

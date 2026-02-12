@@ -5,7 +5,6 @@ import pytest
 from kahne_bench.engines.judge import (
     LLMJudge,
     JudgeResult,
-    JUDGE_SCORING_PROMPT,
     _extract_xml_tag,
 )
 

@@ -3,7 +3,6 @@
 
 import re
 
-import pytest
 from kahne_bench.biases import (
     BIAS_TAXONOMY,
     get_bias_by_id,

@@ -13,7 +13,7 @@ Implements the six advanced metrics defined in the framework:
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from statistics import mean, pstdev, stdev
+from statistics import mean, pstdev
 from typing import Callable
 
 import numpy as np

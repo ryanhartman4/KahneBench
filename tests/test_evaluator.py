@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from kahne_bench.core import (
     CognitiveBiasInstance,
     Domain,
+    TestResult,
     TestScale,
     TriggerIntensity,
 )
@@ -1329,7 +1330,7 @@ class TestBugFixes:
         # This tests that the pattern wouldn't extract "A" as an option
         # Note: The actual fix is in BiasEvaluator._run_trials which checks for ERROR: prefix
         # before calling extract. This test documents the issue.
-        result = extractor.extract(error_response, "option")
+        extractor.extract(error_response, "option")
         # Without the evaluator-level check, this would incorrectly return "A"
         # The fix ensures extraction is never called on ERROR responses
 
@@ -1635,7 +1636,7 @@ class TestJudgeExceptionLogging:
         )
 
         with caplog.at_level(logging.WARNING, logger="kahne_bench.engines.evaluator"):
-            results = await evaluator.evaluate_instance(instance, "test-model")
+            await evaluator.evaluate_instance(instance, "test-model")
 
         # Judge failure should be logged
         assert any("LLM judge failed" in record.message for record in caplog.records), \
@@ -2052,7 +2053,7 @@ class TestJudgeFrameAwareness:
         evaluator = BiasEvaluator(provider, config, judge=judge)
         instance = self._create_framing_instance()
 
-        results = await evaluator.evaluate_instance(instance, "test-model")
+        await evaluator.evaluate_instance(instance, "test-model")
 
         # The judge should have been called
         assert len(captured_prompts) > 0, "Judge should have been invoked"
@@ -2553,7 +2554,6 @@ class TestFrameAwareScoringScoreResponse:
     def _make_result(
         self, instance: CognitiveBiasInstance, condition: str, extracted: str,
     ) -> "TestResult":
-        from kahne_bench.core import TestResult
 
         return TestResult(
             instance=instance,

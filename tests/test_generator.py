@@ -10,7 +10,6 @@ from kahne_bench.engines.generator import (
     BIAS_TEMPLATES,
     KahneBenchTier,
     get_tier_biases,
-    KAHNE_BENCH_CORE_BIASES,
     KAHNE_BENCH_INTERACTION_PAIRS,
 )
 from kahne_bench.core import (
@@ -82,8 +81,6 @@ class TestTestCaseGenerator:
         instance = generator.generate_instance("anchoring_effect", Domain.PROFESSIONAL)
         # Should not contain unfilled template variables (pattern: {word})
         # Check that no {variable} patterns remain in the control prompt
-        import re
-        unfilled_vars = re.findall(r'\{[a-z_]+\}', instance.control_prompt)
         # Some generic variables like {context} might remain - that's acceptable
         # But core variables should be filled
         assert "{decision_maker}" not in instance.control_prompt

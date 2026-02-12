@@ -13,13 +13,13 @@ from kahne_bench.engines.generator import (
     NOVEL_SCENARIO_ELEMENTS,
     TestCaseGenerator,
 )
-from kahne_bench.engines.compound import CompoundTestGenerator, CompoundBiasScenario
+from kahne_bench.engines.compound import CompoundTestGenerator
 from kahne_bench.engines.robustness import (
     RobustnessTester,
     PARAPHRASE_STRATEGIES,
     ContrastiveRobustnessTester,
 )
-from kahne_bench.biases.taxonomy import BIAS_TAXONOMY, BIAS_INTERACTION_MATRIX
+from kahne_bench.biases.taxonomy import BIAS_INTERACTION_MATRIX
 
 
 class TestNovelScenarioGenerator:
@@ -141,18 +141,6 @@ class TestNovelScenarioGenerator:
         all_prompts = instance.control_prompt + " " + " ".join(
             instance.treatment_prompts.values()
         )
-        all_prompts_lower = all_prompts.lower()
-
-        # Should contain at least one novel profession or context
-        novel_terms = (
-            NOVEL_SCENARIO_ELEMENTS["professions"] +
-            NOVEL_SCENARIO_ELEMENTS["contexts"]
-        )
-        has_novel_term = any(
-            term.lower() in all_prompts_lower
-            for term in novel_terms
-        )
-
         # The instance should reference novel scenarios
         # (allowing for some flexibility in implementation)
         assert len(all_prompts) > 100  # Non-trivial prompts

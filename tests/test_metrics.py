@@ -754,9 +754,6 @@ class TestBMSIntensityRenormalization:
         # The minimum per-intensity magnitude among the 3 present is STRONG:
         # min(0.67 * 0.6, 1.0) = 0.402
         # The overall should be >= this (it's a weighted average of values >= 0.402)
-        min_magnitude = min(
-            bms.treatment_scores[i] for i in treatment_3.keys()
-        )
         # With renormalization, overall_magnitude >= min of the per-intensity magnitudes
         # (since it's a weighted average, it must be between min and max)
         assert bms.overall_magnitude >= 0.3, (

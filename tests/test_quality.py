@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-import pytest_asyncio
 
 from kahne_bench.core import (
     CognitiveBiasInstance,

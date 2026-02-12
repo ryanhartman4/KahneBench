@@ -15,7 +15,6 @@ from enum import Enum
 
 from kahne_bench.core import (
     CognitiveBiasInstance,
-    Domain,
     TriggerIntensity,
 )
 

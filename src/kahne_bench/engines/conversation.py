@@ -20,7 +20,6 @@ from kahne_bench.core import (
     CognitiveBiasInstance,
     Domain,
     LLMProvider,
-    TriggerIntensity,
 )
 from kahne_bench.biases.taxonomy import BiasDefinition, get_bias_by_id
 

@@ -6,12 +6,10 @@ Tests the complete flow: generate -> evaluate -> score -> metrics.
 import pytest
 import random
 from dataclasses import dataclass, field
-from statistics import mean
 
 from kahne_bench.core import (
     CognitiveBiasInstance,
     Domain,
-    TestResult,
     TestScale,
     TriggerIntensity,
 )
@@ -22,12 +20,6 @@ from kahne_bench.engines.evaluator import (
 )
 from kahne_bench.engines.generator import TestCaseGenerator
 from kahne_bench.metrics.core import (
-    BiasMagnitudeScore,
-    BiasConsistencyIndex,
-    BiasMitigationPotential,
-    HumanAlignmentScore,
-    ResponseConsistencyIndex,
-    CalibrationAwarenessScore,
     MetricCalculator,
     HUMAN_BASELINES,
 )

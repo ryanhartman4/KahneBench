@@ -51,7 +51,6 @@ See `docs/LIMITATIONS.md` for full details.
 - [ ] Report runtime environment (Python version, dependency lockfile hash).
 - [ ] Publish results and fingerprint JSON or CSV alongside the above metadata.
 
-
 ## Installation
 
 ```bash
@@ -61,8 +60,20 @@ uv sync
 # Using pip
 pip install -e .
 
-# For development
-pip install -e ".[dev]"
+# For development (requires uv)
+uv sync --group dev
+```
+
+## Environment Variables
+
+For the CLI `evaluate` command, the LLM judge fallback defaults to Anthropic Haiku 4.5 (`--judge-provider anthropic --judge-model claude-haiku-4-5`), so `ANTHROPIC_API_KEY` is required unless you override judge settings.
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."    # Needed for default CLI judge (claude-haiku-4-5)
+export OPENAI_API_KEY="sk-..."           # OpenAI models (default CLI model: gpt-5)
+export FIREWORKS_API_KEY="fw_..."        # Fireworks models (default CLI model: kimi-k2p5)
+export GOOGLE_API_KEY="..."              # Google models (default CLI model: gemini-3-pro-preview)
+export XAI_API_KEY="xai-..."             # xAI models (default CLI model: grok-4-1-fast-reasoning)
 ```
 
 ## Quick Start
@@ -72,8 +83,8 @@ pip install -e ".[dev]"
 PYTHONPATH=src uv run python examples/basic_usage.py
 
 # Run a full evaluation with OpenAI
-export OPENAI_API_KEY="your-api-key"
-PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-5.2 --tier core
+export OPENAI_API_KEY="your-openai-key"
+PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-5 --tier core
 ```
 
 ---
@@ -170,25 +181,27 @@ print(f"Interaction tier: {len(interaction_biases)} biases")
 ```python
 import asyncio
 from openai import AsyncOpenAI
-from kahne_bench import BiasEvaluator
+from kahne_bench import BiasEvaluator, TriggerIntensity
 from kahne_bench.engines.evaluator import EvaluationConfig
 
 # Define your LLM provider (must have async complete() method)
 class OpenAIProvider:
-    def __init__(self, client, model="gpt-5.2"):
+    def __init__(self, client, model="gpt-5"):
         self.client = client
         self.model = model
 
     async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str:
-        response = await self.client.chat.completions.create(
+        uses_completion_tokens = self.model.startswith(("gpt-5", "o3", "o1", "chatgpt-"))
+        kwargs = dict(
             model=self.model,
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": prompt}],
             temperature=temperature,
         )
+        if uses_completion_tokens:
+            kwargs["max_completion_tokens"] = max_tokens
+        else:
+            kwargs["max_tokens"] = max_tokens
+        response = await self.client.chat.completions.create(**kwargs)
         return response.choices[0].message.content
 
 # Configure evaluation
@@ -200,14 +213,14 @@ config = EvaluationConfig(
 )
 
 client = AsyncOpenAI()
-provider = OpenAIProvider(client, model="gpt-5.2")
+provider = OpenAIProvider(client, model="gpt-5")
 evaluator = BiasEvaluator(provider, config)
 
 # Run evaluation
 async def evaluate():
     session = await evaluator.evaluate_batch(
         instances=batch,
-        model_id="gpt-5.2",
+        model_id="gpt-5",
         progress_callback=lambda i, n: print(f"Progress: {i}/{n}"),
     )
     return session
@@ -222,7 +235,7 @@ print(f"Completed {len(session.results)} evaluations")
 from kahne_bench import MetricCalculator
 
 calculator = MetricCalculator()
-report = calculator.calculate_all_metrics("gpt-5.2", session.results)
+report = calculator.calculate_all_metrics("gpt-5", session.results)
 
 # Summary statistics
 print(f"Overall Bias Susceptibility: {report.overall_bias_susceptibility:.2%}")
@@ -312,7 +325,7 @@ The 69 biases are organized into 16 categories based on underlying cognitive mec
 | Confirmation | 3 | Confirmation bias, Belief perseverance |
 | Temporal | 3 | Present bias, Duration neglect |
 | Extension Neglect | 2 | Scope insensitivity, Identifiable victim |
-| Memory | 4 | Hindsight bias, Rosy retrospection |
+| Memory | 4 | Rosy retrospection, Source confusion |
 | Attention | 3 | Attentional bias, Selective perception |
 | Attribution | 3 | Fundamental attribution error, Self-serving bias |
 | Uncertainty Judgment | 3 | Ambiguity aversion, Illusion of validity |
@@ -363,19 +376,19 @@ kahne-bench generate --bias anchoring_effect --bias loss_aversion --output tests
 kahne-bench generate-compound --domain professional
 
 # Run full evaluation pipeline (requires API key)
-kahne-bench evaluate -i test_cases.json -p openai -m gpt-5.2
+kahne-bench evaluate -i test_cases.json -p openai -m gpt-5 --judge-provider openai --judge-model gpt-5
 
 # Generate cognitive fingerprint report
 kahne-bench report fingerprint.json
 
 # Assess test quality
-kahne-bench assess-quality test_cases.json
+kahne-bench assess-quality -i test_cases.json
 
 # Generate BLOOM scenarios
 kahne-bench generate-bloom --bias anchoring_effect
 
 # Run conversational evaluation
-kahne-bench evaluate-conversation -i test_cases.json -p openai -m gpt-5.2
+kahne-bench evaluate-conversation -i test_cases.json -p openai -m gpt-5
 
 # Show framework information
 kahne-bench info
@@ -427,12 +440,12 @@ Demonstrates taxonomy exploration, test generation, evaluation with a mock provi
 
 ### OpenAI Evaluation
 ```bash
-export OPENAI_API_KEY="your-api-key"
-PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-5.2 --tier core
+export OPENAI_API_KEY="your-openai-key"
+PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-5 --tier core
 ```
 
 Options:
-- `--model`, `-m`: Model name (default: gpt-5.2)
+- `--model`, `-m`: Model name (default in script: gpt-5.2)
 - `--tier`, `-t`: Benchmark tier - core, extended, or interaction (default: core)
 - `--domains`, `-d`: Domains to test (default: professional, individual)
 - `--trials`, `-n`: Trials per condition (default: 3)
@@ -440,7 +453,7 @@ Options:
 
 Example with extended tier:
 ```bash
-PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-5.2 --tier extended --trials 5
+PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-5 --tier extended --trials 5
 ```
 
 ---

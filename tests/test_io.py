@@ -24,6 +24,11 @@ from kahne_bench.metrics.core import (
     ResponseConsistencyIndex,
     CalibrationAwarenessScore,
 )
+from kahne_bench.utils.diversity import (
+    calculate_rouge_similarity,
+    calculate_self_bleu,
+    validate_dataset_diversity,
+)
 from kahne_bench.utils.io import (
     export_instances_to_json,
     import_instances_from_json,
@@ -828,13 +833,6 @@ class TestSessionExportExtended:
 # ===========================================================================
 # NEW TESTS: Priority 2 Test 5 -- diversity module tests
 # ===========================================================================
-
-
-from kahne_bench.utils.diversity import (
-    calculate_rouge_similarity,
-    calculate_self_bleu,
-    validate_dataset_diversity,
-)
 
 
 class TestDiversityRouge:

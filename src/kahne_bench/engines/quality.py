@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import random
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from kahne_bench.core import CognitiveBiasInstance, LLMProvider, TriggerIntensity
 from kahne_bench.biases.taxonomy import BiasDefinition, get_bias_by_id
