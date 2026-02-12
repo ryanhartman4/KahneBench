@@ -4,7 +4,10 @@ Compound bias testing for meso-scale evaluation.
 Tests bias interactions and compounding effects using the Bias Interaction Matrix.
 """
 
+import logging
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 from kahne_bench.core import (
     CognitiveBiasInstance,
@@ -357,7 +360,7 @@ Consider these crucial factors:
                 )
                 instances.append(instance)
             except Exception as e:
-                print(f"Warning: Could not generate {primary_bias} compound: {e}")
+                logging.warning("Could not generate %s compound: %s", primary_bias, e)
 
         return instances
 

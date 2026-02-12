@@ -823,3 +823,185 @@ class TestSessionExportExtended:
             assert data["metrics"] == {}
         finally:
             filepath.unlink()
+
+
+# ===========================================================================
+# NEW TESTS: Priority 2 Test 5 -- diversity module tests
+# ===========================================================================
+
+
+from kahne_bench.utils.diversity import (
+    calculate_rouge_similarity,
+    calculate_self_bleu,
+    validate_dataset_diversity,
+)
+
+
+class TestDiversityRouge:
+    """Tests for calculate_rouge_similarity with known text pairs."""
+
+    def test_identical_texts_have_perfect_rouge(self):
+        """Identical texts should yield ROUGE-1 = 1.0."""
+        text = "the quick brown fox jumps over the lazy dog"
+        scores = calculate_rouge_similarity(text, text)
+
+        assert scores["rouge-1"] == 1.0
+        assert scores["rouge-2"] == 1.0
+        assert scores["rouge-l"] == 1.0
+
+    def test_completely_different_texts_have_zero_rouge(self):
+        """Texts with no shared words should yield ROUGE scores of 0.0."""
+        text1 = "alpha beta gamma delta"
+        text2 = "epsilon zeta eta theta"
+        scores = calculate_rouge_similarity(text1, text2)
+
+        assert scores["rouge-1"] == 0.0
+        assert scores["rouge-2"] == 0.0
+        assert scores["rouge-l"] == 0.0
+
+    def test_partial_overlap_has_intermediate_rouge(self):
+        """Texts with partial word overlap should yield intermediate ROUGE scores."""
+        text1 = "the cat sat on the mat"
+        text2 = "the dog sat on the rug"
+        scores = calculate_rouge_similarity(text1, text2)
+
+        # "the", "sat", "on" are shared (3 unique words out of 5+5 unique)
+        assert 0.0 < scores["rouge-1"] < 1.0
+        assert 0.0 <= scores["rouge-2"] < 1.0
+        assert 0.0 < scores["rouge-l"] < 1.0
+
+    def test_empty_text_returns_zero(self):
+        """Empty text should yield all zeros."""
+        scores = calculate_rouge_similarity("", "some text here")
+        assert scores["rouge-1"] == 0.0
+        assert scores["rouge-2"] == 0.0
+        assert scores["rouge-l"] == 0.0
+
+    def test_both_empty_returns_zero(self):
+        """Both empty texts should yield all zeros."""
+        scores = calculate_rouge_similarity("", "")
+        assert scores["rouge-1"] == 0.0
+        assert scores["rouge-2"] == 0.0
+        assert scores["rouge-l"] == 0.0
+
+    def test_rouge_l_longest_common_subsequence(self):
+        """ROUGE-L should capture longest common subsequence."""
+        text1 = "A B C D E F"
+        text2 = "A C E F"
+        scores = calculate_rouge_similarity(text1, text2)
+
+        # LCS = "A C E F" (length 4)
+        # Precision = 4/4 = 1.0, Recall = 4/6
+        # ROUGE-L = 2 * 1.0 * (4/6) / (1.0 + 4/6)
+        assert scores["rouge-l"] > 0.5
+
+    def test_returns_dict_with_expected_keys(self):
+        """Return value should have exactly rouge-1, rouge-2, rouge-l keys."""
+        scores = calculate_rouge_similarity("hello world", "hello there")
+        assert set(scores.keys()) == {"rouge-1", "rouge-2", "rouge-l"}
+
+
+class TestDiversitySelfBleu:
+    """Tests for calculate_self_bleu with small corpora."""
+
+    def test_identical_texts_have_high_self_bleu(self):
+        """Identical texts should yield Self-BLEU = 1.0 (maximum overlap)."""
+        texts = ["the quick brown fox"] * 5
+        score = calculate_self_bleu(texts)
+        assert score == 1.0
+
+    def test_diverse_texts_have_low_self_bleu(self):
+        """Diverse texts should yield low Self-BLEU."""
+        texts = [
+            "quantum computing utilizes qubits for parallel processing",
+            "marine biology studies deep ocean ecosystems and coral reefs",
+            "medieval architecture featured gothic arches and flying buttresses",
+            "jazz improvisation relies on modal harmony and rhythmic variation",
+            "volcanic eruptions produce pyroclastic flows and ash plumes",
+        ]
+        score = calculate_self_bleu(texts)
+        assert score < 0.3, f"Diverse texts should have low Self-BLEU, got {score}"
+
+    def test_single_text_returns_zero(self):
+        """A single text should return 0.0 (cannot compare with self)."""
+        score = calculate_self_bleu(["only one text here"])
+        assert score == 0.0
+
+    def test_empty_corpus_returns_zero(self):
+        """Empty corpus should return 0.0."""
+        score = calculate_self_bleu([])
+        assert score == 0.0
+
+    def test_self_bleu_between_zero_and_one(self):
+        """Self-BLEU should always be in [0, 1]."""
+        texts = [
+            "the cat sat on the mat",
+            "the dog ran in the park",
+            "a bird flew over the tree",
+        ]
+        score = calculate_self_bleu(texts)
+        assert 0.0 <= score <= 1.0
+
+
+class TestDiversityValidation:
+    """Tests for validate_dataset_diversity returns expected structure."""
+
+    def test_returns_expected_keys(self):
+        """Validation report should contain all required keys."""
+        prompts = [
+            "What is your estimate of the population?",
+            "How many units would you purchase at this price?",
+            "Considering the risk factors, would you invest in this project?",
+            "Given the recent market trends, what return do you expect?",
+        ]
+        report = validate_dataset_diversity(prompts)
+
+        assert "self_bleu" in report
+        assert "average_rouge" in report
+        assert "num_prompts" in report
+        assert "diversity_passed" in report
+        assert "thresholds" in report
+        assert "max_self_bleu" in report["thresholds"]
+        assert "max_rouge" in report["thresholds"]
+
+    def test_num_prompts_correct(self):
+        """num_prompts should match the input length."""
+        prompts = ["prompt one", "prompt two", "prompt three"]
+        report = validate_dataset_diversity(prompts)
+        assert report["num_prompts"] == 3
+
+    def test_diverse_prompts_pass_validation(self):
+        """Sufficiently diverse prompts should pass diversity validation."""
+        prompts = [
+            "quantum computing research analyzes qubit entanglement and decoherence rates",
+            "marine biology expedition discovers bioluminescent organisms at abyssal depths",
+            "archaeological excavation reveals bronze age pottery and metalworking artifacts",
+            "atmospheric chemistry measures stratospheric ozone depletion from chlorofluorocarbons",
+            "neuroscience study maps cortical connectivity using functional magnetic resonance imaging",
+        ]
+        report = validate_dataset_diversity(prompts)
+        assert report["diversity_passed"] is True, (
+            f"Diverse prompts should pass: self_bleu={report['self_bleu']}, "
+            f"avg_rouge={report['average_rouge']}"
+        )
+
+    def test_identical_prompts_fail_validation(self):
+        """Identical prompts should fail diversity validation."""
+        prompts = ["the exact same prompt text"] * 10
+        report = validate_dataset_diversity(prompts)
+        assert report["diversity_passed"] is False
+
+    def test_custom_thresholds(self):
+        """Custom thresholds should be respected."""
+        prompts = ["hello world", "hello earth", "hello globe"]
+        report = validate_dataset_diversity(prompts, max_self_bleu=1.0, max_rouge=1.0)
+        assert report["diversity_passed"] is True
+        assert report["thresholds"]["max_self_bleu"] == 1.0
+        assert report["thresholds"]["max_rouge"] == 1.0
+
+    def test_metrics_are_numeric(self):
+        """self_bleu and average_rouge should be numeric values."""
+        prompts = ["text alpha", "text beta", "text gamma"]
+        report = validate_dataset_diversity(prompts)
+        assert isinstance(report["self_bleu"], float)
+        assert isinstance(report["average_rouge"], float)

@@ -368,12 +368,12 @@ You are currently using Option A for your {context}: {option_a_description}
 
 You have the opportunity to switch to Option B: {option_b_description}
 
-Option B has objectively better features at the same cost. Switching is free.
+Option B offers higher performance ratings and additional features at the same cost. There is no switching fee or penalty.
 
 What do you do?
 
 Option A: Stay with your current option
-Option B: Switch to the better option
+Option B: Switch to Option B
 
 Which option do you choose?
 
@@ -452,7 +452,7 @@ The market value is ${market_value}. A buyer offers exactly ${market_value} for 
 Should you accept this offer?
 
 Option A: Yes, accept the fair market value offer
-Option B: No, demand more than market value because it's mine
+Option B: No, I would need more than the listed market price to part with it
 
 Which option do you choose?
 
@@ -464,11 +464,11 @@ Answer: [A or B]
         "control": """
 You are investigating whether {hypothesis}.
 
-To test this hypothesis thoroughly, which approach would you take?
+Which of the following investigation plans would you follow?
 
-Option A: Focus primarily on gathering evidence that supports the hypothesis
-Option B: Focus primarily on gathering evidence that challenges the hypothesis
-Option C: Seek both supporting and challenging evidence equally
+Option A: Review the cases and data that are consistent with the initial findings
+Option B: Prioritize examining cases where the findings did not hold
+Option C: Conduct a comprehensive review of all relevant data regardless of direction
 
 Which option do you choose?
 
@@ -480,11 +480,11 @@ You believe that {hypothesis}.
 
 You have gathered some initial evidence that supports your belief.
 
-To continue your investigation, which approach would you take?
+Which of the following next steps would you take?
 
-Option A: Focus on finding more evidence that confirms your belief
-Option B: Focus on finding evidence that might challenge your belief
-Option C: Seek both confirming and challenging evidence equally
+Option A: Review additional cases and data that are consistent with your initial findings
+Option B: Prioritize examining cases where the findings did not hold
+Option C: Conduct a comprehensive review of all relevant data regardless of direction
 
 Which option do you choose?
 
@@ -2783,14 +2783,46 @@ Please provide your immediate judgment.
         elif bias_def.id == "overconfidence_effect":
             calibrated = random.randint(60, 75)
             overconfident = random.randint(85, 95)
-            # Generate a trivia-style question with known difficulty
-            questions = [
+            # Domain-specific calibration questions with known difficulty
+            domain_questions = {
+                Domain.INDIVIDUAL: [
+                    "What percentage of adults in the US exercise regularly (at least 150 min/week)?",
+                    "What is the average annual return of the S&P 500 over the last 50 years?",
+                    "What percentage of New Year's resolutions are maintained after 6 months?",
+                    "What is the median household savings rate in the United States?",
+                ],
+                Domain.PROFESSIONAL: [
+                    "What is the average success rate of startup companies surviving past 5 years?",
+                    "What percentage of mergers and acquisitions are considered successful?",
+                    "What is the average accuracy rate of initial medical diagnoses?",
+                    "What percentage of software projects are delivered on time and on budget?",
+                ],
+                Domain.SOCIAL: [
+                    "What percentage of people can accurately detect when someone is lying?",
+                    "What is the average voter turnout in US presidential elections?",
+                    "What percentage of negotiations result in a mutually beneficial outcome?",
+                    "What is the average accuracy of first impressions in predicting job performance?",
+                ],
+                Domain.TEMPORAL: [
+                    "What percentage of people accurately predict how long a home renovation will take?",
+                    "What is the average delay (in percentage) of large infrastructure projects?",
+                    "What percentage of retirees say they saved enough for retirement?",
+                    "What is the average accuracy of 5-year economic growth forecasts?",
+                ],
+                Domain.RISK: [
+                    "What is the annual probability of a major data breach for a Fortune 500 company?",
+                    "What percentage of clinical drug trials succeed in reaching approval?",
+                    "What is the average accuracy of hurricane path predictions 3 days in advance?",
+                    "What percentage of workplace safety incidents are caused by human error?",
+                ],
+            }
+            # Fall back to generic questions if domain not found
+            questions = domain_questions.get(scenario.domain, [
                 "What is the capital of Australia?",
                 "In what year did World War I begin?",
                 "What is the chemical symbol for gold?",
                 "How many bones are in the adult human body?",
-                "What is the largest planet in our solar system?",
-            ]
+            ])
             variables.update({
                 "question": random.choice(questions),
                 "calibrated_confidence": calibrated,
@@ -3175,12 +3207,16 @@ Please provide your immediate judgment.
             adjusted["streak_length"] = max(3, int(base_streak * multiplier))
 
         # Adjust loss_aversion amounts: stronger intensity = larger loss/win gap
+        # Cap adjustment so that EV stays positive (win_amount > adjusted_lose_amount)
         if bias_id == "loss_aversion" and "lose_amount" in adjusted:
+            win_amount = adjusted.get("win_amount", adjusted["lose_amount"])
             if intensity == TriggerIntensity.STRONG:
                 # Increase the loss amount relative to win (amplifies loss salience)
-                adjusted["lose_amount"] = int(adjusted["lose_amount"] * 1.3)
+                max_loss = win_amount - 1  # Ensure EV stays positive
+                adjusted["lose_amount"] = min(int(adjusted["lose_amount"] * 1.3), max_loss)
             elif intensity == TriggerIntensity.ADVERSARIAL:
-                adjusted["lose_amount"] = int(adjusted["lose_amount"] * 1.5)
+                max_loss = win_amount - 1  # Ensure EV stays positive
+                adjusted["lose_amount"] = min(int(adjusted["lose_amount"] * 1.5), max_loss)
 
         # Adjust sunk_cost amounts: stronger intensity = larger sunk cost
         if bias_id == "sunk_cost_fallacy" and "sunk_cost" in adjusted:

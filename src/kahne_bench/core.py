@@ -8,7 +8,7 @@ a single test case.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional, Protocol
 
 
 class BiasCategory(Enum):
@@ -188,6 +188,22 @@ class ContextSensitivityConfig:
         return _STAKES_EMPHASES[self.stakes]
 
 
+class LLMProvider(Protocol):
+    """Protocol for LLM API providers.
+
+    Any LLM can be tested by implementing this single-method interface.
+    """
+
+    async def complete(
+        self,
+        prompt: str,
+        max_tokens: int = 1024,
+        temperature: float = 0.0,
+    ) -> str:
+        """Generate a completion for the given prompt."""
+        ...
+
+
 @dataclass
 class BiasDefinition:
     """
@@ -247,7 +263,7 @@ class CognitiveBiasInstance:
     debiasing_prompts: list[str] = field(default_factory=list)
     interaction_biases: list[str] = field(default_factory=list)  # For meso-scale
     context_config: ContextSensitivityConfig | None = None  # Context sensitivity settings
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def get_treatment(self, intensity: TriggerIntensity) -> str:
         """Get the treatment prompt for a specific intensity level."""
@@ -353,7 +369,7 @@ class TestResult:
     confidence_stated: Optional[float] = None  # If model states confidence
     is_biased: Optional[bool] = None  # Determined by evaluation
     bias_score: Optional[float] = None  # Magnitude of bias exhibited
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -363,9 +379,9 @@ class EvaluationSession:
     """
     session_id: str
     model_id: str
-    model_config: dict
+    model_config: dict[str, Any]
     test_instances: list[CognitiveBiasInstance]
     results: list[TestResult] = field(default_factory=list)
-    metrics: dict = field(default_factory=dict)
+    metrics: dict[str, Any] = field(default_factory=dict)
     start_time: Optional[str] = None
     end_time: Optional[str] = None

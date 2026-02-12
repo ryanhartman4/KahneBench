@@ -15,25 +15,14 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Protocol
 
 from kahne_bench.core import (
     CognitiveBiasInstance,
-    TriggerIntensity,
     Domain,
+    LLMProvider,
+    TriggerIntensity,
 )
 from kahne_bench.biases.taxonomy import BiasDefinition, get_bias_by_id
-
-
-class LLMProvider(Protocol):
-    """Protocol for LLM API providers."""
-
-    async def complete(
-        self,
-        prompt: str,
-        max_tokens: int = 1024,
-        temperature: float = 0.0,
-    ) -> str: ...
 
 
 @dataclass

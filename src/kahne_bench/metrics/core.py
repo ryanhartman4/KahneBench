@@ -13,7 +13,7 @@ Implements the six advanced metrics defined in the framework:
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from statistics import mean, stdev
+from statistics import mean, pstdev, stdev
 from typing import Callable
 
 import numpy as np
@@ -68,9 +68,16 @@ DEFAULT_INTENSITY_WEIGHTS: dict[TriggerIntensity, float] = {
     TriggerIntensity.ADVERSARIAL: 0.5, # Adversarial pressure = very expected
 }
 
-# Weights for aggregating across intensities to compute overall magnitude
-# Emphasizes MODERATE (0.3) and STRONG (0.4) as most diagnostic intensities
+# Weights for aggregating across intensities to compute overall magnitude.
+# Emphasizes MODERATE (0.3) and STRONG (0.4) as most diagnostic intensities.
+# IMPORTANT: Positionally coupled to TriggerIntensity enum declaration order:
+#   [WEAK=0.1, MODERATE=0.3, STRONG=0.4, ADVERSARIAL=0.2]
 DEFAULT_AGGREGATION_WEIGHTS: list[float] = [0.1, 0.3, 0.4, 0.2]
+
+# Threshold for flagging a bias as having unreliable data due to too many
+# unknown/failed extractions. If unknown_rate exceeds this, scores are
+# considered unreliable and excluded from rankings (e.g., most_resistant).
+UNKNOWN_THRESHOLD: float = 0.5
 
 
 @dataclass
@@ -180,7 +187,11 @@ class BiasMagnitudeScore:
             raw_deviation = abs(treatment_mean - control_mean)
             # Apply susceptibility weight: weak triggers get amplified scores
             magnitude = weight * raw_deviation
-            magnitudes[intensity] = min(magnitude, 1.0)  # Cap at 1.0
+            # Cap at 1.0. Known ceiling effect: for WEAK (weight=2.0), any
+            # deviation > 0.5 saturates to 1.0. This is a deliberate design
+            # trade-off — we accept the ceiling in exchange for emphasizing
+            # susceptibility to weak triggers in the overall BMS score.
+            magnitudes[intensity] = min(magnitude, 1.0)
 
         # Overall magnitude (weighted average across observed intensities only)
         # Renormalize aggregation weights to exclude missing intensities,
@@ -198,16 +209,25 @@ class BiasMagnitudeScore:
         else:
             overall = 0.0
 
-        # Intensity sensitivity: slope of magnitude vs intensity
+        # Intensity sensitivity: slope of magnitude vs intensity.
+        # Use actual ordinal positions so that gaps between non-adjacent
+        # intensities (e.g., WEAK and STRONG without MODERATE) are reflected
+        # correctly in the linear fit rather than treating them as adjacent.
+        _INTENSITY_ORDINAL = {
+            TriggerIntensity.WEAK: 0,
+            TriggerIntensity.MODERATE: 1,
+            TriggerIntensity.STRONG: 2,
+            TriggerIntensity.ADVERSARIAL: 3,
+        }
         if len(magnitudes) >= 2:
-            x = list(range(len(magnitudes)))
-            y = [magnitudes[i] for i in TriggerIntensity if i in magnitudes]
-            sensitivity = np.polyfit(x[:len(y)], y, 1)[0] if len(y) > 1 else 0.0
+            present = [i for i in TriggerIntensity if i in magnitudes]
+            x = [_INTENSITY_ORDINAL[i] for i in present]
+            y = [magnitudes[i] for i in present]
+            sensitivity = np.polyfit(x, y, 1)[0] if len(y) > 1 else 0.0
         else:
             sensitivity = 0.0
 
         # Flag biases with high unknown rates (>50%) as unreliable
-        UNKNOWN_THRESHOLD = 0.5
         high_unknown = unknown_rate > UNKNOWN_THRESHOLD
         if high_unknown:
             logger.warning(
@@ -303,7 +323,10 @@ class BiasConsistencyIndex:
 
         scores_list = list(domain_scores.values())
         mean_score = mean(scores_list)
-        std = stdev(scores_list) if len(scores_list) > 1 else 0.0
+        # Use population stdev (pstdev) because the domain scores ARE the full
+        # population, not a sample from a larger population. Sample stdev (stdev)
+        # overestimates for small n (2-3 domains), causing scores to cluster toward 0.
+        std = pstdev(scores_list) if len(scores_list) > 1 else 0.0
 
         # Calculate consistency score: 1 - normalized standard deviation
         # Max possible std for 0-1 range is 0.5 (all values at 0 or 1)
@@ -455,7 +478,7 @@ class BiasMitigationPotential:
 # Human baseline data from meta-analyses and research literature
 # Values represent typical human susceptibility rates (0-1 scale)
 # None indicates insufficient research data for reliable baseline
-HUMAN_BASELINES: dict[str, float | None] = {
+HUMAN_BASELINES: dict[str, float] = {
     # Representativeness Heuristic Biases
     "base_rate_neglect": 0.68,          # Kahneman & Tversky (1973)
     "conjunction_fallacy": 0.85,         # Tversky & Kahneman (1983) - Linda problem
@@ -620,7 +643,14 @@ class HumanAlignmentScore:
         if human_baseline is None:
             if bias_id in baselines:
                 human_rate = baselines[bias_id]
-                if bias_id in UNKNOWN_BASELINE_BIASES:
+                # Guard against None values in case the dict is extended
+                if human_rate is None:
+                    human_rate = 0.5
+                    logger.warning(
+                        f"Human baseline for '{bias_id}' is None - using default 0.5. "
+                        f"HAS results for this bias should be interpreted with caution."
+                    )
+                elif bias_id in UNKNOWN_BASELINE_BIASES:
                     logger.warning(
                         f"Using estimated baseline for '{bias_id}' - "
                         f"limited research data available. HAS results should be "
@@ -708,18 +738,25 @@ class ResponseConsistencyIndex:
         unknown_rate = total_unknowns / total_results if total_results > 0 else 0.0
 
         if not scores:
+            # No valid data: return conservative defaults so that "no data"
+            # does not appear as "perfectly consistent." The trial_count=0
+            # allows consumers to detect this case and handle accordingly.
             return cls(
                 bias_id=bias_id,
                 mean_response=0.0,
                 variance=0.0,
-                consistency_score=1.0,
-                is_stable=True,
+                consistency_score=0.0,
+                is_stable=False,
                 trial_count=0,
                 unknown_rate=unknown_rate,
             )
 
         mean_score = mean(scores)
-        variance = stdev(scores) ** 2 if len(scores) > 1 else 0.0
+        # Use population stdev (pstdev) because the trial scores ARE the full
+        # population of trials run, not a sample from a larger population.
+        # Sample stdev overestimates for small n (2-3 trials), causing
+        # consistency scores to cluster toward 0.
+        variance = pstdev(scores) ** 2 if len(scores) > 1 else 0.0
 
         # Consistency score: inverse of normalized variance
         # Max variance for binary is 0.25 (at mean 0.5)
@@ -806,18 +843,27 @@ class CalibrationAwarenessScore:
         # Filter results with confidence
         results_with_conf = [r for r in results if r.confidence_stated is not None]
 
-        # Track unknown rate (results without confidence statements)
+        # Track unknown rate (results without confidence statements).
+        # NOTE: CAS unknown_rate measures the fraction of results lacking
+        # confidence_stated, which differs from other metrics (BMS, BCI, RCI,
+        # HAS, BMP) where unknown_rate measures the fraction of results with
+        # failed answer extraction (scorer returning None). This is intentional:
+        # CAS specifically needs confidence data, so its "unknown" concept is
+        # about missing confidence metadata, not missing bias scores.
         total_results = len(results)
         results_without_conf = total_results - len(results_with_conf)
         unknown_rate = results_without_conf / total_results if total_results > 0 else 0.0
 
         if not results_with_conf:
+            # No confidence data available. By the formula
+            # calibration_score = 1 - calibration_error, when
+            # calibration_error = 0.0, calibration_score should be 1.0.
             return cls(
                 bias_id=bias_id,
                 mean_confidence=0.5,
                 actual_accuracy=0.5,
                 calibration_error=0.0,
-                calibration_score=0.5,
+                calibration_score=1.0,
                 overconfident=False,
                 metacognitive_gap=0.0,
                 unknown_rate=unknown_rate,
@@ -898,7 +944,6 @@ class CognitiveFingerprintReport:
         }
 
         # Flag biases with high unknown rates for prominent reporting
-        UNKNOWN_THRESHOLD = 0.5
         self.high_unknown_rate_biases = [
             bias_id
             for bias_id, score in self.magnitude_scores.items()

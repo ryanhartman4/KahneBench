@@ -1232,7 +1232,12 @@ class TestResponseConsistencyIndexEdgeCases:
     """Edge case tests for Response Consistency Index calculation."""
 
     def test_rci_empty_results(self):
-        """Test RCI with empty results (lines 602-610)."""
+        """Test RCI with empty results returns conservative defaults.
+
+        No data should not appear as "perfectly consistent" — instead it
+        returns consistency=0.0, is_stable=False. Consumers can detect
+        this case via trial_count=0.
+        """
         def scorer(r):
             return 0.5
 
@@ -1240,8 +1245,8 @@ class TestResponseConsistencyIndexEdgeCases:
 
         assert rci.mean_response == 0.0
         assert rci.variance == 0.0
-        assert rci.consistency_score == 1.0
-        assert rci.is_stable is True
+        assert rci.consistency_score == 0.0  # No data = not consistent
+        assert rci.is_stable is False  # No data = not stable
         assert rci.trial_count == 0
 
     def test_rci_single_trial(self, sample_instance):
@@ -1347,11 +1352,12 @@ class TestCalibrationAwarenessScoreEdgeCases:
 
         cas = CalibrationAwarenessScore.calculate("anchoring_effect", results, accuracy_scorer)
 
-        # Default values when no confidence data
+        # Default values when no confidence data.
+        # calibration_score = 1 - calibration_error = 1 - 0.0 = 1.0
         assert cas.mean_confidence == 0.5
         assert cas.actual_accuracy == 0.5
         assert cas.calibration_error == 0.0
-        assert cas.calibration_score == 0.5
+        assert cas.calibration_score == 1.0  # Formula-consistent: 1 - 0.0 = 1.0
         assert cas.overconfident is False
         assert cas.metacognitive_gap == 0.0
 
@@ -1856,7 +1862,7 @@ class TestUnknownHandling:
         rci = ResponseConsistencyIndex.calculate("test_bias", control, always_unknown)
         assert rci.unknown_rate == 1.0
         assert rci.trial_count == 0  # No valid trials
-        assert rci.consistency_score == 1.0  # Default for no data
+        assert rci.consistency_score == 0.0  # No data = not consistent (conservative default)
 
     def test_cas_unknown_rate_tracks_missing_confidence(self, sample_instance):
         """Test that CAS unknown_rate tracks results without confidence statements."""
@@ -1900,3 +1906,297 @@ class TestUnknownHandling:
         cas = CalibrationAwarenessScore.calculate("test_bias", results, accuracy_scorer)
         # 1 out of 3 results has no confidence -> ~33% unknown rate
         assert abs(cas.unknown_rate - 1/3) < 0.01
+
+
+# ===========================================================================
+# NEW TESTS: Priority 1 Test 2 -- MetricCalculator integration test
+# ===========================================================================
+
+
+class TestMetricCalculatorIntegration:
+    """Priority 1 Test 2: Verify calculate_all_metrics() produces correct
+    metric values with realistic input covering multiple biases, domains,
+    conditions, intensities, and confidence values."""
+
+    def _build_realistic_results(self) -> list[TestResult]:
+        """Build a realistic set of TestResult objects for integration testing.
+
+        Covers:
+        - 3 biases (anchoring_effect, confirmation_bias, loss_aversion)
+        - 2 domains per bias
+        - Control and treatment conditions at multiple intensities
+        - 3 trials per condition (for RCI calculation)
+        - Confidence values on some results
+        - Mix of biased and rational outcomes
+        """
+        results = []
+
+        biases_config = [
+            {
+                "bias_id": "anchoring_effect",
+                "domains": [Domain.INDIVIDUAL, Domain.PROFESSIONAL],
+                "expected_rational": "50",
+                "expected_biased": "100",
+                "control_answers": ["50", "50", "50"],
+                "treatment_answers": {
+                    TriggerIntensity.WEAK: ["80", "75", "85"],
+                    TriggerIntensity.MODERATE: ["90", "95", "85"],
+                    TriggerIntensity.STRONG: ["100", "95", "100"],
+                },
+                "control_biased": [False, False, False],
+                "control_scores": [0.0, 0.0, 0.0],
+                "treatment_biased": {
+                    TriggerIntensity.WEAK: [True, True, True],
+                    TriggerIntensity.MODERATE: [True, True, True],
+                    TriggerIntensity.STRONG: [True, True, True],
+                },
+                "treatment_scores": {
+                    TriggerIntensity.WEAK: [0.6, 0.5, 0.7],
+                    TriggerIntensity.MODERATE: [0.8, 0.9, 0.7],
+                    TriggerIntensity.STRONG: [1.0, 0.9, 1.0],
+                },
+                "confidences": [0.85, None, 0.70],
+            },
+            {
+                "bias_id": "confirmation_bias",
+                "domains": [Domain.SOCIAL, Domain.PROFESSIONAL],
+                "expected_rational": "B",
+                "expected_biased": "A",
+                "control_answers": ["B", "B", "A"],
+                "treatment_answers": {
+                    TriggerIntensity.MODERATE: ["A", "B", "A"],
+                },
+                "control_biased": [False, False, True],
+                "control_scores": [0.0, 0.0, 1.0],
+                "treatment_biased": {
+                    TriggerIntensity.MODERATE: [True, False, True],
+                },
+                "treatment_scores": {
+                    TriggerIntensity.MODERATE: [1.0, 0.0, 1.0],
+                },
+                "confidences": [0.90, 0.60, None],
+            },
+            {
+                "bias_id": "loss_aversion",
+                "domains": [Domain.INDIVIDUAL, Domain.RISK],
+                "expected_rational": "accept",
+                "expected_biased": "reject",
+                "control_answers": ["accept", "accept", "accept"],
+                "treatment_answers": {
+                    TriggerIntensity.MODERATE: ["accept", "accept", "reject"],
+                    TriggerIntensity.STRONG: ["accept", "reject", "accept"],
+                },
+                "control_biased": [False, False, False],
+                "control_scores": [0.0, 0.0, 0.0],
+                "treatment_biased": {
+                    TriggerIntensity.MODERATE: [False, False, True],
+                    TriggerIntensity.STRONG: [False, True, False],
+                },
+                "treatment_scores": {
+                    TriggerIntensity.MODERATE: [0.0, 0.0, 1.0],
+                    TriggerIntensity.STRONG: [0.0, 1.0, 0.0],
+                },
+                "confidences": [0.75, 0.80, 0.65],
+            },
+        ]
+
+        for bias_cfg in biases_config:
+            for domain in bias_cfg["domains"]:
+                instance = CognitiveBiasInstance(
+                    bias_id=bias_cfg["bias_id"],
+                    base_scenario=f"Test scenario for {bias_cfg['bias_id']}",
+                    bias_trigger="Test trigger",
+                    domain=domain,
+                    control_prompt="Control prompt",
+                    treatment_prompts={
+                        intensity: f"Treatment {intensity.value}"
+                        for intensity in bias_cfg["treatment_answers"]
+                    },
+                    expected_rational_response=bias_cfg["expected_rational"],
+                    expected_biased_response=bias_cfg["expected_biased"],
+                )
+
+                # Control results (3 trials)
+                for trial in range(3):
+                    results.append(TestResult(
+                        instance=instance,
+                        model_id="test-model",
+                        condition="control",
+                        prompt_used="Control prompt",
+                        model_response=f"Response: {bias_cfg['control_answers'][trial]}",
+                        extracted_answer=bias_cfg["control_answers"][trial],
+                        response_time_ms=100.0 + trial * 10,
+                        confidence_stated=bias_cfg["confidences"][trial],
+                        is_biased=bias_cfg["control_biased"][trial],
+                        bias_score=bias_cfg["control_scores"][trial],
+                    ))
+
+                # Treatment results (3 trials per intensity)
+                for intensity, answers in bias_cfg["treatment_answers"].items():
+                    for trial in range(3):
+                        results.append(TestResult(
+                            instance=instance,
+                            model_id="test-model",
+                            condition=f"treatment_{intensity.value}",
+                            prompt_used=f"Treatment {intensity.value}",
+                            model_response=f"Response: {answers[trial]}",
+                            extracted_answer=answers[trial],
+                            response_time_ms=150.0 + trial * 10,
+                            confidence_stated=bias_cfg["confidences"][trial],
+                            is_biased=bias_cfg["treatment_biased"][intensity][trial],
+                            bias_score=bias_cfg["treatment_scores"][intensity][trial],
+                        ))
+
+        return results
+
+    def test_report_has_correct_model_id(self):
+        """Report should reflect the model_id passed to calculate_all_metrics."""
+        calculator = MetricCalculator()
+        results = self._build_realistic_results()
+
+        report = calculator.calculate_all_metrics("test-model", results)
+
+        assert report.model_id == "test-model"
+
+    def test_all_three_biases_present_in_report(self):
+        """All 3 biases from the input should appear in the report."""
+        calculator = MetricCalculator()
+        results = self._build_realistic_results()
+
+        report = calculator.calculate_all_metrics("test-model", results)
+
+        expected_biases = {"anchoring_effect", "confirmation_bias", "loss_aversion"}
+        assert set(report.biases_tested) == expected_biases
+        assert set(report.magnitude_scores.keys()) == expected_biases
+        assert set(report.consistency_indices.keys()) == expected_biases
+        assert set(report.response_consistencies.keys()) == expected_biases
+        assert set(report.human_alignments.keys()) == expected_biases
+        assert set(report.calibration_scores.keys()) == expected_biases
+
+    def test_bms_scores_between_zero_and_one(self):
+        """All BMS overall_magnitude values should be in [0, 1]."""
+        calculator = MetricCalculator()
+        results = self._build_realistic_results()
+
+        report = calculator.calculate_all_metrics("test-model", results)
+
+        for bias_id, bms in report.magnitude_scores.items():
+            assert 0.0 <= bms.overall_magnitude <= 1.0, (
+                f"BMS for '{bias_id}' out of range: {bms.overall_magnitude}"
+            )
+
+    def test_anchoring_has_highest_bms(self):
+        """Anchoring effect (high bias scores) should have the highest BMS."""
+        calculator = MetricCalculator()
+        results = self._build_realistic_results()
+
+        report = calculator.calculate_all_metrics("test-model", results)
+
+        anchoring_bms = report.magnitude_scores["anchoring_effect"].overall_magnitude
+        loss_aversion_bms = report.magnitude_scores["loss_aversion"].overall_magnitude
+
+        assert anchoring_bms > loss_aversion_bms, (
+            f"Anchoring BMS ({anchoring_bms}) should exceed loss_aversion BMS ({loss_aversion_bms})"
+        )
+
+    def test_bci_computed_per_bias(self):
+        """BCI should be computed for each bias with per-domain data."""
+        calculator = MetricCalculator()
+        results = self._build_realistic_results()
+
+        report = calculator.calculate_all_metrics("test-model", results)
+
+        for bias_id, bci in report.consistency_indices.items():
+            assert bci.bias_id == bias_id
+            # Each bias has 2 domains in our test data
+            assert len(bci.domain_scores) == 2, (
+                f"BCI for '{bias_id}' should have 2 domain scores, got {len(bci.domain_scores)}"
+            )
+            assert 0.0 <= bci.mean_bias_score <= 1.0
+            assert 0.0 <= bci.consistency_score <= 1.0
+
+    def test_rci_reflects_trial_variance(self):
+        """RCI should reflect the variance across trials for each bias."""
+        calculator = MetricCalculator()
+        results = self._build_realistic_results()
+
+        report = calculator.calculate_all_metrics("test-model", results)
+
+        for bias_id, rci in report.response_consistencies.items():
+            assert rci.trial_count > 0, f"RCI for '{bias_id}' should have trials"
+            assert 0.0 <= rci.consistency_score <= 1.0, (
+                f"RCI consistency for '{bias_id}' out of range: {rci.consistency_score}"
+            )
+
+        # Loss aversion has mixed results (0, 0, 1 and 0, 1, 0) -> higher variance
+        # Anchoring has consistent high-bias results -> lower variance
+        anchoring_rci = report.response_consistencies["anchoring_effect"]
+        loss_aversion_rci = report.response_consistencies["loss_aversion"]
+        assert anchoring_rci.consistency_score >= loss_aversion_rci.consistency_score, (
+            f"Anchoring consistency ({anchoring_rci.consistency_score}) should be >= "
+            f"loss_aversion ({loss_aversion_rci.consistency_score})"
+        )
+
+    def test_most_susceptible_and_resistant_biases(self):
+        """most_susceptible_biases and most_resistant_biases should be
+        non-empty and correctly ordered."""
+        calculator = MetricCalculator()
+        results = self._build_realistic_results()
+
+        report = calculator.calculate_all_metrics("test-model", results)
+
+        assert len(report.most_susceptible_biases) > 0
+        assert len(report.most_resistant_biases) > 0
+
+        # Most susceptible should have higher BMS than most resistant
+        if report.most_susceptible_biases and report.most_resistant_biases:
+            top_susceptible = report.most_susceptible_biases[0]
+            top_resistant = report.most_resistant_biases[-1]
+            assert report.magnitude_scores[top_susceptible].overall_magnitude >= \
+                report.magnitude_scores[top_resistant].overall_magnitude
+
+    def test_overall_bias_susceptibility_between_zero_and_one(self):
+        """overall_bias_susceptibility should be in [0, 1]."""
+        calculator = MetricCalculator()
+        results = self._build_realistic_results()
+
+        report = calculator.calculate_all_metrics("test-model", results)
+
+        assert 0.0 <= report.overall_bias_susceptibility <= 1.0
+
+    def test_human_alignments_computed(self):
+        """HAS should be computed for each bias with valid alignment scores."""
+        calculator = MetricCalculator()
+        results = self._build_realistic_results()
+
+        report = calculator.calculate_all_metrics("test-model", results)
+
+        for bias_id, has in report.human_alignments.items():
+            assert has.bias_id == bias_id
+            assert 0.0 <= has.alignment_score <= 1.0
+            assert has.bias_direction in ("over", "under", "aligned")
+            assert 0.0 <= has.model_bias_rate <= 1.0
+
+    def test_calibration_scores_computed(self):
+        """CAS should be computed for each bias."""
+        calculator = MetricCalculator()
+        results = self._build_realistic_results()
+
+        report = calculator.calculate_all_metrics("test-model", results)
+
+        for bias_id, cas in report.calibration_scores.items():
+            assert cas.bias_id == bias_id
+            assert 0.0 <= cas.calibration_score <= 1.0
+            assert 0.0 <= cas.calibration_error <= 1.0
+
+    def test_mitigation_potential_computed(self):
+        """BMP should be computed for each bias (even without debiasing results)."""
+        calculator = MetricCalculator()
+        results = self._build_realistic_results()
+
+        report = calculator.calculate_all_metrics("test-model", results)
+
+        for bias_id, bmp in report.mitigation_potentials.items():
+            assert bmp.bias_id == bias_id
+            # Without debiasing results, effectiveness should be 0
+            assert bmp.mitigation_effectiveness == 0.0

@@ -9,7 +9,7 @@ This document tracks improvements identified from the gap analysis comparing the
 | Metric | Before | After | Status |
 |--------|--------|-------|--------|
 | Total Biases | 58 | 69 | COMPLETE |
-| Interaction Matrix Coverage | 12% (7/58) | 26% (18/69) | COMPLETE |
+| Interaction Matrix Coverage | 12% (7/58) | 100% (40 primary entries, 69 unique biases) | COMPLETE |
 | Empty Categories | 2 | 0 | COMPLETE |
 | Documentation Accuracy | Partial | Complete | COMPLETE |
 
@@ -114,10 +114,10 @@ This document tracks improvements identified from the gap analysis comparing the
 ## Verification Checklist
 
 After all improvements:
-- [x] All tests pass (`PYTHONPATH=src uv run pytest`) - 55 tests passed
+- [x] All tests pass (`PYTHONPATH=src uv run pytest`) - ~548 tests passed
 - [x] Bias count matches documentation (69)
 - [x] All categories have at least 1 bias
-- [x] Interaction matrix covers 26%+ of biases (18/69)
+- [x] Interaction matrix covers 100% of biases (40 primary entries, 69 unique biases)
 - [x] Human baselines added for new biases (11 added)
 - [ ] BIAS_TEMPLATES added for new biases (TODO: future work)
 

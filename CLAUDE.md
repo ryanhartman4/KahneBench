@@ -49,7 +49,7 @@ PYTHONPATH=src uv run kahne-bench describe anchoring_effect
 PYTHONPATH=src uv run kahne-bench generate --bias anchoring_effect --domain INDIVIDUAL
 
 # Generate compound (meso-scale) test instances
-PYTHONPATH=src uv run kahne-bench generate-compound --primary anchoring_effect --secondary availability_bias
+PYTHONPATH=src uv run kahne-bench generate-compound --bias anchoring_effect --bias availability_bias
 
 # Run full evaluation pipeline (requires API key)
 PYTHONPATH=src uv run kahne-bench evaluate -i test_cases.json -p openai -m gpt-5.2
@@ -91,8 +91,10 @@ async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float
 ```
 
 **Built-in Providers** (`engines/evaluator.py`):
-- `OpenAIProvider`: Uses AsyncOpenAI client, configurable model
+- `OpenAIProvider`: Uses AsyncOpenAI client, configurable model (also used for Fireworks via OpenAI-compatible API)
 - `AnthropicProvider`: Uses AsyncAnthropic client
+- `XAIProvider`: Uses xai-sdk, sync wrapped with `asyncio.to_thread()`
+- `GeminiProvider`: Uses google-genai, sync wrapped with `asyncio.to_thread()`
 
 ## Frontier Models (January 2026)
 
@@ -234,7 +236,7 @@ PYTHONPATH=src uv run kahne-bench evaluate -p xai -m grok-4-1-fast-reasoning --t
 - `num_trials`: Trials per condition (default: 3, used for RCI calculation)
 - `intensities`: Which trigger levels to test
 - `include_control` / `include_debiasing`: Enable/disable conditions
-- `requests_per_minute`: Rate limiting for API calls
+- `max_concurrent_requests`: Semaphore-based concurrency control (default: 50)
 
 **Benchmark Tiers** (`engines/generator.py`):
 - CORE: 15 foundational biases for quick evaluation
@@ -257,13 +259,18 @@ PYTHONPATH=src uv run kahne-bench evaluate -p xai -m grok-4-1-fast-reasoning --t
 ```
 kahne_bench/
 ├── core.py              # Core types + context sensitivity (no dependencies)
-├── cli.py               # Click-based CLI with evaluate/report commands
+├── cli.py               # Click-based CLI with evaluate/report/generate commands
 ├── biases/
 │   └── taxonomy.py      # 69 BiasDefinition instances (depends on core)
 ├── engines/
 │   ├── generator.py     # TestCaseGenerator, NovelScenarioGenerator, MacroScaleGenerator
 │   ├── evaluator.py     # BiasEvaluator, TemporalEvaluator, ContextSensitivityEvaluator
+│   ├── judge.py         # LLMJudge fallback scoring with XML parsing
 │   ├── compound.py      # Meso-scale testing (depends on generator)
+│   ├── bloom_generator.py # LLM-driven BLOOM scenario generation
+│   ├── variation.py     # Prompt variation and robustness testing
+│   ├── quality.py       # Test quality assessment with LLM judge
+│   ├── conversation.py  # Multi-turn conversational bias evaluation
 │   └── robustness.py    # Adversarial testing
 ├── metrics/
 │   └── core.py          # All 6 metric classes + MetricCalculator
@@ -282,8 +289,8 @@ kahne_bench/
 | AVAILABILITY | Judging by ease of recall | availability_bias, recency_bias |
 | ANCHORING | Over-reliance on initial information | anchoring_effect, insufficient_adjustment |
 | LOSS_AVERSION | Losses loom larger than gains | loss_aversion, endowment_effect |
-| FRAMING | Decisions affected by presentation | gain_loss_framing, attribute_framing |
-| REFERENCE_DEPENDENCE | Outcomes evaluated relative to reference points | status_quo_bias, default_effect |
+| FRAMING | Decisions affected by presentation | gain_loss_framing, attribute_framing, default_effect |
+| REFERENCE_DEPENDENCE | Outcomes evaluated relative to reference points | reference_point_framing |
 | PROBABILITY_DISTORTION | Misweighting probabilities | probability_weighting, certainty_effect |
 | UNCERTAINTY_JUDGMENT | Errors in assessing uncertainty | overconfidence_effect, illusion_of_control |
 | MEMORY_BIAS | Systematic distortions in recall | hindsight_bias, rosy_retrospection |
@@ -293,7 +300,7 @@ kahne_bench/
 | OVERCONFIDENCE | Excessive certainty in judgments | planning_fallacy, illusion_of_validity |
 | CONFIRMATION | Seeking confirming evidence | confirmation_bias, belief_perseverance |
 | TEMPORAL_BIAS | Biases related to time perception | present_bias, duration_neglect |
-| EXTENSION_NEGLECT | Ignoring sample size and scope | scope_insensitivity, halo_effect |
+| EXTENSION_NEGLECT | Ignoring sample size and scope | scope_insensitivity, identifiable_victim_effect |
 
 **Note:** All 69 biases with full definitions (K&T theoretical basis, System 1 mechanism, System 2 override, classic paradigm) are in `biases/taxonomy.py`.
 
@@ -387,12 +394,20 @@ kahne_bench/
 
 | File | Tests | Coverage |
 |------|-------|----------|
-| `test_taxonomy.py` | 12 | Bias definitions, interaction matrix |
-| `test_generator.py` | 19 | Instance generation, batch generation, tiers |
-| `test_metrics.py` | 13 | All 6 metrics, MetricCalculator |
-| `test_io.py` | 11 | JSON/CSV export/import roundtrips |
+| `test_evaluator.py` | ~112 | Extraction, scoring, frame-aware, temporal, context |
+| `test_generator.py` | ~71 | Instance generation, batch, tiers, intensity, framing |
+| `test_advanced_generators.py` | ~63 | Novel scenarios, macro chains |
+| `test_metrics.py` | ~55 | All 6 metrics, MetricCalculator, guardrails |
+| `test_io.py` | ~26 | JSON/CSV export/import roundtrips |
+| `test_taxonomy.py` | ~24 | Bias definitions, interaction matrix |
+| `test_conversation.py` | ~20 | Multi-turn conversational evaluation |
+| `test_variation.py` | ~20 | Robustness and variation dimensions |
+| `test_bloom_generator.py` | ~19 | BLOOM LLM-driven generation |
+| `test_judge.py` | ~11 | LLM judge fallback scoring |
+| `test_quality.py` | ~9 | Test quality assessment |
+| `test_integration.py` | ~6 | End-to-end workflows |
 
-**Total:** 55 tests
+**Total:** ~548 tests
 
 ## Key Design Decisions
 
@@ -409,16 +424,14 @@ kahne_bench/
 ## Dependencies
 
 ### Core
-- `openai>=1.0.0` - OpenAI API client
+- `openai>=1.0.0` - OpenAI API client (also used for Fireworks)
 - `anthropic>=0.18.0` - Anthropic API client
+- `xai-sdk>=0.1.0` - xAI/Grok API client
+- `google-genai>=0.1.0` - Google Gemini API client
 - `pandas>=2.0.0` - Data analysis
 - `numpy>=1.24.0` - Numerical computing
-- `pydantic>=2.0.0` - Data validation
 - `rich>=13.0.0` - Terminal output formatting
 - `click>=8.0.0` - CLI framework
-- `tqdm>=4.65.0` - Progress bars
-- `jinja2>=3.1.0` - Template engine
-- `pyyaml>=6.0.0` - YAML support
 
 ### Development
 - `pytest>=7.0.0` - Testing framework

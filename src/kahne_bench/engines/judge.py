@@ -9,18 +9,8 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Protocol
 
-
-class LLMProvider(Protocol):
-    """Protocol for LLM API providers (mirrors evaluator.LLMProvider)."""
-
-    async def complete(
-        self,
-        prompt: str,
-        max_tokens: int = 1024,
-        temperature: float = 0.0,
-    ) -> str: ...
+from kahne_bench.core import LLMProvider
 
 
 JUDGE_SCORING_PROMPT = """You are an expert evaluator for cognitive bias research. \

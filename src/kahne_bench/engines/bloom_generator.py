@@ -12,32 +12,22 @@ four trigger intensities and optional debiasing prompts.
 
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from dataclasses import dataclass, field
-from typing import Protocol
 
 from kahne_bench.core import (
     BiasDefinition,
     CognitiveBiasInstance,
     Domain,
+    LLMProvider,
     TestScale,
     TriggerIntensity,
 )
 from kahne_bench.biases.taxonomy import get_bias_by_id
 
-
-class LLMProvider(Protocol):
-    """Protocol for LLM API providers (mirrors evaluator.LLMProvider)."""
-
-    async def complete(
-        self,
-        prompt: str,
-        max_tokens: int = 1024,
-        temperature: float = 0.0,
-    ) -> str:
-        """Generate a completion for the given prompt."""
-        ...
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -434,8 +424,9 @@ class BloomBiasGenerator:
                         != scenario.expected_biased
                 ):
                     scenarios.append(scenario)
-            except Exception:
-                continue  # Skip malformed scenarios
+            except Exception as e:
+                logger.debug("Skipping malformed scenario block: %s", e)
+                continue
 
         return scenarios
 

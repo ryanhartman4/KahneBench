@@ -11,21 +11,9 @@ from __future__ import annotations
 import random
 import re
 from dataclasses import dataclass, field
-from typing import Protocol
 
-from kahne_bench.core import CognitiveBiasInstance, TriggerIntensity
+from kahne_bench.core import CognitiveBiasInstance, LLMProvider, TriggerIntensity
 from kahne_bench.biases.taxonomy import BiasDefinition, get_bias_by_id
-
-
-class LLMProvider(Protocol):
-    """Protocol for LLM API providers."""
-
-    async def complete(
-        self,
-        prompt: str,
-        max_tokens: int = 1024,
-        temperature: float = 0.0,
-    ) -> str: ...
 
 
 QUALITY_ASSESSMENT_PROMPT = """You are an expert in cognitive bias research and \

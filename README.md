@@ -22,8 +22,10 @@ Kahne-Bench evaluates 69 cognitive biases across 5 ecological domains using mult
 
 - Bias taxonomy (69 biases), categories, and interaction matrix
 - Test generation: standard templates, novel contamination-resistant scenarios, compound (meso) scenarios, and macro decision chains
-- Evaluation engines: standard evaluator plus temporal dynamics and context sensitivity evaluators
-- Robustness tooling: paraphrase consistency, debiasing variants, self-help debiasing prompts
+- Evaluation engines: standard evaluator plus temporal dynamics, context sensitivity, and multi-turn conversational evaluators
+- BLOOM generation: LLM-driven scenario generation for richer test cases
+- Quality assessment: automated test quality evaluation with LLM judge
+- Robustness tooling: prompt variation, paraphrase consistency, debiasing variants, self-help debiasing prompts
 - Metrics: six metrics and cognitive fingerprint reporting
 - CLI commands, examples, and JSON/CSV import/export utilities
 
@@ -67,11 +69,11 @@ pip install -e ".[dev]"
 
 ```bash
 # Run the demo
-PYTHONPATH=src python examples/basic_usage.py
+PYTHONPATH=src uv run python examples/basic_usage.py
 
 # Run a full evaluation with OpenAI
 export OPENAI_API_KEY="your-api-key"
-PYTHONPATH=src python examples/openai_evaluation.py --model gpt-5.2 --tier core
+PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-5.2 --tier core
 ```
 
 ---
@@ -178,14 +180,16 @@ class OpenAIProvider:
         self.model = model
 
     async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str:
-        response = await self.client.responses.create(
+        response = await self.client.chat.completions.create(
             model=self.model,
-            input=prompt,
-            instructions="You are a helpful assistant.",
-            max_output_tokens=max_tokens,
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=max_tokens,
             temperature=temperature,
         )
-        return response.output_text
+        return response.choices[0].message.content
 
 # Configure evaluation
 config = EvaluationConfig(
@@ -301,12 +305,13 @@ The 69 biases are organized into 16 categories based on underlying cognitive mec
 | Availability | 6 | Availability bias, Recency bias, Primacy bias |
 | Anchoring | 5 | Anchoring effect, Insufficient adjustment |
 | Loss Aversion | 5 | Loss aversion, Endowment effect, Sunk cost |
-| Framing | 7 | Gain-loss framing, Mental accounting |
+| Framing | 6 | Gain-loss framing, Mental accounting |
+| Reference Dependence | 1 | Reference point framing |
 | Probability Distortion | 7 | Certainty effect, Affect heuristic |
 | Overconfidence | 5 | Overconfidence, Planning fallacy |
 | Confirmation | 3 | Confirmation bias, Belief perseverance |
 | Temporal | 3 | Present bias, Duration neglect |
-| Extension Neglect | 4 | Scope insensitivity, Identifiable victim |
+| Extension Neglect | 2 | Scope insensitivity, Identifiable victim |
 | Memory | 4 | Hindsight bias, Rosy retrospection |
 | Attention | 3 | Attentional bias, Selective perception |
 | Attribution | 3 | Fundamental attribution error, Self-serving bias |
@@ -345,6 +350,9 @@ The 69 biases are organized into 16 categories based on underlying cognitive mec
 # List all biases
 kahne-bench list-biases
 
+# List all bias categories
+kahne-bench list-categories
+
 # Get info about a specific bias
 kahne-bench describe anchoring_effect
 
@@ -353,9 +361,27 @@ kahne-bench generate --bias anchoring_effect --bias loss_aversion --output tests
 
 # Generate compound (interaction) tests
 kahne-bench generate-compound --domain professional
+
+# Run full evaluation pipeline (requires API key)
+kahne-bench evaluate -i test_cases.json -p openai -m gpt-5.2
+
+# Generate cognitive fingerprint report
+kahne-bench report fingerprint.json
+
+# Assess test quality
+kahne-bench assess-quality test_cases.json
+
+# Generate BLOOM scenarios
+kahne-bench generate-bloom --bias anchoring_effect
+
+# Run conversational evaluation
+kahne-bench evaluate-conversation -i test_cases.json -p openai -m gpt-5.2
+
+# Show framework information
+kahne-bench info
 ```
 
-Note: The CLI covers listing/description, generation, compound tests, and evaluation. Advanced evaluators are Python API only: `TemporalEvaluator`, `ContextSensitivityEvaluator`, `MacroScaleGenerator`, `RobustnessTester`, and `ContrastiveRobustnessTester`.
+Note: The CLI covers listing/description, generation, compound tests, evaluation, quality assessment, BLOOM generation, and conversational evaluation. Advanced evaluators are Python API only: `TemporalEvaluator`, `ContextSensitivityEvaluator`, `MacroScaleGenerator`, `RobustnessTester`, and `ContrastiveRobustnessTester`.
 
 ---
 
@@ -373,7 +399,12 @@ src/kahne_bench/
 │   ├── __init__.py
 │   ├── generator.py     # Test case generation
 │   ├── evaluator.py     # LLM evaluation
+│   ├── judge.py         # LLM judge fallback scoring
 │   ├── compound.py      # Compound bias testing
+│   ├── bloom_generator.py # LLM-driven BLOOM scenario generation
+│   ├── variation.py     # Prompt variation and robustness testing
+│   ├── quality.py       # Test quality assessment
+│   ├── conversation.py  # Multi-turn conversational evaluation
 │   └── robustness.py    # Adversarial testing
 ├── metrics/
 │   ├── __init__.py
@@ -390,14 +421,14 @@ src/kahne_bench/
 
 ### Basic Demo
 ```bash
-PYTHONPATH=src python examples/basic_usage.py
+PYTHONPATH=src uv run python examples/basic_usage.py
 ```
 Demonstrates taxonomy exploration, test generation, evaluation with a mock provider, and metrics calculation.
 
 ### OpenAI Evaluation
 ```bash
 export OPENAI_API_KEY="your-api-key"
-PYTHONPATH=src python examples/openai_evaluation.py --model gpt-5.2 --tier core
+PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-5.2 --tier core
 ```
 
 Options:
@@ -409,7 +440,7 @@ Options:
 
 Example with extended tier:
 ```bash
-python examples/openai_evaluation.py --model gpt-5.2 --tier extended --trials 5
+PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-5.2 --tier extended --trials 5
 ```
 
 ---

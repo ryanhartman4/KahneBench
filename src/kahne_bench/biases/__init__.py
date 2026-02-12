@@ -1,5 +1,5 @@
 """
-Comprehensive taxonomy of 50 cognitive biases based on Kahneman-Tversky research.
+Comprehensive taxonomy of 69 cognitive biases based on Kahneman-Tversky research.
 
 This module provides the complete bias definitions with theoretical grounding,
 organized by category following the dual-process theory framework.

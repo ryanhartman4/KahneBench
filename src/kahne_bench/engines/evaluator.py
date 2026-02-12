@@ -12,13 +12,14 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Protocol
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
 from kahne_bench.core import (
     CognitiveBiasInstance,
     EvaluationSession,
+    LLMProvider,
     TestResult,
     TriggerIntensity,
     TemporalCondition,
@@ -140,19 +141,6 @@ def normalize_answer(answer: str) -> str:
     return answer_lower
 
 
-class LLMProvider(Protocol):
-    """Protocol for LLM API providers."""
-
-    async def complete(
-        self,
-        prompt: str,
-        max_tokens: int = 1024,
-        temperature: float = 0.0,
-    ) -> str:
-        """Generate a completion for the given prompt."""
-        ...
-
-
 @dataclass
 class OpenAIProvider:
     """OpenAI API provider implementation."""
@@ -205,6 +193,7 @@ class AnthropicProvider:
         response = await self.client.messages.create(
             model=self.model,
             max_tokens=max_tokens,
+            temperature=temperature,
             messages=[{"role": "user", "content": prompt}],
         )
         # Handle empty content array (e.g., from content filtering)
@@ -231,10 +220,12 @@ class XAIProvider:
         temperature: float = 0.0,
     ) -> str:
         def _sync_complete() -> str:
-            from xai_sdk.chat import user, system
+            from xai_sdk.chat import user
 
-            chat = self.client.chat.create(model=self.model)
-            chat.append(system("You are a helpful assistant."))
+            chat = self.client.chat.create(model=self.model, temperature=temperature)
+            # NOTE: No system message is added here to ensure fair cross-provider
+            # comparison. Other providers (OpenAI, Anthropic, Gemini) also omit
+            # system messages so all models receive identical user-only prompts.
             chat.append(user(prompt))
             response = chat.sample()
             # Handle None content from xAI
@@ -261,9 +252,12 @@ class GeminiProvider:
         temperature: float = 0.0,
     ) -> str:
         def _sync_complete() -> str:
+            from google.genai import types
+
             response = self.client.models.generate_content(
                 model=self.model,
                 contents=prompt,
+                config=types.GenerateContentConfig(temperature=temperature),
             )
             # Handle None text (e.g., from safety filtering)
             return response.text or ""
@@ -556,11 +550,15 @@ class AnswerExtractor:
                 response,
                 flags=re.IGNORECASE,
             )
-            # Find all numbers, filtering out those in anchor/rejection context
+            # Find all numbers, filtering out those in anchor/rejection context.
+            # Prefer the LAST valid number since final answers tend to appear
+            # at the end of responses (returning the first biases toward anchors
+            # restated early in the reasoning).
+            valid_numbers = []
             for match in re.finditer(r"[\d,]+(?:\.\d+)?", response_no_confidence):
                 if not self._has_negative_context(response_no_confidence, match.start()):
-                    return match.group().replace(",", "")
-            return None
+                    valid_numbers.append(match.group().replace(",", ""))
+            return valid_numbers[-1] if valid_numbers else None
 
         elif expected_type == "yes_no":
             response_lower = response.lower()
@@ -705,6 +703,7 @@ class BiasEvaluator:
         self,
         instance: CognitiveBiasInstance,
         condition: str,
+        intensity: "TriggerIntensity | None" = None,
     ) -> str:
         """Resolve the correct expected biased answer for frame-dependent biases.
 
@@ -730,12 +729,18 @@ class BiasEvaluator:
                     biased = instance.metadata.get("gain_frame_biased", biased)
                 break
 
-        if not matched:
-            # No intensity token found in condition. This happens with context
-            # evaluator conditions (e.g., "context_novice_low", "expertise_expert",
-            # "stakes_high") and control conditions. Default to gain-frame biased
-            # answer, since context evaluators use moderate intensity (gain frame)
-            # by default.
+        if not matched and intensity is not None:
+            # Use the explicitly provided intensity to determine frame
+            frame = frame_map.get(intensity.value)
+            if frame == "loss":
+                biased = instance.metadata.get("loss_frame_biased", biased)
+            elif frame == "gain":
+                biased = instance.metadata.get("gain_frame_biased", biased)
+            else:
+                biased = instance.metadata.get("gain_frame_biased", biased)
+        elif not matched:
+            # No intensity token found and no explicit intensity provided.
+            # Default to gain-frame for control conditions.
             biased = instance.metadata.get("gain_frame_biased", biased)
 
         return biased
@@ -744,6 +749,7 @@ class BiasEvaluator:
         self,
         instance: CognitiveBiasInstance,
         condition: str,
+        intensity: "TriggerIntensity | None" = None,
     ) -> str:
         """Resolve the correct expected rational answer for frame-dependent biases.
 
@@ -768,10 +774,18 @@ class BiasEvaluator:
                     rational = instance.metadata.get("gain_frame_rational", rational)
                 break
 
-        if not matched:
-            # No intensity token found in condition (context evaluators, control, etc.).
-            # Default to gain-frame rational answer, matching the assumption in
-            # _resolve_biased_answer.
+        if not matched and intensity is not None:
+            # Use the explicitly provided intensity to determine frame
+            frame = frame_map.get(intensity.value)
+            if frame == "loss":
+                rational = instance.metadata.get("loss_frame_rational", rational)
+            elif frame == "gain":
+                rational = instance.metadata.get("gain_frame_rational", rational)
+            else:
+                rational = instance.metadata.get("gain_frame_rational", rational)
+        elif not matched:
+            # No intensity token found and no explicit intensity provided.
+            # Default to gain-frame for control conditions.
             rational = instance.metadata.get("gain_frame_rational", rational)
 
         return rational
@@ -928,7 +942,12 @@ class BiasEvaluator:
             return result
 
         # Run all trials concurrently (semaphore limits actual concurrency)
-        tasks = [run_single_trial(t) for t in range(self.config.num_trials)]
+        # Stagger trial launches with trial_delay_ms to avoid burst requests
+        tasks = []
+        for t in range(self.config.num_trials):
+            if t > 0 and self.config.trial_delay_ms > 0:
+                await asyncio.sleep(self.config.trial_delay_ms / 1000)
+            tasks.append(asyncio.ensure_future(run_single_trial(t)))
         results = await asyncio.gather(*tasks)
         return list(results)
 
@@ -1189,7 +1208,7 @@ Now consider a similar but distinct situation:
 """
 
             start_time = time.time()
-            response = await self.provider.complete(prompt, self.config.max_tokens)
+            response = await self._call_provider(prompt)
             elapsed_ms = (time.time() - start_time) * 1000
 
             context = response[:500]  # Use response as context for next round
@@ -1245,7 +1264,7 @@ Now consider a similar but distinct situation:
         # Initial biased prompt
         initial_prompt = instance.get_treatment(TriggerIntensity.STRONG)
         start_time = time.time()
-        initial_response = await self.provider.complete(initial_prompt, self.config.max_tokens)
+        initial_response = await self._call_provider(initial_prompt)
         elapsed_ms = (time.time() - start_time) * 1000
 
         pre_result = TestResult(
@@ -1287,7 +1306,7 @@ Please reconsider, being careful to avoid this cognitive bias.
 """
 
         start_time = time.time()
-        feedback_response = await self.provider.complete(feedback_prompt, self.config.max_tokens)
+        feedback_response = await self._call_provider(feedback_prompt)
         elapsed_ms = (time.time() - start_time) * 1000
 
         post_result = TestResult(
@@ -1425,7 +1444,7 @@ class ContextSensitivityEvaluator(BiasEvaluator):
             result = TestResult(
                 instance=instance,
                 model_id=model_id,
-                condition=f"context_{config.expertise_level.value}_{config.stakes.value}",
+                condition=f"context_{config.expertise_level.value}_{config.stakes.value}_{intensity.value}",
                 prompt_used=prompt,
                 model_response=response,
                 extracted_answer=extracted,
@@ -1445,10 +1464,10 @@ class ContextSensitivityEvaluator(BiasEvaluator):
                 not instance.expected_rational_response.startswith("[") and
                 not instance.expected_biased_response.startswith("[")):
                 rational_answer = self._resolve_rational_answer(
-                    instance, result.condition
+                    instance, result.condition, intensity=intensity
                 )
                 biased_answer = self._resolve_biased_answer(
-                    instance, result.condition
+                    instance, result.condition, intensity=intensity
                 )
                 is_biased, bias_score = self.score_response(
                     result,
@@ -1508,7 +1527,7 @@ class ContextSensitivityEvaluator(BiasEvaluator):
             result = TestResult(
                 instance=instance,
                 model_id=model_id,
-                condition=f"expertise_{expertise.value}",
+                condition=f"expertise_{expertise.value}_{intensity.value}",
                 prompt_used=prompt,
                 model_response=response,
                 extracted_answer=self.extractor.extract(
@@ -1528,10 +1547,10 @@ class ContextSensitivityEvaluator(BiasEvaluator):
                 not instance.expected_rational_response.startswith("[") and
                 not instance.expected_biased_response.startswith("[")):
                 rational_answer = self._resolve_rational_answer(
-                    instance, result.condition
+                    instance, result.condition, intensity=intensity
                 )
                 biased_answer = self._resolve_biased_answer(
-                    instance, result.condition
+                    instance, result.condition, intensity=intensity
                 )
                 is_biased, bias_score = self.score_response(
                     result,
@@ -1591,7 +1610,7 @@ class ContextSensitivityEvaluator(BiasEvaluator):
             result = TestResult(
                 instance=instance,
                 model_id=model_id,
-                condition=f"stakes_{stakes.value}",
+                condition=f"stakes_{stakes.value}_{intensity.value}",
                 prompt_used=prompt,
                 model_response=response,
                 extracted_answer=self.extractor.extract(
@@ -1611,10 +1630,10 @@ class ContextSensitivityEvaluator(BiasEvaluator):
                 not instance.expected_rational_response.startswith("[") and
                 not instance.expected_biased_response.startswith("[")):
                 rational_answer = self._resolve_rational_answer(
-                    instance, result.condition
+                    instance, result.condition, intensity=intensity
                 )
                 biased_answer = self._resolve_biased_answer(
-                    instance, result.condition
+                    instance, result.condition, intensity=intensity
                 )
                 is_biased, bias_score = self.score_response(
                     result,
