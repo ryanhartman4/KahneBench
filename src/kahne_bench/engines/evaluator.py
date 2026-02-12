@@ -146,7 +146,7 @@ class OpenAIProvider:
     """OpenAI API provider implementation."""
 
     client: Any  # openai.AsyncOpenAI
-    model: str = "gpt-4o"
+    model: str = "gpt-5.2-2025-12-11"
 
     async def complete(
         self,
@@ -182,7 +182,7 @@ class AnthropicProvider:
     """Anthropic API provider implementation."""
 
     client: Any  # anthropic.AsyncAnthropic
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "claude-sonnet-4-5"
 
     async def complete(
         self,

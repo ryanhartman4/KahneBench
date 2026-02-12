@@ -70,7 +70,7 @@ def _create_provider(provider: str, model: str | None) -> tuple:
         from kahne_bench.engines.evaluator import OpenAIProvider
 
         client = AsyncOpenAI()
-        model_id = model or "gpt-4o"
+        model_id = model or "gpt-5.2-2025-12-11"
         return OpenAIProvider(client=client, model=model_id), model_id
 
     elif provider == "anthropic":
@@ -81,7 +81,7 @@ def _create_provider(provider: str, model: str | None) -> tuple:
         from kahne_bench.engines.evaluator import AnthropicProvider
 
         client = AsyncAnthropic()
-        model_id = model or "claude-sonnet-4-20250514"
+        model_id = model or "claude-sonnet-4-5"
         return AnthropicProvider(client=client, model=model_id), model_id
 
     elif provider == "fireworks":
@@ -400,10 +400,10 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
         kahne-bench evaluate -i test_cases.json -p mock
 
         # Evaluate with OpenAI:
-        kahne-bench evaluate -i test_cases.json -p openai -m gpt-4o
+        kahne-bench evaluate -i test_cases.json -p openai -m gpt-5.2
 
         # Evaluate with LLM judge fallback:
-        kahne-bench evaluate -i test_cases.json -p openai -m gpt-4o --judge-provider openai --judge-model gpt-4o
+        kahne-bench evaluate -i test_cases.json -p openai -m gpt-5.2 --judge-provider openai --judge-model gpt-5.2
     """
     from rich.progress import Progress, BarColumn, TaskProgressColumn, TimeRemainingColumn
 
@@ -585,7 +585,7 @@ def assess_quality(input_file: str, provider: str, model: str | None, sample_rat
     Examples:
         kahne-bench assess-quality -i test_cases.json -p mock
 
-        kahne-bench assess-quality -i test_cases.json -p openai -m gpt-4o --sample-rate 0.3
+        kahne-bench assess-quality -i test_cases.json -p openai -m gpt-5.2 --sample-rate 0.3
     """
     from kahne_bench.utils.io import import_instances_from_json, export_quality_report_to_json
     from kahne_bench.engines.quality import QualityJudge
@@ -645,7 +645,7 @@ def generate_bloom(provider: str, model: str | None, bias: tuple, domain: tuple,
     Examples:
         kahne-bench generate-bloom -p mock --bias anchoring_effect --scenarios 3
 
-        kahne-bench generate-bloom -p openai -m gpt-4o --bias anchoring_effect --domain professional -n 5
+        kahne-bench generate-bloom -p openai -m gpt-5.2 --bias anchoring_effect --domain professional -n 5
     """
     from kahne_bench.engines.bloom_generator import BloomBiasGenerator
     from kahne_bench.utils.io import export_instances_to_json
@@ -702,8 +702,8 @@ def evaluate_conversation(input_file: str, target_provider: str, target_model: s
     Examples:
         kahne-bench evaluate-conversation -i test_cases.json -p mock
 
-        kahne-bench evaluate-conversation -i test_cases.json -p openai -m gpt-4o \\
-            --orchestrator-provider anthropic --orchestrator-model claude-sonnet-4-5-20250929
+        kahne-bench evaluate-conversation -i test_cases.json -p openai -m gpt-5.2 \\
+            --orchestrator-provider anthropic --orchestrator-model claude-opus-4-6
     """
     from kahne_bench.utils.io import import_instances_from_json, export_transcripts_to_json
     from kahne_bench.engines.conversation import ConversationalEvaluator

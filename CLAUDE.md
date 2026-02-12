@@ -104,23 +104,24 @@ This section tracks the models to benchmark. Models with extended thinking/reaso
 
 | # | Model | Provider | Model ID | Reasoning Variants |
 |---|-------|----------|----------|-------------------|
-| 1 | **Claude Opus 4.5** | Anthropic | `claude-opus-4-5-20251101` | 0 thinking budget, full thinking budget |
-| 2 | **GPT-5.2** | OpenAI | `gpt-5.2-2025-12-11` | No reasoning effort, high reasoning effort |
-| 3 | **GLM 4.7** | Fireworks | `accounts/fireworks/models/glm-4p7` | - |
-| 4 | **MiniMax M2P1** | Fireworks | `accounts/fireworks/models/minimax-m2p1` | - |
-| 5 | **Gemini 3 Pro** | Google | `gemini-3-pro-preview` | - |
-| 6 | **Claude Sonnet 4.5** | Anthropic | `claude-sonnet-4-5-20250929` | - |
-| 7 | **DeepSeek V3.2** | Fireworks | `accounts/fireworks/models/deepseek-v3p2` | - |
-| 8 | **Kimi K2** | Fireworks | `accounts/fireworks/models/kimi-k2-thinking` | - |
-| 9 | **Grok 4.1 Fast** | xAI | `grok-4-1-fast-reasoning` | - |
+| 1 | **Claude Opus 4.6** | Anthropic | `claude-opus-4-6` | 0 thinking budget, full thinking budget |
+| 2 | **Claude Sonnet 4.5** | Anthropic | `claude-sonnet-4-5` | - |
+| 3 | **Claude Haiku 4.5** | Anthropic | `claude-haiku-4-5` | - |
+| 4 | **GPT-5.2** | OpenAI | `gpt-5.2-2025-12-11` | No reasoning effort, high reasoning effort |
+| 5 | **GLM 4.7** | Fireworks | `accounts/fireworks/models/glm-4p7` | - |
+| 6 | **MiniMax M2P1** | Fireworks | `accounts/fireworks/models/minimax-m2p1` | - |
+| 7 | **Gemini 3 Pro** | Google | `gemini-3-pro-preview` | - |
+| 8 | **DeepSeek V3.2** | Fireworks | `accounts/fireworks/models/deepseek-v3p2` | - |
+| 9 | **Kimi K2.5** | Fireworks | `accounts/fireworks/models/kimi-k2p5` | - |
+| 10 | **Grok 4.1 Fast** | xAI | `grok-4-1-fast-reasoning` | - |
 
 ### Provider Support Status
 
 | Provider | CLI Flag | Status | API Compatibility | Models |
 |----------|----------|--------|-------------------|--------|
-| Anthropic | `-p anthropic` | ✅ Ready | Native SDK | `claude-opus-4-5-20251101`, `claude-sonnet-4-5-20250929` |
+| Anthropic | `-p anthropic` | ✅ Ready | Native SDK | `claude-opus-4-6`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
 | OpenAI | `-p openai` | ✅ Ready | Native SDK | `gpt-5.2-2025-12-11` |
-| Fireworks | `-p fireworks` | ✅ Ready | OpenAI-compatible | `glm-4p7`, `minimax-m2p1`, `deepseek-v3p2`, `kimi-k2-thinking` |
+| Fireworks | `-p fireworks` | ✅ Ready | OpenAI-compatible | `glm-4p7`, `minimax-m2p1`, `deepseek-v3p2`, `kimi-k2p5` |
 | xAI | `-p xai` | ✅ Ready | Native SDK (`xai-sdk`) | `grok-4-1-fast-reasoning` |
 | Google | `-p gemini` | ✅ Ready | Native SDK (`google-genai`) | `gemini-3-pro-preview` |
 
@@ -163,9 +164,9 @@ response = client.models.generate_content(
 ### Environment Variables
 
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-..."    # Claude Opus 4.5, Claude Sonnet 4.5
+export ANTHROPIC_API_KEY="sk-ant-..."    # Claude Opus 4.6, Sonnet 4.5, Haiku 4.5
 export OPENAI_API_KEY="sk-..."           # GPT-5.2
-export FIREWORKS_API_KEY="fw_..."        # GLM 4.7, MiniMax, DeepSeek V3.2, Kimi K2
+export FIREWORKS_API_KEY="fw_..."        # GLM 4.7, MiniMax, DeepSeek V3.2, Kimi K2.5
 export GOOGLE_API_KEY="..."              # Gemini 3 Pro (after implementing)
 export XAI_API_KEY="xai-..."             # Grok 4.1 Fast
 ```
@@ -173,20 +174,23 @@ export XAI_API_KEY="xai-..."             # Grok 4.1 Fast
 ### Recommended Evaluation Commands
 
 ```bash
-# Claude Opus 4.5 (no thinking)
-PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-opus-4-5-20251101 --trials 3
+# Claude Opus 4.6 (no thinking)
+PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-opus-4-6 --trials 3
 
-# Claude Opus 4.5 (full thinking) - requires extended_thinking support
-PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-opus-4-5-20251101 --extended-thinking --trials 3
+# Claude Opus 4.6 (full thinking) - requires extended_thinking support
+PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-opus-4-6 --extended-thinking --trials 3
+
+# Claude Sonnet 4.5
+PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-sonnet-4-5 --trials 3
+
+# Claude Haiku 4.5
+PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-haiku-4-5 --trials 3
 
 # GPT-5.2 (no reasoning)
 PYTHONPATH=src uv run kahne-bench evaluate -p openai -m gpt-5.2-2025-12-11 --trials 3
 
 # GPT-5.2 (high reasoning) - requires reasoning_effort support
 PYTHONPATH=src uv run kahne-bench evaluate -p openai -m gpt-5.2-2025-12-11 --reasoning-effort high --trials 3
-
-# Claude Sonnet 4.5
-PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-sonnet-4-5-20250929 --trials 3
 
 # GLM 4.7 (via Fireworks)
 PYTHONPATH=src uv run kahne-bench evaluate -p fireworks \
@@ -200,9 +204,9 @@ PYTHONPATH=src uv run kahne-bench evaluate -p fireworks \
 PYTHONPATH=src uv run kahne-bench evaluate -p fireworks \
     -m accounts/fireworks/models/deepseek-v3p2 --trials 3
 
-# Kimi K2 (via Fireworks)
+# Kimi K2.5 (via Fireworks)
 PYTHONPATH=src uv run kahne-bench evaluate -p fireworks \
-    -m accounts/fireworks/models/kimi-k2-thinking --trials 3
+    -m accounts/fireworks/models/kimi-k2p5 --trials 3
 
 # Grok 4.1 Fast Reasoning (via xAI)
 PYTHONPATH=src uv run kahne-bench evaluate -p xai -m grok-4-1-fast-reasoning --trials 3
@@ -212,9 +216,11 @@ PYTHONPATH=src uv run kahne-bench evaluate -p xai -m grok-4-1-fast-reasoning --t
 
 | Model | Notes |
 |-------|-------|
-| Claude Opus 4.5 | Extended thinking available via `budget_tokens` parameter |
+| Claude Opus 4.6 | Extended thinking available via `budget_tokens` parameter |
+| Claude Sonnet 4.5 | General-purpose model |
+| Claude Haiku 4.5 | Fast, cost-effective model |
 | GPT-5.2 | Reasoning effort available via `reasoning_effort` parameter (low/medium/high) |
-| Kimi K2 | Thinking model - includes chain-of-thought by default |
+| Kimi K2.5 | Thinking model - includes chain-of-thought by default |
 | Grok 4.1 Fast | Uses `xai-sdk`; sync SDK wrapped with `asyncio.to_thread()` |
 | DeepSeek V3.2 | MoE architecture, cost-effective |
 | Gemini 3 Pro | Uses `google-genai`; sync SDK wrapped with `asyncio.to_thread()` |

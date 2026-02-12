@@ -37,8 +37,8 @@ cat fingerprint.json
 
 | Provider | Flag | Environment Variable | Example Models |
 |----------|------|---------------------|----------------|
-| OpenAI | `-p openai` | `OPENAI_API_KEY` | `gpt-5.2-2025-12-11`, `gpt-4o` |
-| Anthropic | `-p anthropic` | `ANTHROPIC_API_KEY` | `claude-opus-4-5-20251101`, `claude-sonnet-4-5-20250929` |
+| OpenAI | `-p openai` | `OPENAI_API_KEY` | `gpt-5.2-2025-12-11` |
+| Anthropic | `-p anthropic` | `ANTHROPIC_API_KEY` | `claude-opus-4-6`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
 | Fireworks | `-p fireworks` | `FIREWORKS_API_KEY` | `accounts/fireworks/models/glm-4p7`, `accounts/fireworks/models/deepseek-v3p2` |
 | xAI | `-p xai` | `XAI_API_KEY` | `grok-4-1-fast-reasoning` |
 | Google | `-p gemini` | `GOOGLE_API_KEY` | `gemini-3-pro-preview` |
@@ -140,7 +140,7 @@ PYTHONPATH=src uv run kahne-bench evaluate \
 PYTHONPATH=src uv run kahne-bench evaluate \
   -i test_cases.json \
   -p anthropic \
-  -m claude-opus-4-5-20251101 \
+  -m claude-opus-4-6 \
   --trials 3 \
   -o results.json \
   -f fingerprint.json
@@ -208,7 +208,7 @@ PYTHONPATH=src uv run kahne-bench generate \
 PYTHONPATH=src uv run kahne-bench evaluate \
   -i test_cases.json \
   -p anthropic \
-  -m claude-opus-4-5-20251101 \
+  -m claude-opus-4-6 \
   --trials 3 \
   -o results_claude.json \
   -f fingerprint_claude.json
@@ -237,7 +237,7 @@ PYTHONPATH=src uv run kahne-bench generate \
   -o test_cases.json
 
 # Run same tests on multiple models
-for provider_model in "openai:gpt-5.2-2025-12-11" "anthropic:claude-opus-4-5-20251101" "gemini:gemini-3-pro-preview"; do
+for provider_model in "openai:gpt-5.2-2025-12-11" "anthropic:claude-opus-4-6" "gemini:gemini-3-pro-preview"; do
   provider="${provider_model%%:*}"
   model="${provider_model##*:}"
   echo "Testing $model..."
