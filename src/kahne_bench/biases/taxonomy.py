@@ -79,7 +79,7 @@ REPRESENTATIVENESS_BIASES = [
         system1_mechanism="Short sequences expected to represent global frequencies",
         system2_override="Recognize independence of random events",
         classic_paradigm="After 5 heads in a row, tails is 'due'",
-        trigger_template="After {streak_description}, what is the probability of {opposite_outcome}?",
+        trigger_template="After {streak_description}, what would you recommend regarding {next_outcome}?",
         is_kt_core=True,
     ),
     BiasDefinition(
@@ -323,7 +323,7 @@ LOSS_AVERSION_BIASES = [
         system1_mechanism="Abandoning = crystallizing prior losses",
         system2_override="Ignore sunk costs; decide based on future value only",
         classic_paradigm="Watching boring movie because ticket was expensive",
-        trigger_template="You've invested {sunk_cost} in {project}. It will require {additional_cost} to complete. Expected value is {expected_value}. Continue?"
+        trigger_template="You've invested {sunk_cost} in {project}. It will require {additional_cost} to complete, or you could switch to {alternative}. Which option do you recommend?"
     ),
     BiasDefinition(
         id="disposition_effect",

@@ -136,6 +136,9 @@ DOMAIN_SCENARIOS: dict[Domain, list[DomainScenario]] = {
 }
 
 
+# Risk-free rate assumption for present bias calculations
+ANNUAL_RFR = 0.05  # 5% annual risk-free rate
+
 # Templates for specific biases - structured prompts with placeholders
 BIAS_TEMPLATES: dict[str, dict[str, str]] = {
     "anchoring_effect": {
@@ -225,29 +228,23 @@ Reply with just A or B.
     },
     "conjunction_fallacy": {
         "control": """
-{person_name} is described as: {description}
+{person_name} works at a large organization.
 
-Which is more probable?
+Which of the following is more likely?
 
-Option A: {person_name} is {general_category}
-Option B: {person_name} is {general_category} AND {specific_detail}
-
-Which option is more probable?
+A) {person_name} {general_category}
+B) {person_name} {general_category} and {specific_detail}
 
 Respond with your choice in this format:
 Answer: [A or B]
 """,
         "treatment": """
-{person_name} is described as: {description}
+{person_name} is described by colleagues as: {description}
 
-This description strongly fits someone who is {specific_detail}.
+Which of the following is more likely?
 
-Which is more probable?
-
-Option A: {person_name} is {general_category}
-Option B: {person_name} is {general_category} AND {specific_detail}
-
-Which option is more probable?
+A) {person_name} {general_category}
+B) {person_name} {general_category} and {specific_detail}
 
 Respond with your choice in this format:
 Answer: [A or B]
@@ -322,30 +319,29 @@ Confidence: [0-100]%
     },
     "sunk_cost_fallacy": {
         "control": """
-A project will require ${future_cost} to complete.
-Upon completion, it is expected to generate ${expected_return} in value.
+{scenario_description}
 
-What should you do?
+Looking at the projected costs and outcomes going forward:
 
-Option A: Continue the project
-Option B: Abandon the project
+Option A: {option_a_label} — Additional investment needed: ${continue_cost}. Projected {time_horizon} value: ${continue_value}.
+Option B: {option_b_label} — Investment needed: ${switch_cost}. Projected {time_horizon} value: ${switch_value}.
 
-Which option do you choose?
+Based on the forward-looking financials, which option do you recommend?
 
 Respond with your choice in this format:
 Answer: [A or B]
 """,
         "treatment": """
-A project has already consumed ${sunk_cost} of investment.
-It will require an additional ${future_cost} to complete.
-Upon completion, it is expected to generate only ${expected_return} in value.
+{scenario_description}
 
-Given the significant investment already made, what should you do?
+{sunk_cost_mention}
 
-Option A: Continue the project to recover the sunk costs
-Option B: Abandon the project and cut your losses
+Looking at the projected costs and outcomes going forward:
 
-Which option do you choose?
+Option A: {option_a_label} — Additional investment needed: ${continue_cost}. Projected {time_horizon} value: ${continue_value}.
+Option B: {option_b_label} — Investment needed: ${switch_cost}. Projected {time_horizon} value: ${switch_value}.
+
+Which option do you recommend?
 
 Respond with your choice in this format:
 Answer: [A or B]
@@ -353,29 +349,25 @@ Answer: [A or B]
     },
     "status_quo_bias": {
         "control": """
-You must choose between two options for your {context}:
+You are evaluating options for your {context_label}. Consider these two:
 
 Option A: {option_a_description}
 Option B: {option_b_description}
 
-Based on the features, which option do you choose?
+Based purely on the features and value, which option do you recommend?
 
 Respond with your choice in this format:
 Answer: [A or B]
 """,
         "treatment": """
-You are currently using Option A for your {context}: {option_a_description}
+{incumbent_framing}
 
-You have the opportunity to switch to Option B: {option_b_description}
+You now have an opportunity to evaluate an alternative.
 
-Option B offers higher performance ratings and additional features at the same cost. There is no switching fee or penalty.
+Option A: {option_a_description}
+Option B: {option_b_description}
 
-What do you do?
-
-Option A: Stay with your current option
-Option B: Switch to Option B
-
-Which option do you choose?
+Which option do you recommend?
 
 Respond with your choice in this format:
 Answer: [A or B]
@@ -383,49 +375,40 @@ Answer: [A or B]
     },
     "present_bias": {
         "control": """
-Choose between:
-A) Receive ${amount_small} today
-B) Receive ${amount_large} in {delay_days} days
+{scenario_context}
 
-Assuming a {annual_rate}% annual discount rate, the present value of Option B is ${pv_later}.
+You have two options:
+A) {option_a_description}
+B) {option_b_description}
 
-A rational decision-maker should select the option with the higher present value.
+For reference, the current annual risk-free rate is 5%. Over {months} months, this corresponds to approximately {rfr_pct}% growth. Use this as a discount rate to compare the present value of each option.
 
-Reply with just the letter (A or B).
+Which option do you choose? Reply with just A or B.
 """,
         "treatment": """
-Choose between:
-A) Receive ${amount_small} today
-B) Receive ${amount_large} in {delay_days} days
+{scenario_context}
 
-The money today is available right now.
-The future amount requires waiting {delay_days} days.
+You have two options:
+A) {option_a_description}
+B) {option_b_description}
 
-Reply with just the letter (A or B).
+Which option do you choose? Reply with just A or B.
 """,
     },
     "gambler_fallacy": {
         "control": """
-A fair coin will be flipped.
+{scenario_context_control}
 
-For the next flip, which statement is true?
+{neutral_question}
 
-A) Heads is more likely than tails
-B) Tails is more likely than heads
-C) Heads and tails are equally likely
-
-Reply with just A, B, or C.
+Please explain your reasoning and provide your recommendation.
 """,
         "treatment": """
-A fair coin has been flipped and landed on heads {streak_length} times in a row.
+{scenario_context_treatment}
 
-For the next flip, which statement is true?
+{question}
 
-A) Heads is more likely than tails
-B) Tails is more likely than heads
-C) Heads and tails are equally likely
-
-Reply with just A, B, or C.
+Please explain your reasoning and provide your recommendation.
 """,
     },
     "endowment_effect": {
@@ -2239,27 +2222,218 @@ Please provide your immediate judgment.
             })
 
         elif bias_def.id == "sunk_cost_fallacy":
-            sunk = random.randint(10, 25) * 10000  # Large sunk cost
-            future = random.randint(3, 6) * 10000  # Future cost
-            # Make returns LESS than future cost to test bias
-            returns = int(future * 0.8)  # Returns < future cost = should abandon
+            # Domain-specific sunk cost scenarios with near-breakeven economics
+            # Forward-looking advantage of switching is 10-20% (not trivially obvious)
+            sunk_cost_scenarios = {
+                Domain.INDIVIDUAL: {
+                    "scenario_base": "Your household has been renovating the kitchen "
+                        "using a custom design from an independent contractor",
+                    "option_a_label": "Complete the custom renovation",
+                    "option_b_label": "Switch to a standard contractor-built renovation",
+                    "time_horizon": "3-year",
+                    "sunk_range": (30, 55),
+                },
+                Domain.PROFESSIONAL: {
+                    "scenario_base": "Your company has been building a custom inventory "
+                        "management system in-house with your engineering team",
+                    "option_a_label": "Complete the in-house build",
+                    "option_b_label": "Switch to a licensed vendor platform",
+                    "time_horizon": "5-year",
+                    "sunk_range": (150, 350),
+                },
+                Domain.SOCIAL: {
+                    "scenario_base": "Your organization has been planning a large "
+                        "fundraising gala with a custom venue build-out",
+                    "option_a_label": "Continue with the custom gala setup",
+                    "option_b_label": "Switch to a turnkey event package at a new venue",
+                    "time_horizon": "event",
+                    "sunk_range": (15, 35),
+                },
+                Domain.TEMPORAL: {
+                    "scenario_base": "You have been developing a proprietary training "
+                        "curriculum for your department over the past year",
+                    "option_a_label": "Complete the proprietary curriculum",
+                    "option_b_label": "Adopt a licensed training program",
+                    "time_horizon": "3-year",
+                    "sunk_range": (40, 90),
+                },
+                Domain.RISK: {
+                    "scenario_base": "Your organization has been building a custom "
+                        "cybersecurity monitoring platform from scratch",
+                    "option_a_label": "Complete the custom platform",
+                    "option_b_label": "Migrate to an established vendor solution",
+                    "time_horizon": "5-year",
+                    "sunk_range": (200, 500),
+                },
+            }
+            sc = sunk_cost_scenarios.get(
+                scenario.domain, sunk_cost_scenarios[Domain.INDIVIDUAL]
+            )
+
+            # Generate near-breakeven economics: switching is 10-20% better
+            sunk_min, sunk_max = sc["sunk_range"]
+            sunk_cost = random.randint(sunk_min, sunk_max) * 1000
+            duration = random.choice(["14 months", "18 months", "2 years", "3 years"])
+
+            continue_cost = random.randint(25, 50) * 1000
+            base_net = random.randint(3, 10) * 1000
+            continue_value = continue_cost + base_net
+
+            advantage = random.uniform(0.10, 0.20)
+            switch_net = int(base_net * (1 + advantage))
+            switch_cost = int(continue_cost * random.uniform(0.82, 0.92))
+            switch_value = switch_cost + switch_net
+
             variables.update({
-                "sunk_cost": sunk,
-                "future_cost": future,
-                "expected_return": returns,
-                "rational_answer": "B",  # Abandon - future returns < future costs
-                "biased_answer": "A",  # Continue due to sunk cost fallacy
+                "scenario_description": sc["scenario_base"] + ".",
+                "sunk_cost_mention": (
+                    f"Your team has already invested ${sunk_cost:,} in this effort "
+                    f"over the past {duration}."
+                ),
+                "option_a_label": sc["option_a_label"],
+                "option_b_label": sc["option_b_label"],
+                "continue_cost": f"{continue_cost:,}",
+                "continue_value": f"{continue_value:,}",
+                "switch_cost": f"{switch_cost:,}",
+                "switch_value": f"{switch_value:,}",
+                "time_horizon": sc["time_horizon"],
+                "rational_answer": "B",  # Forward-looking analysis favors switching
+                "biased_answer": "A",  # Sunk cost pressure to continue
                 "answer_type": "option",
             })
 
         elif bias_def.id == "gambler_fallacy":
+            # Domain-specific streak scenarios — open-ended, no "fair/random/independent"
+            streak = random.randint(5, 8)
+            gambler_scenarios = {
+                Domain.INDIVIDUAL: {
+                    "scenario_context_control": (
+                        "A customer at a convenience store is considering buying "
+                        "a scratch-off lottery ticket."
+                    ),
+                    "scenario_context_treatment": (
+                        f"A customer at a convenience store has been buying "
+                        f"scratch-off lottery tickets from the same roll. The last "
+                        f"{streak} tickets purchased by various customers from this "
+                        f"roll were all losing tickets."
+                    ),
+                    "neutral_question": (
+                        "They ask you: is there anything they should consider when "
+                        "choosing which ticket to buy? What would you advise?"
+                    ),
+                    "question": (
+                        f"The next customer asks: given that the last {streak} "
+                        f"tickets from this roll were losers, should they keep "
+                        f"buying from this roll, switch to a different roll, or "
+                        f"does it make any difference? What would you advise?"
+                    ),
+                },
+                Domain.PROFESSIONAL: {
+                    "scenario_context_control": (
+                        "A venture capital firm reviews startup pitches on a "
+                        "rolling basis each quarter."
+                    ),
+                    "scenario_context_treatment": (
+                        f"A venture capital firm reviews startup pitches on a "
+                        f"rolling basis. This quarter, the last {streak} pitches "
+                        f"the partners evaluated were all turned down."
+                    ),
+                    "neutral_question": (
+                        "A startup founder preparing to pitch asks for your advice "
+                        "on what to expect. What would you tell them?"
+                    ),
+                    "question": (
+                        f"The next founder asks: given that {streak} pitches in a "
+                        f"row have been rejected, is the firm more likely to "
+                        f"approve the next one to break the streak, less likely "
+                        f"because they seem selective, or is the recent pattern "
+                        f"not informative? What would you advise?"
+                    ),
+                },
+                Domain.SOCIAL: {
+                    "scenario_context_control": (
+                        "A negotiator has been working on a series of independent "
+                        "contract deals with different clients."
+                    ),
+                    "scenario_context_treatment": (
+                        f"A negotiator has been working on a series of independent "
+                        f"contract deals with different clients. The last {streak} "
+                        f"negotiations ended without reaching an agreement."
+                    ),
+                    "neutral_question": (
+                        "A colleague asks whether this negotiator is likely to "
+                        "close the next deal. What's your assessment?"
+                    ),
+                    "question": (
+                        f"After {streak} consecutive failed negotiations with "
+                        f"different clients, is the negotiator due for a success "
+                        f"on the next deal, or does the streak not predict the "
+                        f"next outcome? What would you advise?"
+                    ),
+                },
+                Domain.TEMPORAL: {
+                    "scenario_context_control": (
+                        "A sports team is preparing for their next match in a "
+                        "season of games against different opponents."
+                    ),
+                    "scenario_context_treatment": (
+                        f"A sports team has been playing a season of matches "
+                        f"against different opponents. They have lost their last "
+                        f"{streak} games in a row."
+                    ),
+                    "neutral_question": (
+                        "A fan asks whether they should expect the team to win "
+                        "their next game. What's your assessment?"
+                    ),
+                    "question": (
+                        f"After losing {streak} games in a row, is the team more "
+                        f"likely to win the next game because they're due for a "
+                        f"turnaround, or does the losing streak not predict the "
+                        f"next result? What would you advise?"
+                    ),
+                },
+                Domain.RISK: {
+                    "scenario_context_control": (
+                        "A region designated as a flood zone historically averages "
+                        "one significant flood event per decade."
+                    ),
+                    "scenario_context_treatment": (
+                        f"A region designated as a flood zone historically averages "
+                        f"one significant flood event per decade, but has not "
+                        f"experienced a major flood in {streak + 8} years."
+                    ),
+                    "neutral_question": (
+                        "The local emergency management office asks whether they "
+                        "should adjust their flood preparedness budget. What would "
+                        "you recommend?"
+                    ),
+                    "question": (
+                        f"Given that the region hasn't flooded in {streak + 8} "
+                        f"years despite a historical average of once per decade, "
+                        f"is a flood now overdue? Should emergency budgets be "
+                        f"increased because a flood is more likely soon? What "
+                        f"would you recommend?"
+                    ),
+                },
+            }
+            gs = gambler_scenarios.get(
+                scenario.domain, gambler_scenarios[Domain.INDIVIDUAL]
+            )
             variables.update({
-                "streak_length": random.randint(5, 10),
-                # Rational: C (independence - each flip is 50/50)
-                # Biased: B (gambler's fallacy - tails is "due" after streak of heads)
-                "rational_answer": "C",
-                "biased_answer": "B",
-                "answer_type": "option",
+                "streak_length": streak,
+                "scenario_context_control": gs["scenario_context_control"],
+                "scenario_context_treatment": gs["scenario_context_treatment"],
+                "neutral_question": gs["neutral_question"],
+                "question": gs["question"],
+                "rational_answer": (
+                    "Past streak does not predict independent future outcomes; "
+                    "advise based on base rates and fundamentals, not the streak"
+                ),
+                "biased_answer": (
+                    "The streak suggests a reversal is due; recommend action "
+                    "based on the expectation that the pattern must change"
+                ),
+                "answer_type": "descriptive",
             })
 
         elif bias_def.id == "endowment_effect":
@@ -2455,33 +2629,159 @@ Please provide your immediate judgment.
         # ═══════════════════════════════════════════════════════════════════════
 
         elif bias_def.id == "conjunction_fallacy":
-            # Classic Linda problem - P(A and B) must be <= P(A)
-            scenarios = [
-                {
-                    "person_name": "Linda",
-                    "description": "31 years old, single, outspoken, and very bright. She majored in philosophy and was deeply concerned with issues of discrimination and social justice",
-                    "general_category": "a bank teller",
-                    "specific_detail": "active in the feminist movement",
-                },
-                {
-                    "person_name": "Tom",
-                    "description": "highly intelligent but lacking in creativity. He has a need for order and clarity, and prefers neat and tidy systems",
-                    "general_category": "an engineer",
-                    "specific_detail": "plays jazz for a hobby",
-                },
-                {
-                    "person_name": "Sarah",
-                    "description": "quiet, detail-oriented, and loves working with numbers. She excels at organizing information systematically",
-                    "general_category": "a librarian",
-                    "specific_detail": "writes poetry in her spare time",
-                },
-            ]
-            scenario = random.choice(scenarios)
+            # Personality-consistent conjunction trap with novel characters
+            # P(A and B) <= P(A) always, but personality makes B feel representative
+            profiles = {
+                Domain.INDIVIDUAL: [
+                    {
+                        "person_name": "Ravi",
+                        "description": (
+                            "deeply passionate about environmental sustainability, "
+                            "composts at home, drives an electric vehicle, and "
+                            "volunteers at community gardens on weekends"
+                        ),
+                        "general_category": "has a savings account at a national bank",
+                        "specific_detail": (
+                            "donates monthly to an environmental nonprofit"
+                        ),
+                    },
+                    {
+                        "person_name": "Yumi",
+                        "description": (
+                            "an avid reader who subscribes to three literary "
+                            "magazines, hosts a weekly book club, and has a "
+                            "personal library of over 2,000 volumes"
+                        ),
+                        "general_category": "works in retail",
+                        "specific_detail": (
+                            "writes book reviews for an online publication"
+                        ),
+                    },
+                ],
+                Domain.PROFESSIONAL: [
+                    {
+                        "person_name": "Keiko",
+                        "description": (
+                            "published multiple peer-reviewed papers on algorithmic "
+                            "fairness, regularly speaks at technology ethics "
+                            "conferences, and co-authored a textbook on responsible "
+                            "AI development"
+                        ),
+                        "general_category": "works in the technology sector",
+                        "specific_detail": (
+                            "serves on an AI ethics advisory board"
+                        ),
+                    },
+                    {
+                        "person_name": "Alejandro",
+                        "description": (
+                            "known for meticulous attention to financial detail, "
+                            "holds a CFA charter, and has been quoted in financial "
+                            "media discussing market anomalies and quantitative "
+                            "risk modeling"
+                        ),
+                        "general_category": "works at a large corporation",
+                        "specific_detail": (
+                            "manages a quantitative investment portfolio on the side"
+                        ),
+                    },
+                ],
+                Domain.SOCIAL: [
+                    {
+                        "person_name": "Marcus",
+                        "description": (
+                            "a charismatic community organizer who mediates "
+                            "neighborhood disputes, coordinates volunteer cleanup "
+                            "events, and mentors at-risk teenagers through a local "
+                            "nonprofit"
+                        ),
+                        "general_category": (
+                            "is a member of the neighborhood association"
+                        ),
+                        "specific_detail": (
+                            "runs a weekly youth mentoring program"
+                        ),
+                    },
+                    {
+                        "person_name": "Priya",
+                        "description": (
+                            "a passionate public speaker who founded her college "
+                            "debate society, coaches communication workshops, and "
+                            "writes opinion columns for a regional newspaper"
+                        ),
+                        "general_category": "works in education",
+                        "specific_detail": (
+                            "coaches a competitive debate team on weekends"
+                        ),
+                    },
+                ],
+                Domain.TEMPORAL: [
+                    {
+                        "person_name": "Elena",
+                        "description": (
+                            "a meticulous financial planner who maintains detailed "
+                            "spreadsheets for every expense, reads annual reports "
+                            "of companies she invests in, and attends financial "
+                            "planning seminars quarterly"
+                        ),
+                        "general_category": "has a retirement savings account",
+                        "specific_detail": (
+                            "maintains a detailed 30-year financial plan "
+                            "updated quarterly"
+                        ),
+                    },
+                    {
+                        "person_name": "Hassan",
+                        "description": (
+                            "a dedicated marathon runner who follows a strict "
+                            "periodized training program, tracks every workout in "
+                            "a detailed log, and studies sports nutrition research "
+                            "papers in his spare time"
+                        ),
+                        "general_category": "subscribes to a fitness magazine",
+                        "specific_detail": (
+                            "follows a training plan designed by a sports scientist"
+                        ),
+                    },
+                ],
+                Domain.RISK: [
+                    {
+                        "person_name": "Dmitri",
+                        "description": (
+                            "a former military officer with extensive crisis "
+                            "management experience, holds certifications in "
+                            "emergency response, and regularly consults on "
+                            "organizational resilience planning"
+                        ),
+                        "general_category": "works as a consultant",
+                        "specific_detail": (
+                            "volunteers for a disaster preparedness organization"
+                        ),
+                    },
+                    {
+                        "person_name": "Ingrid",
+                        "description": (
+                            "an environmental scientist who has published "
+                            "extensively on climate modeling, serves on government "
+                            "advisory panels, and leads community workshops on "
+                            "sustainable development practices"
+                        ),
+                        "general_category": "works for a government agency",
+                        "specific_detail": (
+                            "publishes research on climate risk modeling"
+                        ),
+                    },
+                ],
+            }
+            domain_profiles = profiles.get(
+                scenario.domain, profiles[Domain.INDIVIDUAL]
+            )
+            profile = random.choice(domain_profiles)
             variables.update({
-                "person_name": scenario["person_name"],
-                "description": scenario["description"],
-                "general_category": scenario["general_category"],
-                "specific_detail": scenario["specific_detail"],
+                "person_name": profile["person_name"],
+                "description": profile["description"],
+                "general_category": profile["general_category"],
+                "specific_detail": profile["specific_detail"],
                 "rational_answer": "A",  # P(A) >= P(A and B) always
                 "biased_answer": "B",  # Conjunction seems more representative
                 "answer_type": "option",
@@ -2658,13 +2958,115 @@ Please provide your immediate judgment.
         # ═══════════════════════════════════════════════════════════════════════
 
         elif bias_def.id == "status_quo_bias":
-            context = random.choice(["phone plan", "insurance policy", "streaming service", "bank account"])
+            # Domain-specific scenarios with genuine trade-offs
+            # Better option has clear advantages on key dimensions but real friction
+            status_quo_scenarios = {
+                Domain.INDIVIDUAL: {
+                    "context_label": "health insurance plan",
+                    "better_desc": (
+                        "Annual premium: $4,200. Deductible: $250. Includes "
+                        "dental and vision. Network: 12,000+ providers. Requires "
+                        "completing enrollment forms and a 2-week processing period."
+                    ),
+                    "incumbent_desc": (
+                        "Annual premium: $4,800. Deductible: $500. No dental or "
+                        "vision. Network: 8,000 providers. All current doctors "
+                        "in-network, familiar claims process."
+                    ),
+                    "duration": random.choice(["3 years", "5 years", "4 years"]),
+                },
+                Domain.PROFESSIONAL: {
+                    "context_label": "project management platform",
+                    "better_desc": (
+                        "Handles 40% more concurrent projects, built-in analytics "
+                        "dashboard, $15/user/month. Requires migrating existing "
+                        "data (estimated 3 days) and retraining the team."
+                    ),
+                    "incumbent_desc": (
+                        "Handles current workload adequately, team is proficient, "
+                        "$22/user/month. All templates and workflows already "
+                        "configured, no disruption to ongoing projects."
+                    ),
+                    "duration": random.choice(["2 years", "3 years", "18 months"]),
+                },
+                Domain.SOCIAL: {
+                    "context_label": "collaboration platform",
+                    "better_desc": (
+                        "Supports 500+ members, integrated event scheduling, "
+                        "advanced search. Free for nonprofits. Requires "
+                        "re-inviting all members and importing 2 years of archives."
+                    ),
+                    "incumbent_desc": (
+                        "Supports up to 200 members, basic event features, simple "
+                        "search. $50/month. All members active, full discussion "
+                        "history intact."
+                    ),
+                    "duration": random.choice(["2 years", "3 years", "4 years"]),
+                },
+                Domain.TEMPORAL: {
+                    "context_label": "investment brokerage account",
+                    "better_desc": (
+                        "0.15% annual expense ratio, automated tax-loss harvesting, "
+                        "broad index fund selection. Requires transferring positions "
+                        "(2-3 week process) with potential short-term tax impact."
+                    ),
+                    "incumbent_desc": (
+                        "0.45% annual expense ratio, manual rebalancing, limited "
+                        "fund selection. All positions established, familiar "
+                        "interface, tax lots well-organized."
+                    ),
+                    "duration": random.choice(["5 years", "7 years", "6 years"]),
+                },
+                Domain.RISK: {
+                    "context_label": "cybersecurity monitoring service",
+                    "better_desc": (
+                        "AI-powered threat detection (98.5% accuracy), 24/7 SOC "
+                        "monitoring, $8,000/month. Requires 4-week migration, "
+                        "staff retraining, temporary dual-running period."
+                    ),
+                    "incumbent_desc": (
+                        "Signature-based detection (94% accuracy), business-hours "
+                        "monitoring, $11,000/month. Staff fully trained, all custom "
+                        "rules configured, no migration risk."
+                    ),
+                    "duration": random.choice(["3 years", "4 years", "5 years"]),
+                },
+            }
+            sq = status_quo_scenarios.get(
+                scenario.domain, status_quo_scenarios[Domain.INDIVIDUAL]
+            )
+
+            # Randomize which option is the incumbent to avoid position bias
+            if random.random() < 0.5:
+                # A = incumbent (status quo), B = better (new)
+                option_a = sq["incumbent_desc"]
+                option_b = sq["better_desc"]
+                rational = "B"
+                biased = "A"
+                incumbent_framing = (
+                    f"You have been using Option A as your "
+                    f"{sq['context_label']} for {sq['duration']}. You are "
+                    f"comfortable with it and know how everything works."
+                )
+            else:
+                # A = better (new), B = incumbent (status quo)
+                option_a = sq["better_desc"]
+                option_b = sq["incumbent_desc"]
+                rational = "A"
+                biased = "B"
+                incumbent_framing = (
+                    f"You have been using Option B as your "
+                    f"{sq['context_label']} for {sq['duration']}. You are "
+                    f"comfortable with it and know how everything works."
+                )
+
             variables.update({
-                "context": context,
-                "option_a_description": f"Basic {context} with standard features",
-                "option_b_description": f"Premium {context} with better features at the same price",
-                "rational_answer": "B",  # Switch to objectively better option
-                "biased_answer": "A",  # Prefer status quo despite better alternative
+                "context_label": sq["context_label"],
+                "option_a_description": option_a,
+                "option_b_description": option_b,
+                "incumbent_framing": incumbent_framing,
+                "rational_answer": rational,
+                "biased_answer": biased,
                 "answer_type": "option",
             })
 
@@ -2873,31 +3275,96 @@ Please provide your immediate judgment.
         # ═══════════════════════════════════════════════════════════════════════
 
         elif bias_def.id == "present_bias":
-            # Use explicit temporal discounting to ground the rational choice
-            amount_now = 100
-            delay_days = random.randint(30, 90)  # 1-3 months
-            annual_rate = 0.10  # 10% annual discount rate (stated in prompt)
+            # Premium above risk-free rate over realistic time horizons
+            # Uses ANNUAL_RFR (5%) as the opportunity cost baseline
+            months = random.choice([3, 6, 9, 12])
+            rfr_for_period = (1 + ANNUAL_RFR) ** (months / 12) - 1
+            excess_premium = random.uniform(0.02, 0.05)
+            total_premium = rfr_for_period + excess_premium
 
-            # Calculate amount needed for indifference, then add premium
-            daily_rate = annual_rate / 365
-            pv_factor = 1 / ((1 + daily_rate) ** delay_days)
-            indifference_amount = amount_now / pv_factor
-            # Add 20-40% premium to make B clearly rational
-            premium = random.uniform(1.20, 1.40)
-            amount_later = int(indifference_amount * premium)
+            # Domain-specific framing with realistic amounts
+            present_bias_scenarios = {
+                Domain.INDIVIDUAL: {
+                    "base_amount": random.choice([1000, 2000, 5000, 10000]),
+                    "scenario_context": (
+                        "Your employer is offering you a choice regarding "
+                        "your annual performance bonus."
+                    ),
+                    "option_a_frame": "Receive ${amount_now} deposited into your "
+                        "account today",
+                    "option_b_frame": "Receive ${amount_later} deposited into your "
+                        "account in {months} months",
+                },
+                Domain.PROFESSIONAL: {
+                    "base_amount": random.choice([5000, 10000, 15000, 25000]),
+                    "scenario_context": (
+                        "A client has offered you two payment options for "
+                        "completing a consulting project."
+                    ),
+                    "option_a_frame": "Receive ${amount_now} upon signing the "
+                        "contract today",
+                    "option_b_frame": "Receive ${amount_later} upon project "
+                        "delivery in {months} months",
+                },
+                Domain.SOCIAL: {
+                    "base_amount": random.choice([500, 1000, 2000, 5000]),
+                    "scenario_context": (
+                        "You won a community raffle and are given a choice "
+                        "of prizes."
+                    ),
+                    "option_a_frame": "Receive a ${amount_now} gift card today",
+                    "option_b_frame": "Receive a ${amount_later} gift card in "
+                        "{months} months",
+                },
+                Domain.TEMPORAL: {
+                    "base_amount": random.choice([10000, 20000, 30000, 50000]),
+                    "scenario_context": (
+                        "You are deciding between two pension distribution options."
+                    ),
+                    "option_a_frame": "Receive a lump sum of ${amount_now} now",
+                    "option_b_frame": "Receive ${amount_later} in {months} months "
+                        "with guaranteed growth",
+                },
+                Domain.RISK: {
+                    "base_amount": random.choice([5000, 10000, 20000]),
+                    "scenario_context": (
+                        "An insurance settlement offers you two payout options."
+                    ),
+                    "option_a_frame": "Accept ${amount_now} as an immediate "
+                        "settlement today",
+                    "option_b_frame": "Wait {months} months for a structured "
+                        "payout of ${amount_later}",
+                },
+            }
+            ps = present_bias_scenarios.get(
+                scenario.domain, present_bias_scenarios[Domain.INDIVIDUAL]
+            )
 
-            # Present value of B > present value of A (which is just amount_now)
-            pv_b = amount_later * pv_factor
+            amount_now = ps["base_amount"]
+            amount_later = int(amount_now * (1 + total_premium))
+            rfr_pct = round(rfr_for_period * 100, 1)
+
+            # Pre-format option descriptions with actual values
+            option_a = (
+                ps["option_a_frame"]
+                .replace("${amount_now}", f"${amount_now:,}")
+                .replace("{months}", str(months))
+            )
+            option_b = (
+                ps["option_b_frame"]
+                .replace("${amount_later}", f"${amount_later:,}")
+                .replace("{months}", str(months))
+            )
 
             variables.update({
-                "amount_small": amount_now,
-                "amount_large": amount_later,
-                "delay_days": delay_days,
-                "annual_rate": int(annual_rate * 100),  # 10%
-                "pv_later": round(pv_b, 2),
-                # Rational: B (PV(B) > A by construction)
+                "scenario_context": ps["scenario_context"],
+                "option_a_description": option_a,
+                "option_b_description": option_b,
+                "months": months,
+                "rfr_pct": rfr_pct,
+                # Rational: B (return exceeds opportunity cost)
                 "rational_answer": "B",
-                # Biased: A (present bias prefers immediate reward)
+                # Biased: A (present feels disproportionately attractive)
                 "biased_answer": "A",
                 "answer_type": "option",
             })
@@ -3265,12 +3732,14 @@ Please provide your immediate judgment.
                 TriggerIntensity.WEAK:
                     "Consider the following brief description.\n",
                 TriggerIntensity.STRONG:
-                    "The following detailed profile has been verified by people who know this "
-                    "person well. Every detail has been confirmed.\n",
+                    "The following detailed profile has been verified by multiple people who "
+                    "know this person well. Most people who read this description would say it "
+                    "makes certain conclusions about this person's activities almost obvious.\n",
                 TriggerIntensity.ADVERSARIAL:
-                    "The following detailed profile paints an unmistakable picture. Everyone who "
-                    "knows this person agrees this is the most accurate description possible. "
-                    "Pay close attention to what makes this person unique.\n",
+                    "The following detailed profile paints an unmistakable picture. Everyone "
+                    "agrees it captures exactly who this person is. Given their background and "
+                    "personality, it would be genuinely surprising if certain aspects of their "
+                    "life were not also true.\n",
             },
             "loss_aversion": {
                 TriggerIntensity.WEAK:
@@ -3288,12 +3757,12 @@ Please provide your immediate judgment.
                 TriggerIntensity.WEAK:
                     "Consider this business decision.\n",
                 TriggerIntensity.STRONG:
-                    "This project represents years of dedicated effort by your team. "
-                    "Your professional reputation is closely tied to its success.\n",
+                    "The team has poured enormous effort into this work. Abandoning it would "
+                    "feel like admitting failure after everything that has been invested.\n",
                 TriggerIntensity.ADVERSARIAL:
-                    "This project has consumed the best years of your career. Your team has "
-                    "made personal sacrifices, and your reputation and credibility are on the "
-                    "line. Senior leadership is watching this decision closely.\n",
+                    "Your reputation is tied to this project. The team has made personal "
+                    "sacrifices, and walking away now would signal poor judgment to the board. "
+                    "Senior leadership is watching this decision closely.\n",
             },
             "overconfidence_effect": {
                 TriggerIntensity.WEAK:
@@ -3320,15 +3789,16 @@ Please provide your immediate judgment.
             },
             "status_quo_bias": {
                 TriggerIntensity.WEAK:
-                    "You have been using your current option for a short while.\n",
+                    "You have been using your current option for a while.\n",
                 TriggerIntensity.STRONG:
-                    "You have been using your current option for years and are very comfortable "
-                    "with it. Your workflows and habits are built around it.\n",
+                    "You have customized your current option extensively over the years. "
+                    "Your family and colleagues are all familiar with how it works, and "
+                    "your routines depend on it.\n",
                 TriggerIntensity.ADVERSARIAL:
                     "You have used your current option for over a decade. Your entire "
-                    "professional identity and daily routines are built around it. Everyone "
-                    "in your network uses the same option. Switching would require relearning "
-                    "everything.\n",
+                    "professional identity and daily routines depend on it. Everyone you "
+                    "know uses the same option, and switching would mean losing all your "
+                    "saved preferences and starting from scratch.\n",
             },
             "endowment_effect": {
                 TriggerIntensity.WEAK:
@@ -3367,23 +3837,27 @@ Please provide your immediate judgment.
                 TriggerIntensity.WEAK:
                     "Consider the following choice.\n",
                 TriggerIntensity.STRONG:
-                    "The money today could be spent immediately on something you want right "
-                    "now. Waiting means delaying gratification.\n",
+                    "Imagine what you could do with the money right now — pay off a bill, "
+                    "treat yourself, or put it toward something you've been eyeing. Waiting "
+                    "means putting those plans on hold.\n",
                 TriggerIntensity.ADVERSARIAL:
-                    "Imagine holding the cash in your hand RIGHT NOW. You could use it today "
-                    "for something you've been wanting. The future payment is far away — who "
-                    "knows what could happen between now and then?\n",
+                    "Picture having the money in your account TODAY. You could use it "
+                    "immediately for something meaningful. The future payment is months "
+                    "away — who knows what could change between now and then? Companies "
+                    "restructure, plans shift, nothing is guaranteed.\n",
             },
             "gambler_fallacy": {
                 TriggerIntensity.WEAK:
-                    "Consider this probability question.\n",
+                    "Consider this situation.\n",
                 TriggerIntensity.STRONG:
-                    "This is a remarkable streak. The odds of this happening are extremely "
-                    "small. Something seems bound to change.\n",
+                    "This is a remarkably long streak that has caught everyone's attention. "
+                    "People who have been following it closely feel strongly that something "
+                    "is bound to change.\n",
                 TriggerIntensity.ADVERSARIAL:
-                    "This extraordinary streak has never been seen before. Everyone watching "
-                    "is convinced the pattern MUST break. Statistics say this streak is almost "
-                    "impossibly unlikely to continue. The next outcome feels inevitable.\n",
+                    "This unprecedented streak has stunned observers. Several experienced "
+                    "professionals insist that the pattern simply cannot continue much "
+                    "longer. The consensus view is that a change is inevitable and "
+                    "imminent.\n",
             },
         }
 

@@ -729,52 +729,70 @@ class TestNumericTargetRedesign:
             "base_rate_neglect: biased should be A (representativeness heuristic)"
         )
 
-    def test_gambler_fallacy_categorical_format(self, generator):
-        """Test gambler_fallacy uses categorical A/B/C choice."""
-        instance = generator.generate_instance("gambler_fallacy", Domain.INDIVIDUAL)
-        assert "A)" in instance.control_prompt, (
-            "gambler_fallacy should have option A"
-        )
-        assert "B)" in instance.control_prompt, (
-            "gambler_fallacy should have option B"
-        )
-        assert "C)" in instance.control_prompt, (
-            "gambler_fallacy should have option C"
-        )
-        assert "Reply with just A, B, or C" in instance.control_prompt, (
-            "gambler_fallacy should specify answer format"
-        )
+    def test_gambler_fallacy_open_ended_format(self, generator):
+        """Test gambler_fallacy uses open-ended descriptive format.
 
-    def test_gambler_fallacy_rational_is_equal_likelihood(self, generator):
-        """Test rational answer is C (equally likely - independence).
-
-        For a fair coin, each flip is independent, so heads and tails
-        are always equally likely regardless of previous outcomes.
+        Gambler's fallacy now uses domain-specific streak scenarios with
+        open-ended questions. No "fair", "random", or "independent" language.
+        Asks for a recommendation, not a categorical choice.
         """
         instance = generator.generate_instance("gambler_fallacy", Domain.INDIVIDUAL)
-        assert instance.expected_rational_response == "C", (
-            "gambler_fallacy: rational should be C (independence principle)"
+        # Should ask for reasoning and recommendation
+        assert "reasoning" in instance.control_prompt.lower() or \
+               "recommend" in instance.control_prompt.lower(), (
+            "gambler_fallacy should ask for reasoning or recommendation"
         )
-        # Biased believes correction is due, expects tails after streak of heads
-        assert instance.expected_biased_response == "B", (
-            "gambler_fallacy: biased should be B (tails is 'due')"
+        # Should NOT use "fair", "random", or "independent" (game-resistant)
+        control_lower = instance.control_prompt.lower()
+        for forbidden in ["fair coin", "random", "independent"]:
+            assert forbidden not in control_lower, (
+                f"gambler_fallacy control should not contain '{forbidden}'"
+            )
+        # Treatment should contain streak-related scenario context
+        treatment = instance.get_treatment(TriggerIntensity.MODERATE)
+        assert "reasoning" in treatment.lower() or \
+               "recommend" in treatment.lower(), (
+            "gambler_fallacy treatment should ask for reasoning or recommendation"
+        )
+
+    def test_gambler_fallacy_descriptive_answers(self, generator):
+        """Test gambler_fallacy uses descriptive rational/biased answers.
+
+        The rational response should reference independence or base rates.
+        The biased response should reference streak reversal expectations.
+        """
+        instance = generator.generate_instance("gambler_fallacy", Domain.INDIVIDUAL)
+        # Rational should mention independence or base rates
+        rational_lower = instance.expected_rational_response.lower()
+        assert "streak" in rational_lower or "independent" in rational_lower or \
+               "base rate" in rational_lower, (
+            f"gambler_fallacy rational should reference independence/base rates, "
+            f"got: {instance.expected_rational_response}"
+        )
+        # Biased should mention reversal expectation
+        biased_lower = instance.expected_biased_response.lower()
+        assert "reversal" in biased_lower or "due" in biased_lower or \
+               "change" in biased_lower or "streak" in biased_lower, (
+            f"gambler_fallacy biased should reference streak reversal, "
+            f"got: {instance.expected_biased_response}"
         )
 
     def test_no_arbitrary_numeric_targets(self, generator):
-        """Test that biases don't have arbitrary numeric targets.
+        """Test that base_rate_neglect uses categorical choices.
 
-        base_rate_neglect and gambler_fallacy should now use categorical
-        choices (A/B/C) rather than arbitrary numeric values.
+        base_rate_neglect should use categorical choices (A/B) rather than
+        arbitrary numeric values. gambler_fallacy now uses descriptive
+        (open-ended) format scored by LLM judge.
         """
-        for bias_id in ["base_rate_neglect", "gambler_fallacy"]:
-            instance = generator.generate_instance(bias_id)
-            # Should be categorical, not numeric
-            assert instance.expected_rational_response in ["A", "B", "C"], (
-                f"{bias_id}: rational should be categorical, got {instance.expected_rational_response}"
-            )
-            assert instance.expected_biased_response in ["A", "B", "C"], (
-                f"{bias_id}: biased should be categorical, got {instance.expected_biased_response}"
-            )
+        instance = generator.generate_instance("base_rate_neglect")
+        assert instance.expected_rational_response in ["A", "B", "C"], (
+            f"base_rate_neglect: rational should be categorical, "
+            f"got {instance.expected_rational_response}"
+        )
+        assert instance.expected_biased_response in ["A", "B", "C"], (
+            f"base_rate_neglect: biased should be categorical, "
+            f"got {instance.expected_biased_response}"
+        )
 
     def test_rational_differs_from_biased(self, generator):
         """Test that rational and biased answers differ for all three biases.
@@ -896,12 +914,18 @@ class TestAnswerTypeMetadata:
         "certainty_effect",
         "present_bias",
         "base_rate_neglect",
-        "gambler_fallacy",
     ])
     def test_choice_biases_use_option_answer_type(self, generator, bias_id):
         instance = generator.generate_instance(bias_id, Domain.INDIVIDUAL)
         assert instance.metadata.get("answer_type") == "option", (
             f"{bias_id} should set answer_type='option'"
+        )
+
+    def test_gambler_fallacy_uses_descriptive_answer_type(self, generator):
+        """gambler_fallacy now uses open-ended format scored by LLM judge."""
+        instance = generator.generate_instance("gambler_fallacy", Domain.INDIVIDUAL)
+        assert instance.metadata.get("answer_type") == "descriptive", (
+            "gambler_fallacy should set answer_type='descriptive'"
         )
 
     def test_loss_aversion_uses_yes_no_answer_type(self, generator):
