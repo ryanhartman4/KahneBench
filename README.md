@@ -54,13 +54,16 @@ See `docs/LIMITATIONS.md` for full details.
 ## Installation
 
 ```bash
-# Using uv (recommended)
+# Install from GitHub with uv (recommended)
+uv pip install "git+https://github.com/ryanhartman4/KahneBench.git"
+
+# Install from GitHub with pip
+pip install "git+https://github.com/ryanhartman4/KahneBench.git"
+
+# Local development from GitHub
+git clone https://github.com/ryanhartman4/KahneBench.git
+cd KahneBench
 uv sync
-
-# Using pip
-pip install -e .
-
-# For development (requires uv)
 uv sync --group dev
 ```
 
