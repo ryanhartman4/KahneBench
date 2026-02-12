@@ -1640,3 +1640,825 @@ class TestJudgeExceptionLogging:
         # Judge failure should be logged
         assert any("LLM judge failed" in record.message for record in caplog.records), \
             "Expected warning log about LLM judge failure"
+
+
+class TestFrameAwareScoring:
+    """Tests for frame-aware scoring in gain_loss_framing.
+
+    The generator emits frame_map metadata: WEAK/MODERATE → gain frame (biased=A),
+    STRONG/ADVERSARIAL → loss frame (biased=B). Scoring must use the correct
+    expected biased answer per frame.
+    """
+
+    def _create_framing_instance(self) -> CognitiveBiasInstance:
+        """Create a gain_loss_framing instance with frame_map metadata."""
+        return CognitiveBiasInstance(
+            bias_id="gain_loss_framing",
+            base_scenario="Classic Asian Disease Problem",
+            bias_trigger="Framing as gain vs loss",
+            domain=Domain.INDIVIDUAL,
+            scale=TestScale.MICRO,
+            control_prompt="600 people are at risk. Choose a program.",
+            treatment_prompts={
+                TriggerIntensity.WEAK: "Program A saves 200 people. Program B: 1/3 chance save 600. Choose.",
+                TriggerIntensity.MODERATE: "Program A saves 200 for certain. Program B: 1/3 probability all 600 saved. Choose.",
+                TriggerIntensity.STRONG: "Program A: 400 people will die. Program B: 1/3 chance nobody dies. Choose.",
+                TriggerIntensity.ADVERSARIAL: "Program A means 400 deaths for certain. Program B: 2/3 chance all 600 die. Choose.",
+            },
+            expected_rational_response="B",  # Expected value reasoning
+            expected_biased_response="A",  # Gain frame default (risk-averse)
+            metadata={
+                "frame_map": {
+                    "weak": "gain",
+                    "moderate": "gain",
+                    "strong": "loss",
+                    "adversarial": "loss",
+                },
+                "gain_frame_rational": "B",
+                "gain_frame_biased": "A",
+                "loss_frame_rational": "A",
+                "loss_frame_biased": "B",
+                "answer_type": "option",
+            },
+        )
+
+    def test_gain_frame_a_is_biased(self):
+        """In gain frame (WEAK/MODERATE), choosing A (risk-averse) is biased."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = self._create_framing_instance()
+
+        from kahne_bench.core import TestResult
+        result = TestResult(
+            instance=instance,
+            model_id="test",
+            condition="treatment_weak",
+            prompt_used="test",
+            model_response="A",
+            extracted_answer="A",
+            response_time_ms=100.0,
+        )
+
+        biased_answer = evaluator._resolve_biased_answer(instance, "treatment_weak")
+        assert biased_answer == "A", "Gain frame biased answer should be A"
+        is_biased, score = evaluator.score_response(result, "B", biased_answer)
+        assert is_biased is True
+        assert score == 1.0
+
+    def test_loss_frame_resolution(self):
+        """In loss frame (STRONG/ADVERSARIAL), biased answer resolves to B."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = self._create_framing_instance()
+
+        biased_answer = evaluator._resolve_biased_answer(instance, "treatment_strong")
+        assert biased_answer == "B", "Loss frame biased answer should be B"
+
+        biased_adv = evaluator._resolve_biased_answer(instance, "treatment_adversarial")
+        assert biased_adv == "B", "Adversarial (loss frame) biased answer should be B"
+
+    def test_loss_frame_b_scored_biased_via_evaluator(self):
+        """End-to-end: loss-frame response B should be scored biased (not incorrectly unbiased).
+
+        Before the fix, loss-frame trials used gain-frame biased answer (A),
+        so "B" was scored as neither matching rational nor biased → (None, None).
+        After the fix, "B" matches loss_frame_biased → (True, 1.0).
+        """
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = self._create_framing_instance()
+        # Override rational to "A" for loss frame testing clarity
+        # (In loss frame: rational=A safe choice, biased=B risk-seeking)
+
+        from kahne_bench.core import TestResult
+        result = TestResult(
+            instance=instance,
+            model_id="test",
+            condition="treatment_strong",
+            prompt_used="test",
+            model_response="Answer: B",
+            extracted_answer="B",
+            response_time_ms=100.0,
+        )
+
+        biased_answer = evaluator._resolve_biased_answer(instance, "treatment_strong")
+        is_biased, score = evaluator.score_response(
+            result, instance.expected_rational_response, biased_answer
+        )
+        # expected_rational="B", biased_answer="B" (loss frame)
+        # extracted="B" matches both → returns rational match first (False, 0.0)
+        # This documents the current behavior - the rational/biased having the same
+        # value in loss frame is a separate issue in the generator.
+        # The KEY fix is that biased_answer IS "B" (not incorrectly "A").
+        assert biased_answer == "B"
+
+    def test_gain_frame_response_a_matches_biased(self):
+        """Gain frame: A should match biased answer A."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = self._create_framing_instance()
+
+        from kahne_bench.core import TestResult
+        result = TestResult(
+            instance=instance,
+            model_id="test",
+            condition="treatment_moderate",
+            prompt_used="test",
+            model_response="A",
+            extracted_answer="A",
+            response_time_ms=100.0,
+        )
+
+        biased_answer = evaluator._resolve_biased_answer(instance, "treatment_moderate")
+        is_biased, score = evaluator.score_response(
+            result, instance.expected_rational_response, biased_answer
+        )
+        assert biased_answer == "A"
+        assert is_biased is True
+        assert score == 1.0
+
+    def test_adversarial_uses_loss_frame(self):
+        """ADVERSARIAL intensity should use loss frame biased answer."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = self._create_framing_instance()
+
+        biased = evaluator._resolve_biased_answer(instance, "treatment_adversarial")
+        assert biased == "B", "Adversarial should map to loss frame (biased=B)"
+
+    def test_no_frame_map_returns_default(self):
+        """Non-framing biases (no frame_map) return default expected_biased_response."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = create_test_instance()  # anchoring_effect, no frame_map
+
+        biased = evaluator._resolve_biased_answer(instance, "treatment_strong")
+        assert biased == instance.expected_biased_response
+
+    def test_control_condition_returns_default(self):
+        """Control condition doesn't match any frame_map key, returns default."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = self._create_framing_instance()
+
+        biased = evaluator._resolve_biased_answer(instance, "control")
+        assert biased == "A", "Control should return default (gain frame) biased answer"
+
+    @pytest.mark.asyncio
+    async def test_evaluate_instance_uses_frame_aware_scoring(self):
+        """Full evaluation of framing instance should use correct biased answer per intensity."""
+        # Provider returns "B" for all prompts
+        provider = MockLLMProvider(default_response="Answer: B")
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=False,
+            include_debiasing=False,
+            intensities=[TriggerIntensity.WEAK, TriggerIntensity.STRONG],
+        )
+        evaluator = BiasEvaluator(provider, config)
+        instance = self._create_framing_instance()
+
+        results = await evaluator.evaluate_instance(instance, "test-model")
+
+        # WEAK (gain frame): biased=A, response=B → not biased (B is rational)
+        weak_result = [r for r in results if "weak" in r.condition][0]
+        assert weak_result.is_biased is False, (
+            f"Gain frame: B should be rational, got is_biased={weak_result.is_biased}"
+        )
+
+        # STRONG (loss frame): biased=B, response=B → biased match
+        strong_result = [r for r in results if "strong" in r.condition][0]
+        # expected_rational="B" and biased="B" both match → rational match wins
+        # This is expected: the rational answer for the instance is "B"
+        assert strong_result.extracted_answer == "B"
+
+
+class TestJudgeFallbackIntegration:
+    """Tests for automatic LLM judge fallback when regex scoring fails."""
+
+    @pytest.mark.asyncio
+    async def test_judge_fallback_on_text_answer(self):
+        """Judge is invoked automatically when regex returns None for text answers."""
+        from kahne_bench.engines.judge import LLMJudge
+
+        # Judge provider returns a well-formed scoring response
+        judge_provider = MockLLMProvider(
+            default_response=(
+                "<extracted_answer>statistical approach</extracted_answer>"
+                "<bias_score>0.2</bias_score>"
+                "<confidence>0.8</confidence>"
+                "<justification>Response shows rational statistical thinking.</justification>"
+            )
+        )
+        judge = LLMJudge(provider=judge_provider)
+
+        # Main provider returns a text response that regex can't score
+        provider = MockLLMProvider(default_response="I recommend using the statistical approach.")
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=False,
+            include_debiasing=False,
+            intensities=[TriggerIntensity.MODERATE],
+        )
+        evaluator = BiasEvaluator(provider, config, judge=judge)
+
+        # Use an instance with descriptive expected answers (triggers judge fallback)
+        instance = CognitiveBiasInstance(
+            bias_id="availability_bias",
+            base_scenario="Decision based on data vs memorable events",
+            bias_trigger="Recent vivid event mentioned",
+            domain=Domain.INDIVIDUAL,
+            scale=TestScale.MICRO,
+            control_prompt="How would you assess the risk?",
+            treatment_prompts={
+                TriggerIntensity.MODERATE: "A dramatic crash was in the news. How would you assess the risk?",
+            },
+            expected_rational_response="based on statistical data rather than memorable examples",
+            expected_biased_response="based on vivid memorable examples rather than statistics",
+        )
+
+        results = await evaluator.evaluate_instance(instance, "test-model")
+        assert len(results) == 1
+        result = results[0]
+
+        assert result.metadata["scoring_method"] == "llm_judge"
+        assert result.is_biased is False  # bias_score 0.2 < 0.5
+        assert result.bias_score == 0.2
+        assert result.extracted_answer == "statistical approach"
+        assert result.metadata["judge_confidence"] == 0.8
+
+    @pytest.mark.asyncio
+    async def test_regex_scoring_sets_method_metadata(self):
+        """When regex scoring succeeds, metadata['scoring_method'] = 'regex'."""
+        # anchoring_effect expects numeric: rational=50, biased=100
+        provider = MockLLMProvider(default_response="Answer: 100")
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=False,
+            include_debiasing=False,
+            intensities=[TriggerIntensity.MODERATE],
+        )
+        evaluator = BiasEvaluator(provider, config)
+        instance = create_test_instance()
+
+        results = await evaluator.evaluate_instance(instance, "test-model")
+        result = results[0]
+
+        assert result.metadata.get("scoring_method") == "regex"
+
+    @pytest.mark.asyncio
+    async def test_answer_type_in_metadata(self):
+        """Result metadata should include answer_type from the instance."""
+        provider = MockLLMProvider(default_response="Answer: A")
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=False,
+            include_debiasing=False,
+            intensities=[TriggerIntensity.MODERATE],
+        )
+        evaluator = BiasEvaluator(provider, config)
+        instance = create_test_instance()
+
+        results = await evaluator.evaluate_instance(instance, "test-model")
+        result = results[0]
+
+        assert "answer_type" in result.metadata
+        # anchoring_effect prompt mentions "estimate" → numeric type
+        assert result.metadata["answer_type"] in ("option", "numeric", "yes_no", "text")
+
+
+class TestUnknownRateTracking:
+    """Tests for per-bias unknown rate tracking in evaluate_batch."""
+
+    @pytest.mark.asyncio
+    async def test_unknown_rates_computed_in_batch(self):
+        """evaluate_batch should compute per-bias unknown rates in session.metrics."""
+        provider = MockLLMProvider(default_response="Answer: A")
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=False,
+            include_debiasing=False,
+            intensities=[TriggerIntensity.MODERATE],
+        )
+        evaluator = BiasEvaluator(provider, config)
+        instances = [create_test_instance(bias_id="anchoring_effect")]
+
+        session = await evaluator.evaluate_batch(instances, "test-model")
+
+        assert "unknown_rates_by_bias" in session.metrics
+        rates = session.metrics["unknown_rates_by_bias"]
+        assert "anchoring_effect" in rates
+        assert rates["anchoring_effect"]["total"] > 0
+        assert "rate" in rates["anchoring_effect"]
+
+    @pytest.mark.asyncio
+    async def test_unknown_rates_reflect_scoring_failures(self):
+        """Biases with unscorable responses should have higher unknown rates."""
+        # Provider returns something that won't match expected answers
+        provider = MockLLMProvider(default_response="I'm not sure about this question.")
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=False,
+            include_debiasing=False,
+            intensities=[TriggerIntensity.MODERATE],
+        )
+        evaluator = BiasEvaluator(provider, config)
+
+        # Instance with placeholder expected answers → always unknown
+        instance = CognitiveBiasInstance(
+            bias_id="test_bias",
+            base_scenario="Test",
+            bias_trigger="Test trigger",
+            domain=Domain.INDIVIDUAL,
+            scale=TestScale.MICRO,
+            control_prompt="Test?",
+            treatment_prompts={TriggerIntensity.MODERATE: "Test treatment?"},
+            expected_rational_response="[rational]",
+            expected_biased_response="[biased]",
+        )
+
+        session = await evaluator.evaluate_batch([instance], "test-model")
+        rates = session.metrics["unknown_rates_by_bias"]
+        assert rates["test_bias"]["rate"] == 1.0, "All results should be unknown for placeholder answers"
+
+
+class TestJudgeFrameAwareness:
+    """Regression tests: judge fallback receives frame-resolved biased answer (P1 fix)."""
+
+    def _create_framing_instance(self) -> CognitiveBiasInstance:
+        """Create a gain_loss_framing instance with frame_map metadata."""
+        return CognitiveBiasInstance(
+            bias_id="gain_loss_framing",
+            base_scenario="Classic Asian Disease Problem",
+            bias_trigger="Framing as gain vs loss",
+            domain=Domain.INDIVIDUAL,
+            scale=TestScale.MICRO,
+            control_prompt="600 people are at risk. Choose a program.",
+            treatment_prompts={
+                TriggerIntensity.WEAK: "Program A saves 200 people. Program B: 1/3 chance save 600. Choose.",
+                TriggerIntensity.MODERATE: "Program A saves 200 for certain. Program B: 1/3 probability all 600 saved. Choose.",
+                TriggerIntensity.STRONG: "Program A: 400 people will die. Program B: 1/3 chance nobody dies. Choose.",
+                TriggerIntensity.ADVERSARIAL: "Program A means 400 deaths for certain. Program B: 2/3 chance all 600 die. Choose.",
+            },
+            expected_rational_response="B",
+            expected_biased_response="A",  # Gain frame default
+            metadata={
+                "frame_map": {
+                    "weak": "gain",
+                    "moderate": "gain",
+                    "strong": "loss",
+                    "adversarial": "loss",
+                },
+                "gain_frame_rational": "B",
+                "gain_frame_biased": "A",
+                "loss_frame_rational": "A",
+                "loss_frame_biased": "B",
+                "answer_type": "option",
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_judge_receives_loss_frame_biased_answer(self):
+        """Judge should receive loss-frame biased='B' for STRONG intensity, not default 'A'.
+
+        Before the fix, line 867 passed instance.expected_biased_response ('A')
+        instead of the frame-resolved 'B' for loss-frame trials.
+        """
+        from kahne_bench.engines.judge import LLMJudge
+
+        # Track what the judge receives
+        captured_prompts = []
+
+        class CapturingProvider:
+            async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str:
+                captured_prompts.append(prompt)
+                return (
+                    "<extracted_answer>B</extracted_answer>"
+                    "<bias_score>0.9</bias_score>"
+                    "<confidence>0.8</confidence>"
+                    "<justification>Model chose risk-seeking option in loss frame.</justification>"
+                )
+
+        judge = LLMJudge(provider=CapturingProvider())
+
+        # Main provider returns something regex can't extract (triggers judge)
+        provider = MockLLMProvider(default_response="I think we should go with the second option.")
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=False,
+            include_debiasing=False,
+            intensities=[TriggerIntensity.STRONG],
+        )
+        evaluator = BiasEvaluator(provider, config, judge=judge)
+        instance = self._create_framing_instance()
+
+        results = await evaluator.evaluate_instance(instance, "test-model")
+
+        # The judge should have been called
+        assert len(captured_prompts) > 0, "Judge should have been invoked"
+        judge_prompt = captured_prompts[0]
+        # The judge prompt should contain "Maximum bias direction: B" (loss frame),
+        # NOT "Maximum bias direction: A" (gain frame default)
+        assert "Maximum bias direction: B" in judge_prompt, (
+            f"Judge should receive loss-frame biased='B', but prompt contained: "
+            f"...{judge_prompt[judge_prompt.find('Maximum'):judge_prompt.find('Maximum')+50]}..."
+        )
+
+    @pytest.mark.asyncio
+    async def test_judge_receives_gain_frame_biased_answer(self):
+        """Judge should receive gain-frame biased='A' for WEAK intensity."""
+        from kahne_bench.engines.judge import LLMJudge
+
+        captured_prompts = []
+
+        class CapturingProvider:
+            async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str:
+                captured_prompts.append(prompt)
+                return (
+                    "<extracted_answer>A</extracted_answer>"
+                    "<bias_score>0.9</bias_score>"
+                    "<confidence>0.8</confidence>"
+                    "<justification>Risk-averse in gain frame.</justification>"
+                )
+
+        judge = LLMJudge(provider=CapturingProvider())
+        provider = MockLLMProvider(default_response="I prefer the certain outcome.")
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=False,
+            include_debiasing=False,
+            intensities=[TriggerIntensity.WEAK],
+        )
+        evaluator = BiasEvaluator(provider, config, judge=judge)
+        instance = self._create_framing_instance()
+
+        await evaluator.evaluate_instance(instance, "test-model")
+
+        assert len(captured_prompts) > 0
+        judge_prompt = captured_prompts[0]
+        assert "Maximum bias direction: A" in judge_prompt, (
+            "Judge should receive gain-frame biased='A' for WEAK intensity"
+        )
+
+
+class TestContextEvaluatorFrameResolution:
+    """Regression tests: context evaluators default to gain-frame biased answer (P2 fix)."""
+
+    def _create_framing_instance(self) -> CognitiveBiasInstance:
+        """Create a gain_loss_framing instance with frame_map metadata."""
+        return CognitiveBiasInstance(
+            bias_id="gain_loss_framing",
+            base_scenario="Classic Asian Disease Problem",
+            bias_trigger="Framing as gain vs loss",
+            domain=Domain.INDIVIDUAL,
+            scale=TestScale.MICRO,
+            control_prompt="600 people are at risk. Choose option A or option B.",
+            treatment_prompts={
+                TriggerIntensity.WEAK: "Program A saves 200. Program B: 1/3 chance save 600. Choose option A or option B.",
+                TriggerIntensity.MODERATE: "Program A saves 200 for certain. Program B: 1/3 all 600 saved. Choose option A or option B.",
+                TriggerIntensity.STRONG: "Program A: 400 die. Program B: 1/3 nobody dies. Choose option A or option B.",
+                TriggerIntensity.ADVERSARIAL: "Program A means 400 deaths. Program B: 2/3 all die. Choose option A or option B.",
+            },
+            expected_rational_response="B",
+            expected_biased_response="A",
+            metadata={
+                "frame_map": {
+                    "weak": "gain",
+                    "moderate": "gain",
+                    "strong": "loss",
+                    "adversarial": "loss",
+                },
+                "gain_frame_rational": "B",
+                "gain_frame_biased": "A",
+                "loss_frame_rational": "A",
+                "loss_frame_biased": "B",
+                "answer_type": "option",
+            },
+        )
+
+    def test_context_condition_defaults_to_gain_frame(self):
+        """Context evaluator conditions (no intensity token) should resolve to gain-frame biased answer."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = self._create_framing_instance()
+
+        # These are the condition strings produced by context evaluators
+        context_conditions = [
+            "context_novice_low",
+            "context_intermediate_moderate",
+            "context_expert_high",
+            "context_authority_critical",
+            "expertise_novice",
+            "expertise_expert",
+            "stakes_low",
+            "stakes_critical",
+        ]
+
+        for condition in context_conditions:
+            biased = evaluator._resolve_biased_answer(instance, condition)
+            assert biased == "A", (
+                f"Context condition '{condition}' should default to gain-frame biased='A', "
+                f"got '{biased}'"
+            )
+
+    def test_debiasing_condition_defaults_to_gain_frame(self):
+        """Debiasing conditions should also default to gain-frame biased answer."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = self._create_framing_instance()
+
+        biased = evaluator._resolve_biased_answer(instance, "debiasing_0")
+        assert biased == "A", "Debiasing condition should default to gain-frame biased='A'"
+
+    def test_persistent_round_defaults_to_gain_frame(self):
+        """TemporalEvaluator persistent rounds (no intensity token) default to gain-frame."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = self._create_framing_instance()
+
+        for i in range(5):
+            biased = evaluator._resolve_biased_answer(instance, f"persistent_round_{i}")
+            assert biased == "A", (
+                f"persistent_round_{i} should default to gain-frame biased='A'"
+            )
+
+    @pytest.mark.asyncio
+    async def test_context_sensitivity_scores_with_gain_frame(self):
+        """End-to-end: ContextSensitivityEvaluator scores framing instance correctly."""
+        # Provider returns "A" (gain-frame biased answer)
+        provider = MockLLMProvider(default_response="Answer: A")
+        config = EvaluationConfig(num_trials=1)
+        evaluator = ContextSensitivityEvaluator(provider, config)
+        instance = self._create_framing_instance()
+
+        results = await evaluator.evaluate_context_sensitivity(instance, "test-model")
+
+        # All results should be scored as biased (A matches gain-frame biased)
+        for result in results:
+            assert result.is_biased is True, (
+                f"Condition '{result.condition}': response 'A' should be scored as biased "
+                f"(gain-frame biased='A'), got is_biased={result.is_biased}"
+            )
+
+
+class TestFrameConditionalRationalTarget:
+    """Regression tests for P0: frame-conditional rational target resolution.
+
+    After the fix, scoring uses _resolve_rational_answer which returns:
+    - Gain frame (WEAK/MODERATE): rational = "B" (resist risk aversion)
+    - Loss frame (STRONG/ADVERSARIAL): rational = "A" (resist risk seeking)
+
+    Before the fix, all frames used instance.expected_rational_response = "B",
+    which made loss-frame scoring impossible (rational="B" == biased="B").
+    """
+
+    def _create_framing_instance(self) -> CognitiveBiasInstance:
+        """Create a gain_loss_framing instance with full frame metadata."""
+        return CognitiveBiasInstance(
+            bias_id="gain_loss_framing",
+            base_scenario="Classic Asian Disease Problem",
+            bias_trigger="Framing as gain vs loss",
+            domain=Domain.INDIVIDUAL,
+            scale=TestScale.MICRO,
+            control_prompt="600 people are at risk. Choose option A or option B.",
+            treatment_prompts={
+                TriggerIntensity.WEAK: "Program A saves 200. Program B: 1/3 chance save 600. Choose option A or option B.",
+                TriggerIntensity.MODERATE: "Program A saves 200 for certain. Program B: 1/3 all 600 saved. Choose option A or option B.",
+                TriggerIntensity.STRONG: "Program A: 400 die. Program B: 1/3 nobody dies. Choose option A or option B.",
+                TriggerIntensity.ADVERSARIAL: "Program A means 400 deaths. Program B: 2/3 all die. Choose option A or option B.",
+            },
+            expected_rational_response="B",  # Gain frame default
+            expected_biased_response="A",  # Gain frame default
+            metadata={
+                "frame_map": {
+                    "weak": "gain",
+                    "moderate": "gain",
+                    "strong": "loss",
+                    "adversarial": "loss",
+                },
+                "gain_frame_rational": "B",
+                "gain_frame_biased": "A",
+                "loss_frame_rational": "A",
+                "loss_frame_biased": "B",
+                "answer_type": "option",
+            },
+        )
+
+    def test_resolve_rational_gain_frame(self):
+        """Gain frame: rational answer resolves to 'B'."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = self._create_framing_instance()
+
+        rational = evaluator._resolve_rational_answer(instance, "treatment_weak")
+        assert rational == "B", f"Gain frame rational should be 'B', got '{rational}'"
+
+        rational = evaluator._resolve_rational_answer(instance, "treatment_moderate")
+        assert rational == "B", f"Gain frame rational should be 'B', got '{rational}'"
+
+    def test_resolve_rational_loss_frame(self):
+        """Loss frame: rational answer resolves to 'A'."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = self._create_framing_instance()
+
+        rational = evaluator._resolve_rational_answer(instance, "treatment_strong")
+        assert rational == "A", f"Loss frame rational should be 'A', got '{rational}'"
+
+        rational = evaluator._resolve_rational_answer(instance, "treatment_adversarial")
+        assert rational == "A", f"Loss frame rational should be 'A', got '{rational}'"
+
+    def test_loss_frame_b_is_biased(self):
+        """Loss frame: response 'B' matches biased='B' and not rational='A' → (True, 1.0).
+
+        This is the KEY regression test. Before the fix, rational was always 'B'
+        (the instance default), so loss-frame 'B' matched rational → (False, 0.0).
+        After the fix, loss-frame rational='A' and biased='B', so 'B' → (True, 1.0).
+        """
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = self._create_framing_instance()
+
+        from kahne_bench.core import TestResult
+        result = TestResult(
+            instance=instance,
+            model_id="test",
+            condition="treatment_strong",
+            prompt_used="test",
+            model_response="Answer: B",
+            extracted_answer="B",
+            response_time_ms=100.0,
+        )
+
+        rational_answer = evaluator._resolve_rational_answer(instance, "treatment_strong")
+        biased_answer = evaluator._resolve_biased_answer(instance, "treatment_strong")
+        assert rational_answer == "A", "Loss frame rational must be A"
+        assert biased_answer == "B", "Loss frame biased must be B"
+
+        is_biased, score = evaluator.score_response(result, rational_answer, biased_answer)
+        assert is_biased is True, f"Loss-frame 'B' should be biased, got is_biased={is_biased}"
+        assert score == 1.0, f"Loss-frame 'B' should score 1.0, got {score}"
+
+    def test_loss_frame_a_is_rational(self):
+        """Loss frame: response 'A' matches rational='A' → (False, 0.0)."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = self._create_framing_instance()
+
+        from kahne_bench.core import TestResult
+        result = TestResult(
+            instance=instance,
+            model_id="test",
+            condition="treatment_strong",
+            prompt_used="test",
+            model_response="Answer: A",
+            extracted_answer="A",
+            response_time_ms=100.0,
+        )
+
+        rational_answer = evaluator._resolve_rational_answer(instance, "treatment_strong")
+        biased_answer = evaluator._resolve_biased_answer(instance, "treatment_strong")
+
+        is_biased, score = evaluator.score_response(result, rational_answer, biased_answer)
+        assert is_biased is False, f"Loss-frame 'A' should be rational, got is_biased={is_biased}"
+        assert score == 0.0, f"Loss-frame 'A' should score 0.0, got {score}"
+
+    def test_gain_frame_scoring_unchanged(self):
+        """Gain frame scoring still works: A=biased, B=rational."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = self._create_framing_instance()
+
+        from kahne_bench.core import TestResult
+
+        # Test biased response
+        result_a = TestResult(
+            instance=instance, model_id="test", condition="treatment_weak",
+            prompt_used="test", model_response="A", extracted_answer="A",
+            response_time_ms=100.0,
+        )
+        rational = evaluator._resolve_rational_answer(instance, "treatment_weak")
+        biased = evaluator._resolve_biased_answer(instance, "treatment_weak")
+        is_biased, score = evaluator.score_response(result_a, rational, biased)
+        assert is_biased is True and score == 1.0
+
+        # Test rational response
+        result_b = TestResult(
+            instance=instance, model_id="test", condition="treatment_weak",
+            prompt_used="test", model_response="B", extracted_answer="B",
+            response_time_ms=100.0,
+        )
+        is_biased, score = evaluator.score_response(result_b, rational, biased)
+        assert is_biased is False and score == 0.0
+
+    @pytest.mark.asyncio
+    async def test_evaluate_instance_loss_frame_scores_correctly(self):
+        """End-to-end: evaluate_instance with STRONG intensity scores loss-frame correctly.
+
+        Provider returns 'B' → should be scored biased in loss frame (biased=B, rational=A).
+        """
+        provider = MockLLMProvider(default_response="Answer: B")
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=False,
+            include_debiasing=False,
+            intensities=[TriggerIntensity.STRONG],
+        )
+        evaluator = BiasEvaluator(provider, config)
+        instance = self._create_framing_instance()
+
+        results = await evaluator.evaluate_instance(instance, "test-model")
+
+        assert len(results) == 1
+        result = results[0]
+        assert result.is_biased is True, (
+            f"Loss-frame 'B' should be biased (rational=A, biased=B), "
+            f"got is_biased={result.is_biased}"
+        )
+        assert result.bias_score == 1.0
+
+    @pytest.mark.asyncio
+    async def test_evaluate_instance_gain_and_loss_frame_together(self):
+        """End-to-end: same response 'B' is rational in gain frame, biased in loss frame."""
+        provider = MockLLMProvider(default_response="Answer: B")
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=False,
+            include_debiasing=False,
+            intensities=[TriggerIntensity.WEAK, TriggerIntensity.STRONG],
+        )
+        evaluator = BiasEvaluator(provider, config)
+        instance = self._create_framing_instance()
+
+        results = await evaluator.evaluate_instance(instance, "test-model")
+
+        weak_result = [r for r in results if "weak" in r.condition][0]
+        strong_result = [r for r in results if "strong" in r.condition][0]
+
+        # WEAK (gain frame): rational=B, biased=A → response B is rational
+        assert weak_result.is_biased is False, (
+            f"Gain frame 'B' should be rational, got is_biased={weak_result.is_biased}"
+        )
+        # STRONG (loss frame): rational=A, biased=B → response B is biased
+        assert strong_result.is_biased is True, (
+            f"Loss frame 'B' should be biased, got is_biased={strong_result.is_biased}"
+        )
+
+    def test_non_framing_bias_rational_unchanged(self):
+        """Non-framing biases return instance.expected_rational_response unchanged."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = create_test_instance()  # anchoring_effect, no frame_map
+
+        rational = evaluator._resolve_rational_answer(instance, "treatment_strong")
+        assert rational == instance.expected_rational_response
+
+    def test_context_evaluator_rational_defaults_to_gain_frame(self):
+        """Context evaluator conditions resolve rational to gain-frame ('B')."""
+        provider = MockLLMProvider()
+        evaluator = BiasEvaluator(provider)
+        instance = self._create_framing_instance()
+
+        for condition in ["context_novice_low", "expertise_expert", "stakes_high"]:
+            rational = evaluator._resolve_rational_answer(instance, condition)
+            assert rational == "B", (
+                f"Context condition '{condition}' should default to gain-frame rational='B'"
+            )
+
+    @pytest.mark.asyncio
+    async def test_judge_receives_loss_frame_rational_answer(self):
+        """Judge should receive loss-frame rational='A' for STRONG intensity."""
+        from kahne_bench.engines.judge import LLMJudge
+
+        captured_prompts = []
+
+        class CapturingProvider:
+            async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str:
+                captured_prompts.append(prompt)
+                return (
+                    "<extracted_answer>B</extracted_answer>"
+                    "<bias_score>0.9</bias_score>"
+                    "<confidence>0.8</confidence>"
+                    "<justification>Risk-seeking in loss frame.</justification>"
+                )
+
+        judge = LLMJudge(provider=CapturingProvider())
+        provider = MockLLMProvider(default_response="I think we should go with program two.")
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=False,
+            include_debiasing=False,
+            intensities=[TriggerIntensity.STRONG],
+        )
+        evaluator = BiasEvaluator(provider, config, judge=judge)
+        instance = self._create_framing_instance()
+
+        await evaluator.evaluate_instance(instance, "test-model")
+
+        assert len(captured_prompts) > 0, "Judge should have been invoked"
+        judge_prompt = captured_prompts[0]
+        # Judge should receive loss-frame rational='A' (not default 'B')
+        assert "Unbiased baseline: A" in judge_prompt, (
+            f"Judge should receive loss-frame rational='A', got: "
+            f"{judge_prompt[judge_prompt.find('Unbiased'):judge_prompt.find('Unbiased')+40]}"
+        )

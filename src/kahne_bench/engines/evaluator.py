@@ -701,6 +701,81 @@ class BiasEvaluator:
         self.judge = judge
         self._semaphore = asyncio.Semaphore(self.config.max_concurrent_requests)
 
+    def _resolve_biased_answer(
+        self,
+        instance: CognitiveBiasInstance,
+        condition: str,
+    ) -> str:
+        """Resolve the correct expected biased answer for frame-dependent biases.
+
+        For gain_loss_framing, the biased answer depends on which frame was used:
+        - Gain frame (WEAK/MODERATE): biased = gain_frame_biased (typically "A")
+        - Loss frame (STRONG/ADVERSARIAL): biased = loss_frame_biased (typically "B")
+
+        For non-framing biases, returns instance.expected_biased_response unchanged.
+        """
+        biased = instance.expected_biased_response
+        if not (instance.metadata and "frame_map" in instance.metadata):
+            return biased
+
+        frame_map = instance.metadata["frame_map"]
+        # Match intensity key in condition (e.g., "treatment_strong" contains "strong")
+        matched = False
+        for intensity_key, frame in frame_map.items():
+            if intensity_key in condition:
+                matched = True
+                if frame == "loss":
+                    biased = instance.metadata.get("loss_frame_biased", biased)
+                elif frame == "gain":
+                    biased = instance.metadata.get("gain_frame_biased", biased)
+                break
+
+        if not matched:
+            # No intensity token found in condition. This happens with context
+            # evaluator conditions (e.g., "context_novice_low", "expertise_expert",
+            # "stakes_high") and control conditions. Default to gain-frame biased
+            # answer, since context evaluators use moderate intensity (gain frame)
+            # by default.
+            biased = instance.metadata.get("gain_frame_biased", biased)
+
+        return biased
+
+    def _resolve_rational_answer(
+        self,
+        instance: CognitiveBiasInstance,
+        condition: str,
+    ) -> str:
+        """Resolve the correct expected rational answer for frame-dependent biases.
+
+        For gain_loss_framing, the rational answer depends on which frame was used:
+        - Gain frame (WEAK/MODERATE): rational = gain_frame_rational (typically "B")
+        - Loss frame (STRONG/ADVERSARIAL): rational = loss_frame_rational (typically "A")
+
+        For non-framing biases, returns instance.expected_rational_response unchanged.
+        """
+        rational = instance.expected_rational_response
+        if not (instance.metadata and "frame_map" in instance.metadata):
+            return rational
+
+        frame_map = instance.metadata["frame_map"]
+        matched = False
+        for intensity_key, frame in frame_map.items():
+            if intensity_key in condition:
+                matched = True
+                if frame == "loss":
+                    rational = instance.metadata.get("loss_frame_rational", rational)
+                elif frame == "gain":
+                    rational = instance.metadata.get("gain_frame_rational", rational)
+                break
+
+        if not matched:
+            # No intensity token found in condition (context evaluators, control, etc.).
+            # Default to gain-frame rational answer, matching the assumption in
+            # _resolve_biased_answer.
+            rational = instance.metadata.get("gain_frame_rational", rational)
+
+        return rational
+
     async def _call_provider(self, prompt: str) -> str:
         """Make API call with semaphore-based concurrency limiting."""
         async with self._semaphore:
@@ -782,11 +857,12 @@ class BiasEvaluator:
             elapsed_ms = (time.time() - start_time) * 1000
 
             # Extract answer and confidence (skip for error responses)
+            answer_type = self._infer_answer_type(instance)
             if response.startswith("ERROR:"):
                 extracted = None
                 confidence = None
             else:
-                extracted = self.extractor.extract(response, self._infer_answer_type(instance))
+                extracted = self.extractor.extract(response, answer_type)
                 confidence = self.extractor.extract_confidence(response)
 
             result = TestResult(
@@ -798,7 +874,7 @@ class BiasEvaluator:
                 extracted_answer=extracted,
                 response_time_ms=elapsed_ms,
                 confidence_stated=confidence,
-                metadata={"trial": trial_num},
+                metadata={"trial": trial_num, "answer_type": answer_type},
             )
 
             # Score the response for bias (only if we have expected answers)
@@ -806,10 +882,12 @@ class BiasEvaluator:
                 instance.expected_biased_response and
                 not instance.expected_rational_response.startswith("[") and
                 not instance.expected_biased_response.startswith("[")):
+                rational_answer = self._resolve_rational_answer(instance, condition)
+                biased_answer = self._resolve_biased_answer(instance, condition)
                 is_biased, bias_score = self.score_response(
                     result,
-                    instance.expected_rational_response,
-                    instance.expected_biased_response,
+                    rational_answer,
+                    biased_answer,
                 )
                 result.is_biased = is_biased
                 result.bias_score = bias_score
@@ -833,8 +911,8 @@ class BiasEvaluator:
                             system1_mechanism=bias_def.system1_mechanism,
                             control_prompt=instance.control_prompt,
                             treatment_prompt=prompt,
-                            expected_rational=instance.expected_rational_response,
-                            expected_biased=instance.expected_biased_response,
+                            expected_rational=self._resolve_rational_answer(instance, condition),
+                            expected_biased=self._resolve_biased_answer(instance, condition),
                             model_response=response,
                             answer_type=self._infer_answer_type(instance),
                         )
@@ -930,6 +1008,25 @@ class BiasEvaluator:
         # Flatten results
         for results in all_results:
             session.results.extend(results)
+
+        # Compute per-bias unknown rates for downstream reporting
+        unknown_counts: dict[str, dict[str, int]] = {}
+        for result in session.results:
+            bias_id = result.instance.bias_id
+            if bias_id not in unknown_counts:
+                unknown_counts[bias_id] = {"total": 0, "unknown": 0}
+            unknown_counts[bias_id]["total"] += 1
+            if result.is_biased is None:
+                unknown_counts[bias_id]["unknown"] += 1
+        unknown_rates = {
+            bid: {
+                "total": c["total"],
+                "unknown": c["unknown"],
+                "rate": c["unknown"] / c["total"] if c["total"] > 0 else 0.0,
+            }
+            for bid, c in unknown_counts.items()
+        }
+        session.metrics["unknown_rates_by_bias"] = unknown_rates
 
         session.end_time = datetime.now().isoformat()
         return session
@@ -1113,10 +1210,13 @@ Now consider a similar but distinct situation:
                 instance.expected_biased_response and
                 not instance.expected_rational_response.startswith("[") and
                 not instance.expected_biased_response.startswith("[")):
+                condition = f"persistent_round_{round_num}"
+                rational_answer = self._resolve_rational_answer(instance, condition)
+                biased_answer = self._resolve_biased_answer(instance, condition)
                 is_biased, bias_score = self.score_response(
                     result,
-                    instance.expected_rational_response,
-                    instance.expected_biased_response,
+                    rational_answer,
+                    biased_answer,
                 )
                 result.is_biased = is_biased
                 result.bias_score = bias_score
@@ -1159,15 +1259,18 @@ Now consider a similar but distinct situation:
             metadata={"temporal_condition": "adaptive", "phase": "pre_feedback"},
         )
 
-        # Score the pre-feedback response
+        # Score the pre-feedback response (uses STRONG intensity → loss frame if applicable)
         if (instance.expected_rational_response and
             instance.expected_biased_response and
             not instance.expected_rational_response.startswith("[") and
             not instance.expected_biased_response.startswith("[")):
+            pre_condition = "adaptive_pre_feedback_strong"
+            rational_answer = self._resolve_rational_answer(instance, pre_condition)
+            biased_answer = self._resolve_biased_answer(instance, pre_condition)
             is_biased, bias_score = self.score_response(
                 pre_result,
-                instance.expected_rational_response,
-                instance.expected_biased_response,
+                rational_answer,
+                biased_answer,
             )
             pre_result.is_biased = is_biased
             pre_result.bias_score = bias_score
@@ -1198,15 +1301,18 @@ Please reconsider, being careful to avoid this cognitive bias.
             metadata={"temporal_condition": "adaptive", "phase": "post_feedback"},
         )
 
-        # Score the post-feedback response
+        # Score the post-feedback response (uses control prompt, default frame)
         if (instance.expected_rational_response and
             instance.expected_biased_response and
             not instance.expected_rational_response.startswith("[") and
             not instance.expected_biased_response.startswith("[")):
+            post_condition = "adaptive_post_feedback"
+            rational_answer = self._resolve_rational_answer(instance, post_condition)
+            biased_answer = self._resolve_biased_answer(instance, post_condition)
             is_biased, bias_score = self.score_response(
                 post_result,
-                instance.expected_rational_response,
-                instance.expected_biased_response,
+                rational_answer,
+                biased_answer,
             )
             post_result.is_biased = is_biased
             post_result.bias_score = bias_score
@@ -1338,10 +1444,16 @@ class ContextSensitivityEvaluator(BiasEvaluator):
                 instance.expected_biased_response and
                 not instance.expected_rational_response.startswith("[") and
                 not instance.expected_biased_response.startswith("[")):
+                rational_answer = self._resolve_rational_answer(
+                    instance, result.condition
+                )
+                biased_answer = self._resolve_biased_answer(
+                    instance, result.condition
+                )
                 is_biased, bias_score = self.score_response(
                     result,
-                    instance.expected_rational_response,
-                    instance.expected_biased_response,
+                    rational_answer,
+                    biased_answer,
                 )
                 result.is_biased = is_biased
                 result.bias_score = bias_score
@@ -1415,10 +1527,16 @@ class ContextSensitivityEvaluator(BiasEvaluator):
                 instance.expected_biased_response and
                 not instance.expected_rational_response.startswith("[") and
                 not instance.expected_biased_response.startswith("[")):
+                rational_answer = self._resolve_rational_answer(
+                    instance, result.condition
+                )
+                biased_answer = self._resolve_biased_answer(
+                    instance, result.condition
+                )
                 is_biased, bias_score = self.score_response(
                     result,
-                    instance.expected_rational_response,
-                    instance.expected_biased_response,
+                    rational_answer,
+                    biased_answer,
                 )
                 result.is_biased = is_biased
                 result.bias_score = bias_score
@@ -1492,10 +1610,16 @@ class ContextSensitivityEvaluator(BiasEvaluator):
                 instance.expected_biased_response and
                 not instance.expected_rational_response.startswith("[") and
                 not instance.expected_biased_response.startswith("[")):
+                rational_answer = self._resolve_rational_answer(
+                    instance, result.condition
+                )
+                biased_answer = self._resolve_biased_answer(
+                    instance, result.condition
+                )
                 is_biased, bias_score = self.score_response(
                     result,
-                    instance.expected_rational_response,
-                    instance.expected_biased_response,
+                    rational_answer,
+                    biased_answer,
                 )
                 result.is_biased = is_biased
                 result.bias_score = bias_score

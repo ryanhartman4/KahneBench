@@ -111,6 +111,7 @@ class BiasMagnitudeScore:
     overall_magnitude: float
     intensity_sensitivity: float  # How much magnitude increases with trigger intensity
     unknown_rate: float = 0.0  # Rate of unknown/failed extractions (0-1)
+    high_unknown_rate: bool = False  # True if >50% of results were unknown/failed
 
     @classmethod
     def calculate(
@@ -181,11 +182,21 @@ class BiasMagnitudeScore:
             magnitude = weight * raw_deviation
             magnitudes[intensity] = min(magnitude, 1.0)  # Cap at 1.0
 
-        # Overall magnitude (weighted average across intensities)
-        overall = sum(
-            w * magnitudes.get(intensity, 0.0)
-            for w, intensity in zip(aggregation_weights, TriggerIntensity)
+        # Overall magnitude (weighted average across observed intensities only)
+        # Renormalize aggregation weights to exclude missing intensities,
+        # preventing deflation when fewer than 4 intensities are present.
+        observed_weight_sum = sum(
+            w for w, intensity in zip(aggregation_weights, TriggerIntensity)
+            if intensity in magnitudes
         )
+        if observed_weight_sum > 0:
+            overall = sum(
+                w * magnitudes[intensity]
+                for w, intensity in zip(aggregation_weights, TriggerIntensity)
+                if intensity in magnitudes
+            ) / observed_weight_sum
+        else:
+            overall = 0.0
 
         # Intensity sensitivity: slope of magnitude vs intensity
         if len(magnitudes) >= 2:
@@ -195,6 +206,15 @@ class BiasMagnitudeScore:
         else:
             sensitivity = 0.0
 
+        # Flag biases with high unknown rates (>50%) as unreliable
+        UNKNOWN_THRESHOLD = 0.5
+        high_unknown = unknown_rate > UNKNOWN_THRESHOLD
+        if high_unknown:
+            logger.warning(
+                f"BMS for '{bias_id}': {unknown_rate:.0%} of results were unknown/failed. "
+                f"Score may be unreliable."
+            )
+
         return cls(
             bias_id=bias_id,
             control_score=control_mean,
@@ -202,6 +222,7 @@ class BiasMagnitudeScore:
             overall_magnitude=overall,
             intensity_sensitivity=float(sensitivity),
             unknown_rate=unknown_rate,
+            high_unknown_rate=high_unknown,
         )
 
 
@@ -857,6 +878,8 @@ class CognitiveFingerprintReport:
 
     # Unknown rate tracking per bias (for transparency)
     unknown_rates_by_bias: dict[str, float] = field(default_factory=dict)
+    # Biases flagged as having unreliable data (>50% unknown rate)
+    high_unknown_rate_biases: list[str] = field(default_factory=list)
 
     # Optional BLOOM integration metrics
     variation_robustness: dict[str, VariationRobustnessScore] = field(default_factory=dict)
@@ -874,17 +897,29 @@ class CognitiveFingerprintReport:
             for bias_id, score in self.magnitude_scores.items()
         }
 
+        # Flag biases with high unknown rates for prominent reporting
+        UNKNOWN_THRESHOLD = 0.5
+        self.high_unknown_rate_biases = [
+            bias_id
+            for bias_id, score in self.magnitude_scores.items()
+            if score.high_unknown_rate
+        ]
+        if self.high_unknown_rate_biases:
+            logger.warning(
+                f"{len(self.high_unknown_rate_biases)} bias(es) have >50% unknown rate "
+                f"and may be unreliable: {self.high_unknown_rate_biases}"
+            )
+
         # Overall susceptibility (include all biases, even high-unknown ones)
         magnitudes = [m.overall_magnitude for m in self.magnitude_scores.values()]
         self.overall_bias_susceptibility = mean(magnitudes) if magnitudes else 0.0
 
-        # Filter out biases with high unknown rates (>50%) for rankings
+        # Filter out biases with high unknown rates for rankings
         # This prevents extraction failures from inflating "most resistant" lists
-        UNKNOWN_THRESHOLD = 0.5
         reliable_biases = [
             (bias_id, score)
             for bias_id, score in self.magnitude_scores.items()
-            if score.unknown_rate < UNKNOWN_THRESHOLD
+            if not score.high_unknown_rate
         ]
 
         # Sort reliable biases by magnitude

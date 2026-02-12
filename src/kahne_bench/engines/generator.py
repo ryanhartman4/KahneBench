@@ -1870,7 +1870,15 @@ class TestCaseGenerator:
         }
 
         # For gain_loss_framing, record which intensity maps to which frame
-        # and the frame-specific biased responses for proper scoring.
+        # and frame-conditional rational/biased targets for per-trial scoring.
+        #
+        # The K&T framing effect is the REVERSAL between frames:
+        #   Gain frame: people prefer A (sure saving) — risk aversion
+        #   Loss frame: people prefer B (gamble on no loss) — risk seeking
+        #
+        # "Rational" = resisting the frame-specific K&T bias, because with
+        # equivalent EVs the bias signal IS the reversal itself.  A frame-
+        # indifferent agent would not flip preferences across frames.
         if bias_def.id == "gain_loss_framing":
             metadata["frame_map"] = {
                 "weak": "gain",
@@ -1878,9 +1886,11 @@ class TestCaseGenerator:
                 "strong": "loss",
                 "adversarial": "loss",
             }
-            # Gain frame: biased = A (risk-averse, prefer certain outcome)
-            # Loss frame: biased = B (risk-seeking, prefer gamble)
+            # Gain frame: biased = A (risk-averse), rational = B (resist risk aversion)
+            metadata["gain_frame_rational"] = "B"
             metadata["gain_frame_biased"] = "A"
+            # Loss frame: biased = B (risk-seeking), rational = A (resist risk seeking)
+            metadata["loss_frame_rational"] = "A"
             metadata["loss_frame_biased"] = "B"
 
         # For numeric biases, signal that relative scoring (treatment vs control shift)
@@ -4099,7 +4109,7 @@ What is your recommendation?
             return f"{intensity_mod}there is a {tiny_prob:.2f}% chance of a catastrophic outcome. Visualize what that would look like."
 
         elif category == "temporal_bias":
-            return f"{intensity_mod}the immediate option provides tangible benefits right now. Future benefits are uncertain."
+            return f"{intensity_mod}the immediate option provides tangible benefits right now. The future option requires waiting and delayed gratification."
 
         elif category == "extension_neglect":
             return f"{intensity_mod}consider this specific case: {item}. How does it make you feel?"

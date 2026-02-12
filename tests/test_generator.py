@@ -5,6 +5,7 @@ import re
 import pytest
 from kahne_bench.engines.generator import (
     TestCaseGenerator,
+    NovelScenarioGenerator,
     DOMAIN_SCENARIOS,
     BIAS_TEMPLATES,
     KahneBenchTier,
@@ -1090,6 +1091,43 @@ class TestGainLossFramingBothFrames:
         assert instance.metadata.get("gain_frame_biased") == "A"
         assert instance.metadata.get("loss_frame_biased") == "B"
 
+    def test_frame_specific_rational_responses_in_metadata(self, generator):
+        """Verify metadata records frame-conditional rational targets.
+
+        The K&T framing effect is the reversal between frames, so 'rational'
+        means resisting the frame-specific bias:
+          Gain frame: bias=A (risk aversion) → rational=B
+          Loss frame: bias=B (risk seeking) → rational=A
+        """
+        instance = generator.generate_instance("gain_loss_framing", Domain.INDIVIDUAL)
+        assert instance.metadata.get("gain_frame_rational") == "B"
+        assert instance.metadata.get("loss_frame_rational") == "A"
+
+    def test_loss_frame_rational_differs_from_biased(self, generator):
+        """P0 regression: loss_frame_rational must differ from loss_frame_biased.
+
+        Previously both were 'B', making loss-frame bias undetectable.
+        """
+        instance = generator.generate_instance("gain_loss_framing", Domain.INDIVIDUAL)
+        rational = instance.metadata.get("loss_frame_rational")
+        biased = instance.metadata.get("loss_frame_biased")
+        assert rational is not None, "loss_frame_rational must be set"
+        assert biased is not None, "loss_frame_biased must be set"
+        assert rational != biased, (
+            f"loss_frame_rational ({rational}) must differ from "
+            f"loss_frame_biased ({biased}) for bias to be scorable"
+        )
+
+    def test_all_four_frame_targets_present(self, generator):
+        """Verify all four frame-conditional targets exist in metadata."""
+        instance = generator.generate_instance("gain_loss_framing", Domain.INDIVIDUAL)
+        for key in ("gain_frame_rational", "gain_frame_biased",
+                     "loss_frame_rational", "loss_frame_biased"):
+            assert key in instance.metadata, f"Missing metadata key: {key}"
+            assert instance.metadata[key] in ("A", "B"), (
+                f"{key} should be 'A' or 'B', got {instance.metadata[key]}"
+            )
+
 
 class TestIntensityVariation:
     """Tests for P0 #4: Intensity adjustment must work for all CORE biases.
@@ -1142,3 +1180,56 @@ class TestIntensityVariation:
         assert len(adversarial) > len(weak), (
             "ADVERSARIAL treatment should be longer than WEAK due to added context"
         )
+
+
+class TestConstructValidity:
+    """Tests that bias prompts measure only the intended construct."""
+
+    def test_present_bias_treatment_has_no_uncertainty_language(self):
+        """present_bias treatment must not introduce risk/uncertainty confounds."""
+        template = BIAS_TEMPLATES["present_bias"]["treatment"]
+        confound_words = ["uncertain", "uncertainty", "risk", "risky", "gamble"]
+        for word in confound_words:
+            assert word not in template.lower(), (
+                f"present_bias treatment contains '{word}', which confounds "
+                "temporal preference with risk aversion"
+            )
+
+    def test_present_bias_novel_trigger_has_no_uncertainty_language(self):
+        """NovelScenarioGenerator temporal_bias trigger must not use uncertainty."""
+        gen = NovelScenarioGenerator(seed=42)
+        bias_def = BIAS_TAXONOMY["present_bias"]
+        for intensity in TriggerIntensity:
+            trigger = gen._generate_novel_trigger(
+                bias_def, intensity,
+                anchor=100, probability=50, amount=1000,
+                item="option", event="event",
+            )
+            assert "uncertain" not in trigger.lower(), (
+                f"temporal_bias trigger at {intensity.name} contains 'uncertain', "
+                "confounding temporal preference with risk aversion"
+            )
+
+    def test_anchoring_treatment_uses_naturalistic_source(self):
+        """anchoring treatment must use {anchor_source}, not transparent framing."""
+        template = BIAS_TEMPLATES["anchoring_effect"]["treatment"]
+        assert "{anchor_source}" in template, (
+            "anchoring treatment should use {anchor_source} for ecological validity"
+        )
+        assert "unrelated context" not in template.lower(), (
+            "anchoring treatment should not telegraph the bias with 'unrelated context'"
+        )
+
+    def test_anchoring_sources_are_domain_specific(self):
+        """Anchor sources should be naturalistic and vary by domain."""
+        generator = TestCaseGenerator(seed=42)
+        sources_seen = set()
+        for domain in Domain:
+            instance = generator.generate_instance("anchoring_effect", domain)
+            treatment = instance.get_treatment(TriggerIntensity.MODERATE)
+            # Each domain should produce a treatment with a naturalistic source
+            assert "unrelated" not in treatment.lower(), (
+                f"anchoring treatment in {domain.name} uses 'unrelated' language"
+            )
+            sources_seen.add(domain)
+        assert len(sources_seen) == len(Domain)

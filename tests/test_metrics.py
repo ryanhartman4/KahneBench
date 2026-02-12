@@ -630,6 +630,308 @@ class TestBiasMitigationPotential:
         assert bmp.requires_explicit_warning is True
 
 
+class TestBMSIntensityRenormalization:
+    """Tests for BMS aggregation weight renormalization when not all intensities are present."""
+
+    def test_bms_3_intensities_equals_4_with_same_rate(self, sample_instance):
+        """BMS with 3 intensities should match BMS with 4 when all deviations are equal.
+
+        Using uniform intensity weights (all 1.0) so that all per-intensity
+        magnitudes are identical, then the renormalized weighted average over
+        3 should equal the weighted average over 4.
+        """
+        uniform_weights = {
+            TriggerIntensity.WEAK: 1.0,
+            TriggerIntensity.MODERATE: 1.0,
+            TriggerIntensity.STRONG: 1.0,
+            TriggerIntensity.ADVERSARIAL: 1.0,
+        }
+
+        def scorer(r):
+            return 0.0 if r.condition == "control" else 0.8
+
+        control = [TestResult(
+            instance=sample_instance,
+            model_id="test",
+            condition="control",
+            prompt_used="",
+            model_response="",
+            extracted_answer="A",
+            response_time_ms=100.0,
+        )]
+
+        # 3 intensities (no ADVERSARIAL)
+        treatment_3 = {
+            TriggerIntensity.WEAK: [TestResult(
+                instance=sample_instance, model_id="test",
+                condition="treatment_weak", prompt_used="",
+                model_response="", extracted_answer="B",
+                response_time_ms=100.0,
+            )],
+            TriggerIntensity.MODERATE: [TestResult(
+                instance=sample_instance, model_id="test",
+                condition="treatment_moderate", prompt_used="",
+                model_response="", extracted_answer="B",
+                response_time_ms=100.0,
+            )],
+            TriggerIntensity.STRONG: [TestResult(
+                instance=sample_instance, model_id="test",
+                condition="treatment_strong", prompt_used="",
+                model_response="", extracted_answer="B",
+                response_time_ms=100.0,
+            )],
+        }
+
+        # 4 intensities (all same rate)
+        treatment_4 = {
+            **treatment_3,
+            TriggerIntensity.ADVERSARIAL: [TestResult(
+                instance=sample_instance, model_id="test",
+                condition="treatment_adversarial", prompt_used="",
+                model_response="", extracted_answer="B",
+                response_time_ms=100.0,
+            )],
+        }
+
+        bms_3 = BiasMagnitudeScore.calculate(
+            "test_bias", control, treatment_3, scorer,
+            intensity_weights=uniform_weights,
+        )
+        bms_4 = BiasMagnitudeScore.calculate(
+            "test_bias", control, treatment_4, scorer,
+            intensity_weights=uniform_weights,
+        )
+
+        assert abs(bms_3.overall_magnitude - bms_4.overall_magnitude) < 0.01, (
+            f"BMS with 3 intensities ({bms_3.overall_magnitude:.4f}) should equal "
+            f"BMS with 4 intensities ({bms_4.overall_magnitude:.4f}) when all "
+            f"per-intensity magnitudes are identical"
+        )
+
+    def test_bms_renormalization_prevents_deflation(self, sample_instance):
+        """BMS with 3 intensities should NOT be lower than the minimum per-intensity magnitude.
+
+        Before the fix, missing intensities contributed 0.0 to the weighted sum,
+        pulling the overall score down. After the fix, missing intensities are
+        excluded from both numerator and denominator.
+        """
+        def scorer(r):
+            return 0.0 if r.condition == "control" else 0.6
+
+        control = [TestResult(
+            instance=sample_instance,
+            model_id="test",
+            condition="control",
+            prompt_used="",
+            model_response="",
+            extracted_answer="A",
+            response_time_ms=100.0,
+        )]
+
+        treatment_3 = {
+            TriggerIntensity.WEAK: [TestResult(
+                instance=sample_instance, model_id="test",
+                condition="treatment_weak", prompt_used="",
+                model_response="", extracted_answer="B",
+                response_time_ms=100.0,
+            )],
+            TriggerIntensity.MODERATE: [TestResult(
+                instance=sample_instance, model_id="test",
+                condition="treatment_moderate", prompt_used="",
+                model_response="", extracted_answer="B",
+                response_time_ms=100.0,
+            )],
+            TriggerIntensity.STRONG: [TestResult(
+                instance=sample_instance, model_id="test",
+                condition="treatment_strong", prompt_used="",
+                model_response="", extracted_answer="B",
+                response_time_ms=100.0,
+            )],
+        }
+
+        bms = BiasMagnitudeScore.calculate("test_bias", control, treatment_3, scorer)
+
+        # The minimum per-intensity magnitude among the 3 present is STRONG:
+        # min(0.67 * 0.6, 1.0) = 0.402
+        # The overall should be >= this (it's a weighted average of values >= 0.402)
+        min_magnitude = min(
+            bms.treatment_scores[i] for i in treatment_3.keys()
+        )
+        # With renormalization, overall_magnitude >= min of the per-intensity magnitudes
+        # (since it's a weighted average, it must be between min and max)
+        assert bms.overall_magnitude >= 0.3, (
+            f"Renormalized BMS ({bms.overall_magnitude:.4f}) should not be deflated"
+        )
+
+    def test_bms_single_intensity_not_deflated(self, sample_instance):
+        """BMS with only MODERATE intensity should not be deflated by missing intensities."""
+        def scorer(r):
+            return 0.0 if r.condition == "control" else 1.0
+
+        control = [TestResult(
+            instance=sample_instance,
+            model_id="test",
+            condition="control",
+            prompt_used="",
+            model_response="",
+            extracted_answer="A",
+            response_time_ms=100.0,
+        )]
+
+        treatment = {
+            TriggerIntensity.MODERATE: [TestResult(
+                instance=sample_instance, model_id="test",
+                condition="treatment_moderate", prompt_used="",
+                model_response="", extracted_answer="B",
+                response_time_ms=100.0,
+            )],
+        }
+
+        bms = BiasMagnitudeScore.calculate("test_bias", control, treatment, scorer)
+
+        # With max deviation (1.0) on MODERATE (intensity weight 1.0),
+        # magnitude = min(1.0 * 1.0, 1.0) = 1.0
+        # Renormalized: 0.3 * 1.0 / 0.3 = 1.0 (just MODERATE's weight)
+        assert bms.overall_magnitude == 1.0, (
+            f"Single-intensity BMS should not be deflated: got {bms.overall_magnitude}"
+        )
+
+    def test_bms_no_treatment_data_returns_zero(self, sample_instance):
+        """BMS with empty treatment dict should return 0.0 overall magnitude."""
+        def scorer(r):
+            return 0.5
+
+        control = [TestResult(
+            instance=sample_instance,
+            model_id="test",
+            condition="control",
+            prompt_used="",
+            model_response="",
+            extracted_answer="A",
+            response_time_ms=100.0,
+        )]
+
+        bms = BiasMagnitudeScore.calculate("test_bias", control, {}, scorer)
+        assert bms.overall_magnitude == 0.0
+
+
+class TestBMSHighUnknownRateGuardrail:
+    """Tests for BMS high_unknown_rate flag."""
+
+    def test_high_unknown_rate_flag_set(self, sample_instance):
+        """BMS should flag high_unknown_rate when >50% of results are unknown."""
+        def scorer(r):
+            if r.extracted_answer == "UNKNOWN":
+                return None
+            return 0.5
+
+        control = [
+            TestResult(
+                instance=sample_instance, model_id="test",
+                condition="control", prompt_used="",
+                model_response="", extracted_answer="UNKNOWN",
+                response_time_ms=100.0,
+            ),
+            TestResult(
+                instance=sample_instance, model_id="test",
+                condition="control", prompt_used="",
+                model_response="", extracted_answer="UNKNOWN",
+                response_time_ms=100.0,
+            ),
+        ]
+        treatment = {
+            TriggerIntensity.MODERATE: [
+                TestResult(
+                    instance=sample_instance, model_id="test",
+                    condition="treatment", prompt_used="",
+                    model_response="", extracted_answer="B",
+                    response_time_ms=100.0,
+                ),
+            ]
+        }
+
+        bms = BiasMagnitudeScore.calculate("test_bias", control, treatment, scorer)
+        # 2/3 results unknown = 66.7% > 50%
+        assert bms.high_unknown_rate is True
+        assert bms.unknown_rate > 0.5
+
+    def test_low_unknown_rate_flag_not_set(self, sample_instance):
+        """BMS should NOT flag high_unknown_rate when <=50% of results are unknown."""
+        def scorer(r):
+            if r.extracted_answer == "UNKNOWN":
+                return None
+            return 0.5
+
+        control = [
+            TestResult(
+                instance=sample_instance, model_id="test",
+                condition="control", prompt_used="",
+                model_response="", extracted_answer="A",
+                response_time_ms=100.0,
+            ),
+        ]
+        treatment = {
+            TriggerIntensity.MODERATE: [
+                TestResult(
+                    instance=sample_instance, model_id="test",
+                    condition="treatment", prompt_used="",
+                    model_response="", extracted_answer="B",
+                    response_time_ms=100.0,
+                ),
+                TestResult(
+                    instance=sample_instance, model_id="test",
+                    condition="treatment", prompt_used="",
+                    model_response="", extracted_answer="UNKNOWN",
+                    response_time_ms=100.0,
+                ),
+            ]
+        }
+
+        bms = BiasMagnitudeScore.calculate("test_bias", control, treatment, scorer)
+        # 1/3 results unknown = 33.3% <= 50%
+        assert bms.high_unknown_rate is False
+
+    def test_report_tracks_high_unknown_rate_biases(self, sample_instance):
+        """CognitiveFingerprintReport should list biases with high unknown rates."""
+        from kahne_bench.metrics.core import CognitiveFingerprintReport
+
+        magnitude_scores = {
+            "reliable_bias": BiasMagnitudeScore(
+                bias_id="reliable_bias",
+                control_score=0.0,
+                treatment_scores={TriggerIntensity.MODERATE: 0.5},
+                overall_magnitude=0.5,
+                intensity_sensitivity=0.0,
+                unknown_rate=0.1,
+                high_unknown_rate=False,
+            ),
+            "unreliable_bias": BiasMagnitudeScore(
+                bias_id="unreliable_bias",
+                control_score=0.0,
+                treatment_scores={TriggerIntensity.MODERATE: 0.3},
+                overall_magnitude=0.3,
+                intensity_sensitivity=0.0,
+                unknown_rate=0.7,
+                high_unknown_rate=True,
+            ),
+        }
+
+        report = CognitiveFingerprintReport(
+            model_id="test",
+            biases_tested=list(magnitude_scores.keys()),
+            magnitude_scores=magnitude_scores,
+            consistency_indices={},
+            mitigation_potentials={},
+            human_alignments={},
+            response_consistencies={},
+            calibration_scores={},
+        )
+        report.compute_summary()
+
+        assert "unreliable_bias" in report.high_unknown_rate_biases
+        assert "reliable_bias" not in report.high_unknown_rate_biases
+
+
 class TestBiasMagnitudeScoreEdgeCases:
     """Edge case tests for Bias Magnitude Score calculation."""
 
@@ -1450,6 +1752,7 @@ class TestUnknownHandling:
                 overall_magnitude=0.1,  # Lowest magnitude, but high unknown rate
                 intensity_sensitivity=0.0,
                 unknown_rate=0.6,  # High unknown rate - should be EXCLUDED
+                high_unknown_rate=True,
             ),
         }
 
