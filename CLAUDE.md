@@ -61,6 +61,29 @@ PYTHONPATH=src uv run kahne-bench report fingerprint.json
 PYTHONPATH=src uv run kahne-bench info
 ```
 
+### Evaluation Workflow
+
+Evaluation is a two-step process: generate test cases first, then evaluate.
+
+```bash
+# Step 1: Generate test cases
+PYTHONPATH=src uv run kahne-bench generate --tier core --seed 42 -o test_cases.json
+
+# Step 2: Evaluate (takes ~10-15 min for core tier with 3 trials)
+PYTHONPATH=src uv run kahne-bench evaluate -i test_cases.json -p anthropic -m claude-sonnet-4-5 -n 3 \
+  -o results.json -f fingerprint.json --tier core
+```
+
+Note: Rich progress output is buffered — no incremental progress appears until the evaluation batch completes.
+
+### Results JSON Key Fields
+
+- `model_response` (not `response`) — the model's full text reply
+- `extracted_answer` — parsed answer (A/B/C or descriptive)
+- `is_biased` / `bias_score` — scoring output
+- `condition` — e.g., `treatment_strong`, `debiasing_0`
+- `domain` — one of the 5 ecological domains
+
 ### Code Quality
 
 ```bash
@@ -458,3 +481,17 @@ kahne_bench/
 **Environment:** Set `OPENAI_API_KEY` for OpenAI examples, `ANTHROPIC_API_KEY` for Anthropic.
 
 **Note:** No CI/CD configuration exists currently. Run tests locally before committing.
+
+## Bias Test Quality
+
+Zero-score biases should be investigated — see `reports/bias_test_quality_fixes_2026-02-12.md` for the full methodology. Four failure modes:
+1. **Training contamination** — famous examples (Linda problem) that models memorize
+2. **Dominant options** — one answer is objectively correct with no trade-offs
+3. **Unrealistic parameters** — numbers make the rational choice trivially obvious
+4. **Structurally untestable** — bias requires embodied/temporal cognition LLMs lack (legitimate zero)
+
+## Completed Evaluations
+
+| Model | Tier | Date | Fingerprint File |
+|-------|------|------|-----------------|
+| Claude Sonnet 4.5 | Core (v2, post-fix) | 2026-02-12 | `sonnet45_core_fingerprint_v2.json` |
