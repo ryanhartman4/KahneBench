@@ -558,6 +558,8 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
     from datetime import datetime as _dt
 
     git_commit = None
+    git_branch = None
+    git_is_dirty = None
     try:
         _proc = _sp.run(
             ["git", "rev-parse", "HEAD"],
@@ -565,6 +567,20 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
         )
         if _proc.returncode == 0:
             git_commit = _proc.stdout.strip()
+
+        _branch_proc = _sp.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if _branch_proc.returncode == 0:
+            git_branch = _branch_proc.stdout.strip()
+
+        _dirty_proc = _sp.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if _dirty_proc.returncode == 0:
+            git_is_dirty = bool(_dirty_proc.stdout.strip())
     except Exception:
         pass
 
@@ -592,6 +608,8 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
         "bias_manifest_hash": manifest_hash,
         "instance_count_by_bias": instance_count_by_bias,
         "git_commit": git_commit,
+        "git_branch": git_branch,
+        "git_is_dirty": git_is_dirty,
         "timestamp": _dt.now().isoformat(),
         "python_version": sys.version,
         "kahne_bench_version": __version__,

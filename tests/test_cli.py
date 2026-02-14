@@ -326,7 +326,8 @@ class TestRunProvenance:
         "rate_limit_retries", "rate_limit_retry_delay_s",
         "intensities", "include_control", "include_debiasing",
         "tier", "input_file", "bias_manifest", "bias_manifest_hash", "instance_count_by_bias",
-        "git_commit", "timestamp", "python_version", "kahne_bench_version",
+        "git_commit", "git_branch", "git_is_dirty",
+        "timestamp", "python_version", "kahne_bench_version",
     ]
 
     def test_results_json_contains_provenance(self, runner):
@@ -368,6 +369,7 @@ class TestRunProvenance:
             assert meta["input_file"] == str(filepath)
             assert isinstance(meta["bias_manifest"], list)
             assert len(meta["bias_manifest"]) == len(core_biases)
+            assert isinstance(meta["git_is_dirty"], bool)
             assert isinstance(meta["timestamp"], str)
         finally:
             filepath.unlink()

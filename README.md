@@ -59,7 +59,7 @@ Evaluated 2026-02-12 using the core tier (15 foundational biases), 3 trials per 
 - **Conjunction fallacy** and **present bias** score 0.000 due to genuine structural resistance — LLMs have internalized the probability axiom (conjunction) and lack temporal salience (present bias)
 - 13 of 15 biases show the model is *less* biased than humans; only loss aversion and endowment effect exceed human baselines
 
-Full results: `sonnet45_core_fingerprint_v2.json`
+Full results: `deprecated_results/sonnet45_core_fingerprint_v2.json`
 
 ## Limitations (Read Before Use)
 

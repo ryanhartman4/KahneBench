@@ -43,3 +43,6 @@ Thumbs.db
 fingerprint_*.json
 results_*.json
 test_subset.json
+
+# Draft specs
+docs/cognitive_fingerprint_radar_spec.md
