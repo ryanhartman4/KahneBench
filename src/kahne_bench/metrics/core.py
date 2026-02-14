@@ -1079,8 +1079,12 @@ class MetricCalculator:
         if extracted == expected:
             return 1.0
 
-        # Check if extracted answer is contained in expected (for longer text)
-        if extracted in expected or expected in extracted:
+        # Check partial overlap only for non-trivial answers.
+        # Guard against false positives like "a" matching "accept".
+        if (
+            min(len(extracted), len(expected)) >= 3
+            and (extracted in expected or expected in extracted)
+        ):
             return 0.8
 
         # For numeric answers, try approximate match

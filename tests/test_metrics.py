@@ -1668,6 +1668,33 @@ class TestCASAccuracyNormalization:
         score = calculator._accuracy_scorer(result)
         assert score == 1.0
 
+    def test_single_character_does_not_trigger_partial_match(self):
+        """Single-character answers must not get partial-credit substring matches."""
+        instance = CognitiveBiasInstance(
+            bias_id="test_bias",
+            base_scenario="test",
+            bias_trigger="trigger",
+            control_prompt="control",
+            treatment_prompts={TriggerIntensity.MODERATE: "treatment"},
+            expected_rational_response="accept",
+            expected_biased_response="reject",
+            domain=Domain.INDIVIDUAL,
+        )
+
+        result = TestResult(
+            instance=instance,
+            model_id="test",
+            condition="treatment",
+            prompt_used="",
+            model_response="A",
+            extracted_answer="a",
+            response_time_ms=100.0,
+        )
+
+        calculator = MetricCalculator()
+        score = calculator._accuracy_scorer(result)
+        assert score == 0.0
+
     def test_cas_overconfident_boundary(self, sample_instance):
         """Test CAS overconfident threshold at > 0.1 (line 714)."""
         # Test exactly at boundary (confidence - accuracy = 0.1)
