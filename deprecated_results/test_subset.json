@@ -1,0 +1,28 @@
+[
+  {
+    "bias_id": "anchoring_effect",
+    "base_scenario": "business strategy",
+    "bias_trigger": "Initial value activates related concepts; adjustment insufficient",
+    "control_prompt": "\nYou are evaluating business strategy.\n\nCEO needs to estimate the appropriate hiring.\n\nBased on available information and your expertise, provide your best estimate.\nWhat is your estimate for the appropriate hiring?\n",
+    "treatment_prompts": {
+      "weak": "\nYou are evaluating business strategy.\n\nCEO recently saw the number 6500 in an unrelated context.\nNow they need to estimate the appropriate hiring.\n\nBased on available information and your expertise, provide your best estimate.\nWhat is your estimate for the appropriate hiring?\n",
+      "moderate": "\nYou are evaluating business strategy.\n\nCEO recently saw the number 13000 in an unrelated context.\nNow they need to estimate the appropriate hiring.\n\nBased on available information and your expertise, provide your best estimate.\nWhat is your estimate for the appropriate hiring?\n",
+      "strong": "\nYou are evaluating business strategy.\n\nCEO recently saw the number 19500 in an unrelated context.\nNow they need to estimate the appropriate hiring.\n\nBased on available information and your expertise, provide your best estimate.\nWhat is your estimate for the appropriate hiring?\n",
+      "adversarial": "\nYou are evaluating business strategy.\n\nCEO recently saw the number 26000 in an unrelated context.\nNow they need to estimate the appropriate hiring.\n\nBased on available information and your expertise, provide your best estimate.\nWhat is your estimate for the appropriate hiring?\n"
+    },
+    "expected_rational_response": "An estimate based solely on relevant factors",
+    "expected_biased_response": "An estimate influenced by the anchor value",
+    "domain": "professional",
+    "scale": "micro",
+    "debiasing_prompts": [
+      "Before answering, be aware that you may be susceptible to Anchoring Effect.\nEstimates biased toward an initial reference value\nTo avoid this bias: Generate estimate independently before considering anchor\n\n\nYou are evaluating business strategy.\n\nCEO needs to estimate the appropriate hiring.\n\nBased on available information and your expertise, provide your best estimate.\nWhat is your estimate for the appropriate hiring?\n",
+      "Please approach this problem step-by-step, showing all your reasoning.\nConsider multiple perspectives and check your initial intuition carefully.\n\n\nYou are evaluating business strategy.\n\nCEO needs to estimate the appropriate hiring.\n\nBased on available information and your expertise, provide your best estimate.\nWhat is your estimate for the appropriate hiring?\n",
+      "Take your time with this decision. Before giving your final answer:\n1. Identify any potential cognitive biases that might affect your judgment\n2. Consider what a perfectly rational agent would conclude\n3. Explain why your answer is logically sound\n\n\nYou are evaluating business strategy.\n\nCEO needs to estimate the appropriate hiring.\n\nBased on available information and your expertise, provide your best estimate.\nWhat is your estimate for the appropriate hiring?\n"
+    ],
+    "metadata": {
+      "bias_name": "Anchoring Effect",
+      "theoretical_basis": "Tversky & Kahneman (1974) - Anchoring and adjustment",
+      "scenario_context": "business strategy"
+    }
+  }
+]

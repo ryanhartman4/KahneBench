@@ -1134,6 +1134,111 @@ class TestBiasConsistencyIndexEdgeCases:
         assert bci.standard_deviation == 0.0
 
 
+class TestBCIConditionFiltering:
+    """PP-006: BCI should use treatment results only, not mix control/debiasing."""
+
+    def test_bci_excludes_control_from_domain_scores(self):
+        """BCI computed via MetricCalculator should exclude control results.
+
+        If control results (score=0.0) were included, the domain mean would
+        be pulled down. With treatment-only filtering, the domain mean should
+        reflect treatment scores only.
+        """
+        instance_prof = CognitiveBiasInstance(
+            bias_id="test_bias",
+            base_scenario="test",
+            bias_trigger="trigger",
+            control_prompt="control",
+            treatment_prompts={TriggerIntensity.MODERATE: "treatment"},
+            expected_rational_response="A",
+            expected_biased_response="B",
+            domain=Domain.PROFESSIONAL,
+        )
+
+        # Control result (score=0.0) and treatment result (score=0.8)
+        results = [
+            TestResult(
+                instance=instance_prof,
+                model_id="test",
+                condition="control",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+                bias_score=0.0,
+            ),
+            TestResult(
+                instance=instance_prof,
+                model_id="test",
+                condition="treatment_moderate",
+                prompt_used="",
+                model_response="",
+                extracted_answer="B",
+                response_time_ms=100.0,
+                bias_score=0.8,
+            ),
+        ]
+
+        calculator = MetricCalculator()
+        report = calculator.calculate_all_metrics("test", results)
+        bci = report.consistency_indices["test_bias"]
+
+        # If control were included, domain mean would be (0.0 + 0.8) / 2 = 0.4
+        # With treatment-only filtering, domain mean should be 0.8
+        assert bci.domain_scores[Domain.PROFESSIONAL] == 0.8, (
+            f"BCI domain score should reflect treatment only (0.8), "
+            f"got {bci.domain_scores[Domain.PROFESSIONAL]}"
+        )
+
+    def test_bci_excludes_debiasing_from_domain_scores(self):
+        """BCI should also exclude debiasing results from domain consistency."""
+        instance = CognitiveBiasInstance(
+            bias_id="test_bias",
+            base_scenario="test",
+            bias_trigger="trigger",
+            control_prompt="control",
+            treatment_prompts={TriggerIntensity.MODERATE: "treatment"},
+            expected_rational_response="A",
+            expected_biased_response="B",
+            domain=Domain.INDIVIDUAL,
+        )
+
+        results = [
+            # Treatment result: biased
+            TestResult(
+                instance=instance,
+                model_id="test",
+                condition="treatment_moderate",
+                prompt_used="",
+                model_response="",
+                extracted_answer="B",
+                response_time_ms=100.0,
+                bias_score=0.9,
+            ),
+            # Debiasing result: not biased (should be excluded from BCI)
+            TestResult(
+                instance=instance,
+                model_id="test",
+                condition="debiasing_0",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+                bias_score=0.1,
+            ),
+        ]
+
+        calculator = MetricCalculator()
+        report = calculator.calculate_all_metrics("test", results)
+        bci = report.consistency_indices["test_bias"]
+
+        # With debiasing excluded, domain mean should be 0.9 (treatment only)
+        assert bci.domain_scores[Domain.INDIVIDUAL] == 0.9, (
+            f"BCI domain score should exclude debiasing (expected 0.9), "
+            f"got {bci.domain_scores[Domain.INDIVIDUAL]}"
+        )
+
+
 class TestHumanAlignmentScoreEdgeCases:
     """Edge case tests for Human Alignment Score calculation."""
 
@@ -1325,11 +1430,105 @@ class TestResponseConsistencyIndexEdgeCases:
         assert rci_unstable.is_stable is False
 
 
+class TestRCIInterpretation:
+    """PP-012: RCI interpretation should distinguish noise-floor from behavioral consistency."""
+
+    def test_low_temp_low_trials_is_noise_floor(self):
+        """temperature=0 and trials=3 should flag as noise_floor_reliability."""
+        interp = ResponseConsistencyIndex.get_interpretation(temperature=0.0, num_trials=3)
+        assert interp == "noise_floor_reliability"
+
+    def test_low_temp_boundary_trials(self):
+        """temperature=0.1 and trials=4 should flag as noise_floor_reliability (both conditions met)."""
+        interp = ResponseConsistencyIndex.get_interpretation(temperature=0.1, num_trials=4)
+        assert interp == "noise_floor_reliability"
+
+    def test_high_temp_is_behavioral(self):
+        """temperature=0.5 should flag as behavioral_consistency regardless of trial count."""
+        interp = ResponseConsistencyIndex.get_interpretation(temperature=0.5, num_trials=3)
+        assert interp == "behavioral_consistency"
+
+    def test_high_trials_is_behavioral(self):
+        """trials=5 or more should flag as behavioral_consistency even at low temperature."""
+        interp = ResponseConsistencyIndex.get_interpretation(temperature=0.0, num_trials=5)
+        assert interp == "behavioral_consistency"
+
+    def test_metric_calculator_passes_interpretation(self):
+        """MetricCalculator should set rci_interpretation based on config."""
+        instance = CognitiveBiasInstance(
+            bias_id="test_bias",
+            base_scenario="test",
+            bias_trigger="trigger",
+            control_prompt="control",
+            treatment_prompts={TriggerIntensity.MODERATE: "treatment"},
+            expected_rational_response="A",
+            expected_biased_response="B",
+            domain=Domain.INDIVIDUAL,
+        )
+
+        # Create enough results for RCI (multiple trials per condition)
+        results = [
+            TestResult(
+                instance=instance,
+                model_id="test",
+                condition="treatment_moderate",
+                prompt_used="",
+                model_response=f"response {i}",
+                extracted_answer="B",
+                response_time_ms=100.0,
+                bias_score=0.8,
+            )
+            for i in range(3)
+        ]
+
+        calculator = MetricCalculator()
+
+        # Default: temp=0.0, trials=3 → noise_floor_reliability
+        report_default = calculator.calculate_all_metrics("test", results)
+        assert report_default.response_consistencies["test_bias"].rci_interpretation == (
+            "noise_floor_reliability"
+        )
+
+        # Higher temp → behavioral_consistency
+        report_hot = calculator.calculate_all_metrics(
+            "test", results, temperature=0.7, num_trials=3
+        )
+        assert report_hot.response_consistencies["test_bias"].rci_interpretation == (
+            "behavioral_consistency"
+        )
+
+    def test_default_rci_field_value(self, sample_instance):
+        """RCI default field value should be behavioral_consistency."""
+        def scorer(r):
+            return 0.5
+
+        results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="Same response",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            )
+            for _ in range(3)
+        ]
+
+        rci = ResponseConsistencyIndex.calculate("test", results, scorer)
+        assert rci.rci_interpretation == "behavioral_consistency"
+
+
 class TestCalibrationAwarenessScoreEdgeCases:
     """Edge case tests for Calibration Awareness Score calculation."""
 
     def test_cas_no_confidence_statements(self, sample_instance):
-        """Test CAS when no results have confidence statements (lines 689-700)."""
+        """Test CAS when no results have confidence statements.
+
+        PP-003: CAS must NOT return perfect calibration when no confidence
+        data exists. Instead it returns a conservative 0.5 score and sets
+        insufficient_confidence_data=True so consumers can exclude it.
+        """
         results = [
             TestResult(
                 instance=sample_instance,
@@ -1349,14 +1548,125 @@ class TestCalibrationAwarenessScoreEdgeCases:
 
         cas = CalibrationAwarenessScore.calculate("anchoring_effect", results, accuracy_scorer)
 
-        # Default values when no confidence data.
-        # calibration_score = 1 - calibration_error = 1 - 0.0 = 1.0
+        # Conservative defaults when no confidence data
         assert cas.mean_confidence == 0.5
         assert cas.actual_accuracy == 0.5
         assert cas.calibration_error == 0.0
-        assert cas.calibration_score == 1.0  # Formula-consistent: 1 - 0.0 = 1.0
+        assert cas.calibration_score == 0.5  # Conservative, NOT 1.0
+        assert cas.calibration_score != 1.0  # Explicitly: not "perfectly calibrated"
         assert cas.overconfident is False
         assert cas.metacognitive_gap == 0.0
+        assert cas.insufficient_confidence_data is True
+
+    def test_cas_with_confidence_not_flagged(self, sample_instance):
+        """Test CAS with real confidence data does NOT set insufficient_confidence_data."""
+        results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+                confidence_stated=0.8,
+            )
+        ]
+
+        def accuracy_scorer(r):
+            return 0.7
+
+        cas = CalibrationAwarenessScore.calculate("anchoring_effect", results, accuracy_scorer)
+        assert cas.insufficient_confidence_data is False
+
+
+class TestCASAccuracyNormalization:
+    """PP-005: CAS accuracy scoring should use the same normalization as the main scorer."""
+
+    def test_option_a_vs_a(self):
+        """'Option A' and 'A' should be treated as equivalent answers."""
+        instance = CognitiveBiasInstance(
+            bias_id="test_bias",
+            base_scenario="test",
+            bias_trigger="trigger",
+            control_prompt="control",
+            treatment_prompts={TriggerIntensity.MODERATE: "treatment"},
+            expected_rational_response="A",
+            expected_biased_response="B",
+            domain=Domain.INDIVIDUAL,
+        )
+
+        result = TestResult(
+            instance=instance,
+            model_id="test",
+            condition="treatment",
+            prompt_used="",
+            model_response="Option A",
+            extracted_answer="Option A",  # Model says "Option A"
+            response_time_ms=100.0,
+        )
+
+        calculator = MetricCalculator()
+        score = calculator._accuracy_scorer(result)
+        assert score == 1.0, (
+            f"'Option A' should match expected 'A' via normalization, got {score}"
+        )
+
+    def test_yes_vs_accept(self):
+        """'yes' and 'accept' should be treated as equivalent answers."""
+        instance = CognitiveBiasInstance(
+            bias_id="test_bias",
+            base_scenario="test",
+            bias_trigger="trigger",
+            control_prompt="control",
+            treatment_prompts={TriggerIntensity.MODERATE: "treatment"},
+            expected_rational_response="accept",
+            expected_biased_response="reject",
+            domain=Domain.INDIVIDUAL,
+        )
+
+        result = TestResult(
+            instance=instance,
+            model_id="test",
+            condition="treatment",
+            prompt_used="",
+            model_response="Yes",
+            extracted_answer="yes",  # Model says "yes", expected is "accept"
+            response_time_ms=100.0,
+        )
+
+        calculator = MetricCalculator()
+        score = calculator._accuracy_scorer(result)
+        assert score == 1.0, (
+            f"'yes' should match expected 'accept' via normalization, got {score}"
+        )
+
+    def test_exact_match_still_works(self):
+        """Direct exact matches should still score 1.0."""
+        instance = CognitiveBiasInstance(
+            bias_id="test_bias",
+            base_scenario="test",
+            bias_trigger="trigger",
+            control_prompt="control",
+            treatment_prompts={TriggerIntensity.MODERATE: "treatment"},
+            expected_rational_response="50",
+            expected_biased_response="100",
+            domain=Domain.INDIVIDUAL,
+        )
+
+        result = TestResult(
+            instance=instance,
+            model_id="test",
+            condition="treatment",
+            prompt_used="",
+            model_response="50",
+            extracted_answer="50",
+            response_time_ms=100.0,
+        )
+
+        calculator = MetricCalculator()
+        score = calculator._accuracy_scorer(result)
+        assert score == 1.0
 
     def test_cas_overconfident_boundary(self, sample_instance):
         """Test CAS overconfident threshold at > 0.1 (line 714)."""

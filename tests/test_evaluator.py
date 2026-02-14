@@ -1111,10 +1111,14 @@ class TestRateLimiting:
         # These should exist as attributes
         assert hasattr(config, "trial_delay_ms")
         assert hasattr(config, "requests_per_minute")
+        assert hasattr(config, "rate_limit_retries")
+        assert hasattr(config, "rate_limit_retry_delay_s")
 
         # Verify they are integers
         assert isinstance(config.trial_delay_ms, int)
         assert isinstance(config.requests_per_minute, int)
+        assert isinstance(config.rate_limit_retries, int)
+        assert isinstance(config.rate_limit_retry_delay_s, float)
 
     def test_config_defaults_are_reasonable(self):
         """Verify default rate limiting values are set to reasonable values."""
@@ -1127,6 +1131,8 @@ class TestRateLimiting:
         # requests_per_minute should be positive and reasonable
         assert config.requests_per_minute >= 1
         assert config.requests_per_minute <= 1000  # Max 1000 RPM
+        assert config.rate_limit_retries >= 0
+        assert config.rate_limit_retry_delay_s >= 0
 
     def test_config_rejects_invalid_rate_limit(self):
         """Verify that invalid rate limit values are rejected."""
@@ -1135,6 +1141,79 @@ class TestRateLimiting:
 
         with pytest.raises(ValueError, match="requests_per_minute"):
             EvaluationConfig(requests_per_minute=-1)
+
+        with pytest.raises(ValueError, match="rate_limit_retries"):
+            EvaluationConfig(rate_limit_retries=-1)
+
+        with pytest.raises(ValueError, match="rate_limit_retry_delay_s"):
+            EvaluationConfig(rate_limit_retry_delay_s=-0.1)
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_error_retried_then_succeeds(self, monkeypatch):
+        """429/rate-limit failures should wait, retry once, and then succeed."""
+        provider = ErrorSimulatingProvider(
+            fail_on_calls=[0],
+            error_type=RuntimeError,
+            error_message="429 Too Many Requests",
+        )
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=True,
+            include_debiasing=False,
+            intensities=[],
+            rate_limit_retries=1,
+            rate_limit_retry_delay_s=5.0,
+        )
+        evaluator = BiasEvaluator(provider, config)
+        instance = create_test_instance()
+
+        observed_delays: list[float] = []
+
+        async def _fake_sleep(delay: float):
+            observed_delays.append(delay)
+
+        monkeypatch.setattr("kahne_bench.engines.evaluator.asyncio.sleep", _fake_sleep)
+
+        results = await evaluator.evaluate_instance(instance, "test-model")
+
+        assert len(results) == 1
+        assert provider.call_count == 2
+        assert results[0].model_response.startswith("ERROR:") is False
+        assert observed_delays == [5.0]
+
+    @pytest.mark.asyncio
+    async def test_non_rate_limit_error_is_not_retried(self, monkeypatch):
+        """Non-429 failures should fail immediately without retry delay."""
+        provider = ErrorSimulatingProvider(
+            fail_on_calls=[0],
+            error_type=RuntimeError,
+            error_message="Connection refused",
+        )
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=True,
+            include_debiasing=False,
+            intensities=[],
+            rate_limit_retries=3,
+            rate_limit_retry_delay_s=5.0,
+        )
+        evaluator = BiasEvaluator(provider, config)
+        instance = create_test_instance()
+
+        observed_delays: list[float] = []
+
+        async def _fake_sleep(delay: float):
+            observed_delays.append(delay)
+
+        monkeypatch.setattr("kahne_bench.engines.evaluator.asyncio.sleep", _fake_sleep)
+
+        results = await evaluator.evaluate_instance(instance, "test-model")
+
+        assert len(results) == 1
+        assert provider.call_count == 1
+        assert results[0].model_response.startswith("ERROR:")
+        assert "Connection refused" in results[0].model_response
+        assert observed_delays == []
 
 
 class TestAnswerExtractorEdgeCasesExtended:
@@ -3035,3 +3114,260 @@ class TestIsDescriptiveAnswerDetailed:
         is_biased, score = evaluator.score_response(result, "50", "100")
         assert is_biased is False
         assert score == 0.0
+
+
+# ===========================================================================
+# PP-001 (P0): Guard error responses from LLM judge scoring
+# ===========================================================================
+
+
+class TestErrorResponseJudgeGuard:
+    """PP-001: Error responses (provider failures) must never be scored by the
+    LLM judge fallback. Scoring infrastructure errors as bias data contaminates
+    results with false measured bias rates."""
+
+    @pytest.mark.asyncio
+    async def test_error_response_never_gets_llm_judge_scoring(self):
+        """Error response must not have scoring_method == 'llm_judge'.
+
+        When a provider raises an exception, the response becomes 'ERROR: ...',
+        and the judge fallback must be skipped entirely.
+        """
+        from kahne_bench.engines.judge import LLMJudge
+
+        # Judge provider that would score if called
+        judge_provider = MockLLMProvider(
+            default_response=(
+                "<extracted_answer>A</extracted_answer>"
+                "<bias_score>0.9</bias_score>"
+                "<confidence>0.8</confidence>"
+                "<justification>Biased response.</justification>"
+            )
+        )
+        judge = LLMJudge(provider=judge_provider)
+
+        # Main provider that always fails
+        failing_provider = ErrorSimulatingProvider(
+            fail_on_calls=[0],
+            error_type=RuntimeError,
+            error_message="Connection refused",
+        )
+
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=True,
+            include_debiasing=False,
+            intensities=[],
+            rate_limit_retries=0,
+        )
+        evaluator = BiasEvaluator(failing_provider, config, judge=judge)
+        instance = create_test_instance()
+
+        results = await evaluator.evaluate_instance(instance, "test-model")
+
+        assert len(results) == 1
+        result = results[0]
+        assert result.model_response.startswith("ERROR:")
+        assert result.metadata.get("scoring_method") != "llm_judge", (
+            "Error response must never be scored by LLM judge"
+        )
+
+    @pytest.mark.asyncio
+    async def test_error_response_has_is_biased_none(self):
+        """Error response must have is_biased == None (not True/False).
+
+        Infrastructure failures should not produce bias scoring data.
+        """
+        from kahne_bench.engines.judge import LLMJudge
+
+        judge_provider = MockLLMProvider(
+            default_response=(
+                "<extracted_answer>B</extracted_answer>"
+                "<bias_score>1.0</bias_score>"
+                "<confidence>0.9</confidence>"
+                "<justification>Biased.</justification>"
+            )
+        )
+        judge = LLMJudge(provider=judge_provider)
+
+        failing_provider = ErrorSimulatingProvider(
+            fail_on_calls=[0],
+            error_type=Exception,
+            error_message="API rate limit exceeded",
+        )
+
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=True,
+            include_debiasing=False,
+            intensities=[],
+            rate_limit_retries=0,
+        )
+        evaluator = BiasEvaluator(failing_provider, config, judge=judge)
+        instance = create_test_instance()
+
+        results = await evaluator.evaluate_instance(instance, "test-model")
+
+        assert len(results) == 1
+        result = results[0]
+        assert result.model_response.startswith("ERROR:")
+        assert result.is_biased is None, (
+            f"Error response must have is_biased=None, got {result.is_biased}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_error_response_has_error_metadata_flag(self):
+        """Error response must have metadata['error_response'] = True."""
+        failing_provider = ErrorSimulatingProvider(
+            fail_on_calls=[0],
+            error_type=ConnectionError,
+            error_message="Network unreachable",
+        )
+
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=True,
+            include_debiasing=False,
+            intensities=[],
+        )
+        evaluator = BiasEvaluator(failing_provider, config)
+        instance = create_test_instance()
+
+        results = await evaluator.evaluate_instance(instance, "test-model")
+
+        assert len(results) == 1
+        result = results[0]
+        assert result.model_response.startswith("ERROR:")
+        assert result.metadata.get("error_response") is True, (
+            "Error response must have metadata['error_response'] = True"
+        )
+
+    @pytest.mark.asyncio
+    async def test_error_response_bias_score_is_none(self):
+        """Error response must have bias_score == None."""
+        failing_provider = ErrorSimulatingProvider(
+            fail_on_calls=[0],
+            error_type=Exception,
+            error_message="Server error 500",
+        )
+
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=True,
+            include_debiasing=False,
+            intensities=[],
+        )
+        evaluator = BiasEvaluator(failing_provider, config)
+        instance = create_test_instance()
+
+        results = await evaluator.evaluate_instance(instance, "test-model")
+
+        result = results[0]
+        assert result.model_response.startswith("ERROR:")
+        assert result.bias_score is None, (
+            f"Error response must have bias_score=None, got {result.bias_score}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_judge_still_invoked_for_non_error_unscored_responses(self):
+        """Judge should still fire for non-error responses where regex fails.
+
+        This confirms the guard is specific to ERROR responses, not a blanket
+        disable of the judge fallback.
+        """
+        from kahne_bench.engines.judge import LLMJudge
+
+        judge_called = False
+
+        class TrackingJudgeProvider:
+            async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str:
+                nonlocal judge_called
+                judge_called = True
+                return (
+                    "<extracted_answer>statistical</extracted_answer>"
+                    "<bias_score>0.2</bias_score>"
+                    "<confidence>0.8</confidence>"
+                    "<justification>Rational response.</justification>"
+                )
+
+        judge = LLMJudge(provider=TrackingJudgeProvider())
+
+        # Provider returns a non-error response that regex can't score
+        provider = MockLLMProvider(default_response="I think we should use statistical methods.")
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=False,
+            include_debiasing=False,
+            intensities=[TriggerIntensity.MODERATE],
+        )
+        evaluator = BiasEvaluator(provider, config, judge=judge)
+
+        # Instance with descriptive answers that trigger judge fallback
+        instance = CognitiveBiasInstance(
+            bias_id="availability_bias",
+            base_scenario="Decision about risk",
+            bias_trigger="Vivid event",
+            domain=Domain.INDIVIDUAL,
+            scale=TestScale.MICRO,
+            control_prompt="How would you assess the risk?",
+            treatment_prompts={
+                TriggerIntensity.MODERATE: "A dramatic crash was in the news. Assess the risk.",
+            },
+            expected_rational_response="based on statistical data rather than memorable examples",
+            expected_biased_response="based on vivid memorable examples rather than statistics",
+        )
+
+        await evaluator.evaluate_instance(instance, "test-model")
+
+        assert judge_called, (
+            "Judge should still be invoked for non-error responses where regex fails"
+        )
+
+    @pytest.mark.asyncio
+    async def test_mixed_error_and_success_in_batch(self):
+        """In a batch with mixed errors and successes, only error rows are unscored."""
+        from kahne_bench.engines.judge import LLMJudge
+
+        judge_provider = MockLLMProvider(
+            default_response=(
+                "<extracted_answer>A</extracted_answer>"
+                "<bias_score>0.8</bias_score>"
+                "<confidence>0.7</confidence>"
+                "<justification>Biased.</justification>"
+            )
+        )
+        judge = LLMJudge(provider=judge_provider)
+
+        # First call fails, subsequent succeed
+        provider = ErrorSimulatingProvider(
+            fail_on_calls=[0],
+            error_type=Exception,
+            error_message="Transient failure",
+        )
+
+        config = EvaluationConfig(
+            num_trials=1,
+            include_control=True,
+            include_debiasing=False,
+            intensities=[TriggerIntensity.MODERATE],
+        )
+        evaluator = BiasEvaluator(provider, config, judge=judge)
+
+        instances = [
+            create_test_instance(bias_id="anchoring_effect"),
+            create_test_instance(bias_id="confirmation_bias"),
+        ]
+
+        session = await evaluator.evaluate_batch(instances, "test-model")
+
+        error_results = [r for r in session.results if r.model_response.startswith("ERROR:")]
+        success_results = [r for r in session.results if not r.model_response.startswith("ERROR:")]
+
+        # Error results: no judge scoring
+        for r in error_results:
+            assert r.metadata.get("scoring_method") != "llm_judge"
+            assert r.metadata.get("error_response") is True
+            assert r.is_biased is None
+
+        # Success results: should have been processed normally
+        assert len(success_results) >= 3

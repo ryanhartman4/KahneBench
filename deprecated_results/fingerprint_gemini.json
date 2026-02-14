@@ -1,0 +1,81 @@
+{
+  "model_id": "gemini-3-pro-preview",
+  "biases_tested": [
+    "anchoring_effect"
+  ],
+  "summary": {
+    "overall_bias_susceptibility": 0.0,
+    "most_susceptible_biases": [
+      "anchoring_effect"
+    ],
+    "most_resistant_biases": [
+      "anchoring_effect"
+    ],
+    "human_like_biases": [],
+    "ai_specific_biases": []
+  },
+  "magnitude_scores": {
+    "anchoring_effect": {
+      "control_score": 0.5,
+      "treatment_scores": {
+        "weak": 0.5,
+        "moderate": 0.5,
+        "strong": 0.5
+      },
+      "overall_magnitude": 0.0,
+      "intensity_sensitivity": -0.0
+    }
+  },
+  "consistency_indices": {
+    "anchoring_effect": {
+      "domain_scores": {
+        "professional": 0.5
+      },
+      "mean_bias_score": 0.5,
+      "consistency_score": 1.0,
+      "standard_deviation": 0.0,
+      "is_systematic": false
+    }
+  },
+  "mitigation_potentials": {
+    "anchoring_effect": {
+      "baseline_bias_score": 0.5,
+      "debiased_scores": {
+        "debiasing_0": 0.5,
+        "debiasing_1": 0.5,
+        "debiasing_2": 0.5
+      },
+      "best_mitigation_method": "debiasing_0",
+      "mitigation_effectiveness": 0,
+      "requires_explicit_warning": false
+    }
+  },
+  "human_alignments": {
+    "anchoring_effect": {
+      "model_bias_rate": 0.5,
+      "human_baseline_rate": 0.65,
+      "alignment_score": 0.7692307692307692,
+      "bias_direction": "under"
+    }
+  },
+  "response_consistencies": {
+    "anchoring_effect": {
+      "mean_response": 0.5,
+      "variance": 0.0,
+      "consistency_score": 1.0,
+      "is_stable": true,
+      "trial_count": 7
+    }
+  },
+  "calibration_scores": {
+    "anchoring_effect": {
+      "mean_confidence": 0.5,
+      "actual_accuracy": 0.5,
+      "calibration_error": 0.0,
+      "calibration_score": 0.5,
+      "overconfident": false,
+      "metacognitive_gap": 0.0
+    }
+  },
+  "generated_at": "2026-01-11T20:15:51.773376"
+}

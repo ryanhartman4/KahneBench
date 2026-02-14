@@ -418,6 +418,48 @@ class TestDebiasingPrompts:
             f"{expected_terms}. Got: {instance.debiasing_prompts[:100]}..."
         )
 
+    def test_debiasing_wraps_treatment_not_control(self, generator):
+        """PP-008: Debiasing prompts must wrap MODERATE treatment, not control.
+
+        BMP measures "can the model resist bias under active trigger + debiasing?"
+        So the base prompt inside each debiasing prompt should be the treatment
+        (which contains bias triggers) rather than the neutral control.
+        """
+        instance = generator.generate_instance(
+            "anchoring_effect", include_debiasing=True
+        )
+
+        treatment_moderate = instance.get_treatment(TriggerIntensity.MODERATE)
+
+        # Each debiasing prompt should contain the moderate treatment text
+        for i, prompt in enumerate(instance.debiasing_prompts):
+            assert treatment_moderate.strip() in prompt, (
+                f"Debiasing prompt #{i} should contain MODERATE treatment text, "
+                f"not control. Treatment starts with: {treatment_moderate[:80]}..."
+            )
+
+        # Debiasing prompts should NOT be built on the control prompt
+        # (unless control text happens to be a substring of treatment).
+        # For anchoring, control lacks the anchor; treatment has it.
+        assert "anchor" not in instance.control_prompt.lower() or \
+            "anchor" in treatment_moderate.lower(), (
+            "Sanity check: treatment should contain anchor language that control lacks"
+        )
+
+    def test_debiasing_wraps_treatment_generic_bias(self, generator):
+        """PP-008: Debiasing wraps treatment for generic (non-template) biases too."""
+        instance = generator.generate_instance(
+            "confirmation_bias", include_debiasing=True
+        )
+
+        treatment_moderate = instance.get_treatment(TriggerIntensity.MODERATE)
+
+        for i, prompt in enumerate(instance.debiasing_prompts):
+            assert treatment_moderate.strip() in prompt, (
+                f"Generic bias debiasing prompt #{i} should wrap MODERATE treatment. "
+                f"Treatment starts with: {treatment_moderate[:80]}..."
+            )
+
 
 class TestBatchGenerationEdgeCases:
     """Tests for edge cases in batch generation."""
@@ -727,6 +769,40 @@ class TestNumericTargetRedesign:
         # Biased ignores base rate, uses representativeness, so biased = "A"
         assert instance.expected_biased_response == "A", (
             "base_rate_neglect: biased should be A (representativeness heuristic)"
+        )
+
+    def test_base_rate_neglect_no_canonical_contamination(self, generator):
+        """PP-011: base_rate_neglect should not use the canonical K&T examples.
+
+        The original "engineers vs lawyers" paradigm (K&T 1973) is memorized by
+        frontier LLMs. Templates should use novel profession pairs to avoid
+        triggering pattern-matched responses from training data.
+        """
+        # Generate multiple instances to cover randomization
+        canonical_terms = ["engineer", "lawyer", "linda", "cab driver"]
+        for _ in range(10):
+            instance = generator.generate_instance("base_rate_neglect")
+            prompt_text = (instance.control_prompt + " " +
+                          instance.get_treatment(TriggerIntensity.MODERATE)).lower()
+            for term in canonical_terms:
+                assert term not in prompt_text, (
+                    f"base_rate_neglect should not use canonical term '{term}' "
+                    f"(contamination risk). Found in: {prompt_text[:200]}..."
+                )
+
+    def test_base_rate_neglect_scenario_diversity(self, generator):
+        """PP-011: base_rate_neglect should produce diverse scenarios across runs."""
+        categories_seen = set()
+        for _ in range(20):
+            instance = generator.generate_instance("base_rate_neglect")
+            # Extract the category from the prompt
+            treatment = instance.get_treatment(TriggerIntensity.MODERATE)
+            categories_seen.add(treatment[:200])  # Use prompt prefix as diversity proxy
+
+        # With 5 scenarios and 20 runs, we should see at least 3 distinct ones
+        assert len(categories_seen) >= 3, (
+            f"base_rate_neglect should have diverse scenarios, but only saw "
+            f"{len(categories_seen)} distinct prompts in 20 runs"
         )
 
     def test_gambler_fallacy_open_ended_format(self, generator):

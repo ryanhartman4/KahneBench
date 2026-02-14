@@ -33,6 +33,13 @@ def validate_positive(ctx, param, value):
     return value
 
 
+def validate_non_negative(ctx, param, value):
+    """Click callback to validate that a value is at least 0."""
+    if value is not None and value < 0:
+        raise click.BadParameter(f"must be at least 0, got {value}")
+    return value
+
+
 def _create_provider(provider: str, model: str | None) -> tuple:
     """Create an LLM provider and resolve model_id.
 
@@ -70,7 +77,7 @@ def _create_provider(provider: str, model: str | None) -> tuple:
         from kahne_bench.engines.evaluator import OpenAIProvider
 
         client = AsyncOpenAI()
-        model_id = model or "gpt-5"
+        model_id = model or "gpt-5.2"
         return OpenAIProvider(client=client, model=model_id), model_id
 
     elif provider == "anthropic":
@@ -81,7 +88,7 @@ def _create_provider(provider: str, model: str | None) -> tuple:
         from kahne_bench.engines.evaluator import AnthropicProvider
 
         client = AsyncAnthropic()
-        model_id = model or "claude-haiku-4-5"
+        model_id = model or "claude-sonnet-4-5"
         return AnthropicProvider(client=client, model=model_id), model_id
 
     elif provider == "fireworks":
@@ -226,6 +233,7 @@ def list_categories(category: str | None):
 def generate(bias: tuple, domain: tuple, instances: int, output: str, seed: int | None, tier: str | None):
     """Generate test case instances."""
     from kahne_bench.engines.generator import KAHNE_BENCH_CORE_BIASES, KAHNE_BENCH_EXTENDED_BIASES
+    from kahne_bench.utils.io import export_instances_to_json
 
     generator = TestCaseGenerator(seed=seed)
 
@@ -259,7 +267,7 @@ def generate(bias: tuple, domain: tuple, instances: int, output: str, seed: int 
 
             progress.update(task, description=f"Generated {len(test_instances)} instances")
 
-            generator.export_to_json(test_instances, output)
+            export_instances_to_json(test_instances, output)
             console.print(f"[green]Saved {len(test_instances)} test cases to {output}[/green]")
 
         except Exception as e:
@@ -384,31 +392,45 @@ def info():
               help="Benchmark tier")
 @click.option("--concurrency", "-c", default=50, callback=validate_positive,
               help="Max concurrent API requests (default: 50, increase for faster runs)")
+@click.option("--rate-limit-retries", default=1, callback=validate_non_negative,
+              help="Retries for 429/rate-limit errors per call (default: 1)")
+@click.option("--rate-limit-retry-delay", default=5.0, type=float, callback=validate_non_negative,
+              help="Seconds to wait before retrying a rate-limited call (default: 5.0)")
 @click.option("--judge-provider", type=click.Choice(PROVIDER_CHOICES), default="anthropic",
               help="LLM provider for judge fallback scoring (when regex extraction fails)")
 @click.option("--judge-model", default="claude-haiku-4-5", help="Model for judge fallback scoring")
+@click.option("--allow-tier-mismatch", is_flag=True, default=False,
+              help="Allow running even if input biases don't match the specified tier")
+@click.option("--include-adversarial", is_flag=True, default=False,
+              help="Include ADVERSARIAL intensity (default: WEAK/MODERATE/STRONG only)")
 def evaluate(input_file: str, provider: str, model: str | None, trials: int, output: str,
              fingerprint: str, tier: str, concurrency: int,
-             judge_provider: str, judge_model: str):
+             rate_limit_retries: int, rate_limit_retry_delay: float,
+             judge_provider: str, judge_model: str,
+             allow_tier_mismatch: bool, include_adversarial: bool):
     """Evaluate an LLM for cognitive biases.
 
-    Run a complete bias evaluation on a model using pre-generated test cases
-    or generate new ones on the fly.
+    Run a complete bias evaluation on a model using pre-generated test cases.
+    Default intensity set is WEAK/MODERATE/STRONG (3 intensities). Use
+    --include-adversarial to add the ADVERSARIAL intensity level.
+
+    Input test cases are validated against the specified tier. If biases in
+    the input file don't match the tier, the command fails unless
+    --allow-tier-mismatch is provided.
 
     Examples:
-        # Evaluate using mock provider (for testing):
         kahne-bench evaluate -i test_cases.json -p mock
 
-        # Evaluate with OpenAI:
         kahne-bench evaluate -i test_cases.json -p openai -m gpt-5.2
 
-        # Evaluate with LLM judge fallback:
-        kahne-bench evaluate -i test_cases.json -p openai -m gpt-5.2 --judge-provider openai --judge-model gpt-5.2
+        kahne-bench evaluate -i test_cases.json -p openai -m gpt-5.2 --include-adversarial
     """
+    from collections import Counter
     from rich.progress import Progress, BarColumn, TaskProgressColumn, TimeRemainingColumn
 
     from kahne_bench.utils.io import import_instances_from_json, export_results_to_json, export_fingerprint_to_json
     from kahne_bench.engines.evaluator import BiasEvaluator, EvaluationConfig
+    from kahne_bench.engines.generator import get_tier_biases
     from kahne_bench.metrics import MetricCalculator
 
     # Load test instances
@@ -422,6 +444,26 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
     except Exception as e:
         console.print(f"[red]Error loading test cases: {e}[/red]")
         sys.exit(1)
+
+    # Validate tier consistency (PP-002)
+    expected_biases = set(get_tier_biases(tier))
+    actual_biases = {inst.bias_id for inst in instances}
+    instance_count_by_bias = dict(Counter(inst.bias_id for inst in instances))
+    bias_manifest = sorted(actual_biases)
+
+    missing_biases = expected_biases - actual_biases
+    extra_biases = actual_biases - expected_biases
+    if missing_biases or extra_biases:
+        console.print(f"[red]Tier mismatch: input biases do not match '{tier}' tier[/red]")
+        if missing_biases:
+            console.print(f"  Missing biases: {sorted(missing_biases)}")
+        if extra_biases:
+            console.print(f"  Extra biases: {sorted(extra_biases)}")
+        if not allow_tier_mismatch:
+            console.print("[red]Use --allow-tier-mismatch to override this check[/red]")
+            sys.exit(1)
+        else:
+            console.print("[yellow]Proceeding with --allow-tier-mismatch[/yellow]")
 
     # Set up provider
     llm_provider, model_id = _create_provider(provider, model)
@@ -441,28 +483,39 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
         judge = LLMJudge(provider=judge_llm)
         console.print(f"[green]LLM judge enabled ({judge_provider}: {judge_model_id})[/green]")
 
-    # Configure evaluation
+    # Configure evaluation intensities (PP-009: explicit 3 vs 4 intensity policy)
     from kahne_bench.core import TriggerIntensity
+    intensities = [
+        TriggerIntensity.WEAK,
+        TriggerIntensity.MODERATE,
+        TriggerIntensity.STRONG,
+    ]
+    if include_adversarial:
+        intensities.append(TriggerIntensity.ADVERSARIAL)
+
     config = EvaluationConfig(
         num_trials=trials,
-        intensities=[
-            TriggerIntensity.WEAK,
-            TriggerIntensity.MODERATE,
-            TriggerIntensity.STRONG,
-        ],
+        intensities=intensities,
         include_control=True,
         include_debiasing=True,
         max_concurrent_requests=concurrency,
+        rate_limit_retries=rate_limit_retries,
+        rate_limit_retry_delay_s=rate_limit_retry_delay,
     )
 
     evaluator = BiasEvaluator(llm_provider, config, judge=judge)
 
     # Run evaluation
+    intensity_names = [i.value for i in intensities]
     console.print(f"\n[bold]Starting evaluation of {len(instances)} test instances...[/bold]")
     console.print(f"  Model: {model_id}")
     console.print(f"  Trials per condition: {trials}")
     console.print(f"  Concurrency: {concurrency} parallel requests")
-    console.print(f"  Tier: {tier}\n")
+    console.print(
+        f"  Rate-limit retries: {rate_limit_retries} (delay {rate_limit_retry_delay:.1f}s)"
+    )
+    console.print(f"  Tier: {tier}")
+    console.print(f"  Intensities: {', '.join(intensity_names)}\n")
 
     async def run_evaluation():
         with Progress(
@@ -492,11 +545,61 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
     # Calculate metrics
     console.print("[cyan]Calculating metrics...[/cyan]")
     calculator = MetricCalculator()
-    report = calculator.calculate_all_metrics(model_id, session.results)
+    report = calculator.calculate_all_metrics(
+        model_id,
+        session.results,
+        temperature=config.temperature,
+        num_trials=config.num_trials,
+    )
 
-    # Export results
-    export_results_to_json(session.results, output)
-    export_fingerprint_to_json(report, fingerprint)
+    # Build run provenance metadata (PP-004)
+    import hashlib
+    import subprocess as _sp
+    from datetime import datetime as _dt
+
+    git_commit = None
+    try:
+        _proc = _sp.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if _proc.returncode == 0:
+            git_commit = _proc.stdout.strip()
+    except Exception:
+        pass
+
+    manifest_hash = hashlib.sha256(
+        json.dumps(bias_manifest, sort_keys=True).encode()
+    ).hexdigest()
+
+    run_metadata = {
+        "provider": provider,
+        "model": model_id,
+        "judge_provider": judge_provider,
+        "judge_model": judge_model,
+        "temperature": config.temperature,
+        "max_tokens": config.max_tokens,
+        "num_trials": config.num_trials,
+        "max_concurrent_requests": config.max_concurrent_requests,
+        "rate_limit_retries": config.rate_limit_retries,
+        "rate_limit_retry_delay_s": config.rate_limit_retry_delay_s,
+        "intensities": intensity_names,
+        "include_control": config.include_control,
+        "include_debiasing": config.include_debiasing,
+        "tier": tier,
+        "input_file": input_file,
+        "bias_manifest": bias_manifest,
+        "bias_manifest_hash": manifest_hash,
+        "instance_count_by_bias": instance_count_by_bias,
+        "git_commit": git_commit,
+        "timestamp": _dt.now().isoformat(),
+        "python_version": sys.version,
+        "kahne_bench_version": __version__,
+    }
+
+    # Export results with provenance
+    export_results_to_json(session.results, output, metadata=run_metadata)
+    export_fingerprint_to_json(report, fingerprint, metadata=run_metadata)
 
     console.print("\n[bold green]Results saved:[/bold green]")
     console.print(f"  - Results: {output}")

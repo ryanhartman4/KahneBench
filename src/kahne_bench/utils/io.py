@@ -158,6 +158,7 @@ def export_results_to_json(
     results: list[TestResult],
     filepath: str | Path,
     indent: int = 2,
+    metadata: dict | None = None,
 ) -> None:
     """
     Export test results to JSON file.
@@ -166,10 +167,11 @@ def export_results_to_json(
         results: List of test results to export
         filepath: Output file path
         indent: JSON indentation level
+        metadata: Optional run provenance metadata to include at top level
     """
-    data = []
+    result_rows = []
     for result in results:
-        data.append({
+        result_rows.append({
             "bias_id": result.instance.bias_id,
             "model_id": result.model_id,
             "condition": result.condition,
@@ -183,6 +185,11 @@ def export_results_to_json(
             "domain": result.instance.domain.value,
             "metadata": result.metadata,
         })
+
+    if metadata is not None:
+        data = {"run_metadata": metadata, "results": result_rows}
+    else:
+        data = result_rows
 
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=indent, ensure_ascii=False)
@@ -399,6 +406,7 @@ def export_fingerprint_to_json(
     report: CognitiveFingerprintReport,
     filepath: str | Path,
     indent: int = 2,
+    metadata: dict | None = None,
 ) -> None:
     """
     Export a cognitive fingerprint report to JSON.
@@ -407,6 +415,7 @@ def export_fingerprint_to_json(
         report: The fingerprint report to export
         filepath: Output file path
         indent: JSON indentation level
+        metadata: Optional run provenance metadata to include at top level
     """
     data = {
         "model_id": report.model_id,
@@ -469,6 +478,7 @@ def export_fingerprint_to_json(
                 "is_stable": rci.is_stable,
                 "trial_count": rci.trial_count,
                 "unknown_rate": rci.unknown_rate,
+                "rci_interpretation": rci.rci_interpretation,
             }
             for bias_id, rci in report.response_consistencies.items()
         },
@@ -481,6 +491,7 @@ def export_fingerprint_to_json(
                 "overconfident": cas.overconfident,
                 "metacognitive_gap": cas.metacognitive_gap,
                 "unknown_rate": cas.unknown_rate,
+                "insufficient_confidence_data": cas.insufficient_confidence_data,
             }
             for bias_id, cas in report.calibration_scores.items()
         },
@@ -525,6 +536,9 @@ def export_fingerprint_to_json(
             "low_quality_instances": report.test_quality.low_quality_instances,
             "quality_distribution": report.test_quality.quality_distribution,
         }
+
+    if metadata is not None:
+        data["run_metadata"] = metadata
 
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=indent, ensure_ascii=False)

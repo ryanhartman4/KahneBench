@@ -222,10 +222,16 @@ class XAIProvider:
         def _sync_complete() -> str:
             from xai_sdk.chat import user
 
-            chat = self.client.chat.create(model=self.model, temperature=temperature)
+            chat = self.client.chat.create(
+                model=self.model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
             # NOTE: No system message is added here to ensure fair cross-provider
             # comparison. Other providers (OpenAI, Anthropic, Gemini) also omit
             # system messages so all models receive identical user-only prompts.
+            # NOTE: Reasoning models (e.g., grok-4-1-fast-reasoning) may internally
+            # allocate tokens for chain-of-thought, so effective output may be shorter.
             chat.append(user(prompt))
             response = chat.sample()
             # Handle None content from xAI
@@ -257,7 +263,10 @@ class GeminiProvider:
             response = self.client.models.generate_content(
                 model=self.model,
                 contents=prompt,
-                config=types.GenerateContentConfig(temperature=temperature),
+                config=types.GenerateContentConfig(
+                    temperature=temperature,
+                    max_output_tokens=max_tokens,
+                ),
             )
             # Handle None text (e.g., from safety filtering)
             return response.text or ""
@@ -292,11 +301,17 @@ class EvaluationConfig:
     # Rate limiting and concurrency
     requests_per_minute: int = 60  # Legacy, kept for compatibility
     max_concurrent_requests: int = 50  # Concurrent API calls via semaphore
+    rate_limit_retries: int = 1  # Retry count for explicit 429/rate-limit failures
+    rate_limit_retry_delay_s: float = 5.0  # Delay between rate-limit retries
 
     def __post_init__(self):
         """Validate configuration values."""
         if self.requests_per_minute < 1:
             raise ValueError("requests_per_minute must be at least 1")
+        if self.rate_limit_retries < 0:
+            raise ValueError("rate_limit_retries must be at least 0")
+        if self.rate_limit_retry_delay_s < 0:
+            raise ValueError("rate_limit_retry_delay_s must be at least 0")
 
 
 # Pre-compiled regex patterns for answer extraction (module level for performance)
@@ -793,11 +808,41 @@ class BiasEvaluator:
     async def _call_provider(self, prompt: str) -> str:
         """Make API call with semaphore-based concurrency limiting."""
         async with self._semaphore:
-            return await self.provider.complete(
-                prompt=prompt,
-                max_tokens=self.config.max_tokens,
-                temperature=self.config.temperature,
-            )
+            max_attempts = self.config.rate_limit_retries + 1
+            for attempt in range(max_attempts):
+                try:
+                    return await self.provider.complete(
+                        prompt=prompt,
+                        max_tokens=self.config.max_tokens,
+                        temperature=self.config.temperature,
+                    )
+                except Exception as exc:
+                    is_last_attempt = attempt == (max_attempts - 1)
+                    if is_last_attempt or not self._is_rate_limit_error(exc):
+                        raise
+
+                    logger.warning(
+                        "Rate limit hit, retrying in %.1fs (%d/%d): %s",
+                        self.config.rate_limit_retry_delay_s,
+                        attempt + 1,
+                        self.config.rate_limit_retries,
+                        exc,
+                    )
+                    await asyncio.sleep(self.config.rate_limit_retry_delay_s)
+
+        # Defensive fallback: loop either returns or raises.
+        raise RuntimeError("Provider call retry loop exited unexpectedly")
+
+    @staticmethod
+    def _is_rate_limit_error(exc: Exception) -> bool:
+        """Best-effort detection for provider rate-limit failures."""
+        status_code = getattr(exc, "status_code", None)
+        if status_code == 429:
+            return True
+
+        message = str(exc).lower()
+        patterns = ("429", "rate limit", "rate_limit", "too many requests")
+        return any(pattern in message for pattern in patterns)
 
     async def evaluate_instance(
         self,
@@ -872,12 +917,17 @@ class BiasEvaluator:
 
             # Extract answer and confidence (skip for error responses)
             answer_type = self._infer_answer_type(instance)
-            if response.startswith("ERROR:"):
+            is_error = response.startswith("ERROR:")
+            if is_error:
                 extracted = None
                 confidence = None
             else:
                 extracted = self.extractor.extract(response, answer_type)
                 confidence = self.extractor.extract_confidence(response)
+
+            metadata = {"trial": trial_num, "answer_type": answer_type}
+            if is_error:
+                metadata["error_response"] = True
 
             result = TestResult(
                 instance=instance,
@@ -888,7 +938,7 @@ class BiasEvaluator:
                 extracted_answer=extracted,
                 response_time_ms=elapsed_ms,
                 confidence_stated=confidence,
-                metadata={"trial": trial_num, "answer_type": answer_type},
+                metadata=metadata,
             )
 
             # Score the response for bias (only if we have expected answers)
@@ -908,8 +958,10 @@ class BiasEvaluator:
                 if result.is_biased is not None:
                     result.metadata["scoring_method"] = "regex"
 
-            # LLM judge fallback when regex extraction fails
-            if result.is_biased is None and self.judge is not None:
+            # LLM judge fallback when regex extraction fails.
+            # Skip error responses — scoring infrastructure failures as bias
+            # data would contaminate results with false measured bias rates.
+            if result.is_biased is None and self.judge is not None and not is_error:
                 try:
                     # Extract base bias id (may be prefixed like "abcd1234_anchoring_effect")
                     bias_id = instance.bias_id

@@ -24,6 +24,7 @@ from kahne_bench.core import (
     TriggerIntensity,
 )
 from kahne_bench.engines.conversation import ConversationalBiasScore
+from kahne_bench.engines.evaluator import normalize_answer
 from kahne_bench.engines.quality import QualityReport
 from kahne_bench.engines.variation import VariationRobustnessScore
 
@@ -709,6 +710,11 @@ class ResponseConsistencyIndex:
     is_stable: bool  # True if variance below threshold
     trial_count: int
     unknown_rate: float = 0.0  # Rate of unknown/failed extractions (0-1)
+    # Interpretation context for RCI scores. With near-deterministic settings
+    # (temperature ≤ 0.1) and low trial counts (< 5), high consistency primarily
+    # reflects the noise floor of the generation process rather than genuine
+    # behavioral stability under stochastic conditions.
+    rci_interpretation: str = "behavioral_consistency"  # or "noise_floor_reliability"
 
     @classmethod
     def calculate(
@@ -787,6 +793,30 @@ class ResponseConsistencyIndex:
             unknown_rate=unknown_rate,
         )
 
+    @staticmethod
+    def get_interpretation(temperature: float, num_trials: int) -> str:
+        """Determine RCI interpretation context based on evaluation config.
+
+        With near-deterministic settings (temperature ≤ 0.1) and low trial
+        counts (< 5), high RCI consistency primarily reflects the noise floor
+        of the generation process. The model produces nearly identical outputs
+        each time, so consistency is a given rather than a meaningful signal.
+
+        Under stochastic conditions (higher temperature or more trials), RCI
+        genuinely measures behavioral consistency — whether the model's bias
+        patterns are systematic or noisy.
+
+        Args:
+            temperature: The generation temperature used
+            num_trials: Number of trials per condition
+
+        Returns:
+            "noise_floor_reliability" or "behavioral_consistency"
+        """
+        if temperature <= 0.1 and num_trials < 5:
+            return "noise_floor_reliability"
+        return "behavioral_consistency"
+
 
 @dataclass
 class CalibrationAwarenessScore:
@@ -821,6 +851,7 @@ class CalibrationAwarenessScore:
     overconfident: bool
     metacognitive_gap: float  # How much confidence exceeds accuracy
     unknown_rate: float = 0.0  # Rate of unknown/failed extractions (0-1)
+    insufficient_confidence_data: bool = False  # True when no confidence_stated values exist
 
     @classmethod
     def calculate(
@@ -855,18 +886,20 @@ class CalibrationAwarenessScore:
         unknown_rate = results_without_conf / total_results if total_results > 0 else 0.0
 
         if not results_with_conf:
-            # No confidence data available. By the formula
-            # calibration_score = 1 - calibration_error, when
-            # calibration_error = 0.0, calibration_score should be 1.0.
+            # No confidence data available — cannot assess calibration.
+            # Use conservative defaults (0.5) and flag as non-evaluable so
+            # downstream consumers (fingerprint reports, paper aggregates)
+            # can exclude this from calibration comparisons.
             return cls(
                 bias_id=bias_id,
                 mean_confidence=0.5,
                 actual_accuracy=0.5,
                 calibration_error=0.0,
-                calibration_score=1.0,
+                calibration_score=0.5,
                 overconfident=False,
                 metacognitive_gap=0.0,
                 unknown_rate=unknown_rate,
+                insufficient_confidence_data=True,
             )
 
         confidences = [r.confidence_stated for r in results_with_conf]
@@ -1019,6 +1052,10 @@ class MetricCalculator:
 
         Unlike bias_score (which measures deviation toward biased answer),
         accuracy measures whether the model gave the objectively correct answer.
+
+        Uses the same normalize_answer() as the main evaluator scorer to ensure
+        semantically equivalent answers (e.g., "Option A" vs "A", "yes" vs
+        "accept") are treated consistently.
         """
         if not result.extracted_answer or result.extracted_answer == "UNKNOWN":
             return 0.5  # Cannot determine accuracy
@@ -1030,7 +1067,15 @@ class MetricCalculator:
         if expected.startswith("["):
             return 0.5  # Cannot determine accuracy for placeholder answers
 
-        # Exact match check
+        # Normalize using the same synonym mapping as the main evaluator
+        expected_norm = normalize_answer(expected)
+        extracted_norm = normalize_answer(extracted)
+
+        # Normalized match (handles "Option A" == "A", "yes" == "accept", etc.)
+        if extracted_norm == expected_norm:
+            return 1.0
+
+        # Also check raw exact match as fallback
         if extracted == expected:
             return 1.0
 
@@ -1057,6 +1102,8 @@ class MetricCalculator:
         self,
         model_id: str,
         results: list[TestResult],
+        temperature: float = 0.0,
+        num_trials: int = 3,
     ) -> CognitiveFingerprintReport:
         """
         Calculate complete cognitive fingerprint from results.
@@ -1064,6 +1111,8 @@ class MetricCalculator:
         Args:
             model_id: The model being evaluated
             results: All test results
+            temperature: Generation temperature used (for RCI interpretation)
+            num_trials: Trials per condition (for RCI interpretation)
 
         Returns:
             Complete CognitiveFingerprintReport
@@ -1097,9 +1146,14 @@ class MetricCalculator:
                 elif r.condition.startswith("debiasing_"):
                     debiasing[r.condition].append(r)
 
-            # Group by domain for consistency
+            # Group treatment results by domain for consistency (BCI).
+            # Only treatment results are used because BCI measures how
+            # consistently bias manifests across domains under trigger
+            # conditions. Mixing in control (no trigger) or debiasing
+            # (mitigation) results would confound the consistency signal.
+            all_treatments = [r for rs in treatments.values() for r in rs]
             by_domain: dict[Domain, list[TestResult]] = defaultdict(list)
-            for r in bias_results:
+            for r in all_treatments:
                 by_domain[r.instance.domain].append(r)
 
             # Calculate each metric
@@ -1111,7 +1165,6 @@ class MetricCalculator:
                 bias_id, dict(by_domain), self.scorer
             )
 
-            all_treatments = [r for rs in treatments.values() for r in rs]
             mitigation_potentials[bias_id] = BiasMitigationPotential.calculate(
                 bias_id, all_treatments, dict(debiasing), self.scorer
             )
@@ -1142,6 +1195,9 @@ class MetricCalculator:
                 all_stable = all(rci.is_stable for rci in condition_rcis)
                 avg_mean = mean([rci.mean_response for rci in condition_rcis])
 
+                rci_interp = ResponseConsistencyIndex.get_interpretation(
+                    temperature, num_trials
+                )
                 response_consistencies[bias_id] = ResponseConsistencyIndex(
                     bias_id=bias_id,
                     mean_response=avg_mean,
@@ -1149,12 +1205,17 @@ class MetricCalculator:
                     consistency_score=avg_consistency,
                     is_stable=all_stable,
                     trial_count=total_trials,
+                    rci_interpretation=rci_interp,
                 )
             else:
                 # Fallback for single-trial cases
-                response_consistencies[bias_id] = ResponseConsistencyIndex.calculate(
+                rci = ResponseConsistencyIndex.calculate(
                     bias_id, bias_results, self.scorer
                 )
+                rci.rci_interpretation = ResponseConsistencyIndex.get_interpretation(
+                    temperature, num_trials
+                )
+                response_consistencies[bias_id] = rci
 
             calibration_scores[bias_id] = CalibrationAwarenessScore.calculate(
                 bias_id, bias_results, self._accuracy_scorer  # True accuracy based on rational answer match

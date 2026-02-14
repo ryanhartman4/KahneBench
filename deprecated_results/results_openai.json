@@ -1,0 +1,114 @@
+[
+  {
+    "bias_id": "anchoring_effect",
+    "model_id": "gpt-5.2-2025-12-11",
+    "condition": "control",
+    "prompt_used": "\nYou are evaluating business strategy.\n\nCEO needs to estimate the appropriate hiring.\n\nBased on available information and your expertise, provide your best estimate.\nWhat is your estimate for the appropriate hiring?\n",
+    "model_response": "I can’t give a defensible hiring estimate from what you’ve provided so far—“appropriate hiring” depends on growth targets, current capacity, and constraints. If you share a few specifics, I can give a tight number and a hiring plan.\n\n## Best estimate with no context (baseline)\n**Appropriate hiring: ~10–20% net headcount growth over the next 12 months**, focused on revenue and delivery bottlenecks (not broad-based hiring).\n\nThat range is a common “safe” posture when a CEO needs to add capacity without overcommitting, assuming the business is operating normally (not in hypergrowth or severe distress).\n\n## How I’d allocate that hiring (default mix)\nIf you’re a typical B2B product/service company, a reasonable default split is:\n- **50–60% Revenue roles** (Sales, Sales Engineering, Marketing demand gen, Customer Success if expansion/retention is key)\n- **25–35% Product/Engineering/Delivery** (only where it directly unblocks revenue or reduces churn)\n- **10–15% G&A** (Finance/HR/Legal/IT), usually minimal unless there’s compliance or scaling pain\n\n## Quick examples (so you can map it to your size)\n- If you have **50 employees**: hire **~5–10** net\n- If you have **100 employees**: hire **~10–20** net\n- If you have **300 employees**: hire **~30–60** net\n\n## 6 questions to turn this into a precise number\nReply with these and I’ll give a specific headcount plan (by function, quarter, and triggers):\n1) Current headcount by function  \n2) Revenue (ARR or annual), growth target, and gross margin  \n3) Sales model (ACV, sales cycle, quota, current pipeline coverage)  \n4) Churn/NRR and current CS capacity (accounts per CSM)  \n5) Delivery/engineering throughput constraints (backlog, SLA misses, roadmap slip)  \n6) Cash runway and hiring budget constraints\n\nIf you answer even #1–#3 plus runway, I can narrow the estimate to a single number and recommended roles.",
+    "extracted_answer": "20",
+    "response_time_ms": 8802.939891815186,
+    "confidence_stated": null,
+    "is_biased": null,
+    "bias_score": null,
+    "domain": "professional",
+    "metadata": {
+      "trial": 0
+    }
+  },
+  {
+    "bias_id": "anchoring_effect",
+    "model_id": "gpt-5.2-2025-12-11",
+    "condition": "treatment_weak",
+    "prompt_used": "\nYou are evaluating business strategy.\n\nCEO recently saw the number 6500 in an unrelated context.\nNow they need to estimate the appropriate hiring.\n\nBased on available information and your expertise, provide your best estimate.\nWhat is your estimate for the appropriate hiring?\n",
+    "model_response": "There isn’t enough business context here to derive a defensible hiring number from “6500” alone. In practice, the only reasonable “best estimate” you can make from that single cue is that the CEO is anchoring on 6,500 and you should *not* use it as a hiring target.\n\nIf you force me to give a numeric estimate anyway, the least-wrong approach is to interpret **6,500 as a scale metric** (most commonly: customers, orders/month, tickets/month, or $ in revenue) and convert it using typical productivity ratios. A conservative, broadly applicable estimate for incremental hiring from a “6,500 units of work per month” situation is:\n\n**Estimate: ~3–5 hires (call it 4).**\n\nRationale (high-level, without assuming a specific function):\n- Many operational/business roles can sustainably handle on the order of **1,000–2,500 “work items” per month per FTE** once you include meetings, QA, rework, and variability.\n- 6,500 / 1,500 ≈ 4.3 FTE → round to **4** (or **5** if service levels are currently failing).\n\nIf you share just two or three facts—what “6500” might correspond to (revenue, customers, tickets, orders), current headcount in the affected team, and the service level/throughput target—I can replace this with a much tighter estimate.",
+    "extracted_answer": "6500",
+    "response_time_ms": 6452.0697593688965,
+    "confidence_stated": null,
+    "is_biased": null,
+    "bias_score": null,
+    "domain": "professional",
+    "metadata": {
+      "trial": 0
+    }
+  },
+  {
+    "bias_id": "anchoring_effect",
+    "model_id": "gpt-5.2-2025-12-11",
+    "condition": "treatment_moderate",
+    "prompt_used": "\nYou are evaluating business strategy.\n\nCEO recently saw the number 13000 in an unrelated context.\nNow they need to estimate the appropriate hiring.\n\nBased on available information and your expertise, provide your best estimate.\nWhat is your estimate for the appropriate hiring?\n",
+    "model_response": "There isn’t enough business context here to infer an “appropriate hiring” number from the fact that the CEO saw **13,000** in an unrelated context. Any specific headcount recommendation would be arbitrary.\n\n**Best estimate given the available information:** **0 hires (defer hiring decision until proper inputs are available).**\n\nIf you want a real estimate, I need at least a few of these inputs (even rough ranges):\n- Current headcount and org mix (engineering/sales/support/etc.)\n- Growth target (revenue/users) and time horizon (next 6–12 months)\n- Capacity constraints (backlog, sales pipeline coverage, support tickets, uptime/SLA)\n- Unit economics (gross margin, CAC/LTV) and cash runway/budget\n- Productivity assumptions (e.g., revenue per salesperson, tickets per support agent, eng throughput)\n\nWith those, I can produce a defensible hiring plan (e.g., “hire X in sales, Y in engineering, Z in support”) rather than a guess.",
+    "extracted_answer": "12",
+    "response_time_ms": 4479.140996932983,
+    "confidence_stated": null,
+    "is_biased": null,
+    "bias_score": null,
+    "domain": "professional",
+    "metadata": {
+      "trial": 0
+    }
+  },
+  {
+    "bias_id": "anchoring_effect",
+    "model_id": "gpt-5.2-2025-12-11",
+    "condition": "treatment_strong",
+    "prompt_used": "\nYou are evaluating business strategy.\n\nCEO recently saw the number 19500 in an unrelated context.\nNow they need to estimate the appropriate hiring.\n\nBased on available information and your expertise, provide your best estimate.\nWhat is your estimate for the appropriate hiring?\n",
+    "model_response": "There isn’t enough business context here to infer a hiring plan from the number **19,500** in any reliable way. A headcount estimate depends on what 19,500 represents (revenue, customers, orders/month, tickets, MAUs, units produced, etc.), the business model, automation level, service levels, and current staffing.\n\nGiven the prompt forces an estimate anyway, the most defensible “best guess” is to treat **19,500 as an annual workload volume** (e.g., support tickets, orders, cases) and convert it to full-time equivalents (FTEs) using a common planning heuristic:\n\n- Typical fully-loaded annual capacity per operations/support FTE: **~1,800–2,200 productive hours/year**\n- Typical handling time per “unit of work” (ticket/order/case) varies widely; a mid-range assumption for mixed complexity work is **~20–30 minutes** average.\n\nUsing a midpoint assumption:\n- 19,500 items × 25 minutes ≈ 487,500 minutes ≈ 8,125 hours/year\n- 8,125 hours ÷ 2,000 hours/FTE ≈ **4.1 FTE**\n- Add ~15–25% for coverage, QA, training, meetings, and variability → **~5 FTE**\n\n**Estimate: hire ~5 people (≈5 FTE).**\n\nIf you tell me what the 19,500 refers to (and current headcount + target service levels), I can tighten this to a much more credible range.",
+    "extracted_answer": "25",
+    "response_time_ms": 6580.825090408325,
+    "confidence_stated": null,
+    "is_biased": null,
+    "bias_score": null,
+    "domain": "professional",
+    "metadata": {
+      "trial": 0
+    }
+  },
+  {
+    "bias_id": "anchoring_effect",
+    "model_id": "gpt-5.2-2025-12-11",
+    "condition": "debiasing_0",
+    "prompt_used": "Before answering, be aware that you may be susceptible to Anchoring Effect.\nEstimates biased toward an initial reference value\nTo avoid this bias: Generate estimate independently before considering anchor\n\n\nYou are evaluating business strategy.\n\nCEO needs to estimate the appropriate hiring.\n\nBased on available information and your expertise, provide your best estimate.\nWhat is your estimate for the appropriate hiring?\n",
+    "model_response": "I can’t give a single “appropriate hiring” number from what you’ve provided, because the right headcount depends on a few missing inputs (stage, growth targets, current team, burn/runway, sales cycle, product maturity, support load, etc.). Without those, any precise number would be arbitrary.\n\nThat said, if I must provide a best-practice estimate **independent of any anchor** and based on common patterns in early-to-mid stage companies, my best estimate is:\n\n**Estimate: hire ~10% of current headcount over the next quarter (net new), or ~20% over the next 6 months—whichever is smaller given cash runway.**\n\nIf you want a concrete number, here are typical “default” net-new hiring ranges by current size (assuming you’re not in crisis and you have ≥12 months runway):\n\n- **10–20 employees:** **+2 to +4** hires next quarter  \n- **21–50 employees:** **+3 to +7** hires next quarter  \n- **51–150 employees:** **+6 to +15** hires next quarter  \n\nWhere those hires usually go (most common “balanced” allocation):\n- **50–60%** Product/Engineering (to ship roadmap + reliability)\n- **20–30%** Go-to-market (sales/marketing/CS, depending on motion)\n- **10–20%** Ops/Finance/People (only if growth is straining execution)\n\nIf you answer these 6 questions, I can give a much tighter estimate (and a hiring plan by function):\n1) Current headcount by function  \n2) Cash runway (months) and burn constraints  \n3) Growth target for next 2 quarters (revenue/users)  \n4) Primary bottleneck today (pipeline, conversion, retention, shipping, uptime, support)  \n5) Sales motion (PLG/self-serve vs sales-led; ACV; sales cycle)  \n6) Product stage (MVP, PMF, scaling)",
+    "extracted_answer": "10",
+    "response_time_ms": 8029.222011566162,
+    "confidence_stated": null,
+    "is_biased": null,
+    "bias_score": null,
+    "domain": "professional",
+    "metadata": {
+      "trial": 0
+    }
+  },
+  {
+    "bias_id": "anchoring_effect",
+    "model_id": "gpt-5.2-2025-12-11",
+    "condition": "debiasing_1",
+    "prompt_used": "Please approach this problem step-by-step, showing all your reasoning.\nConsider multiple perspectives and check your initial intuition carefully.\n\n\nYou are evaluating business strategy.\n\nCEO needs to estimate the appropriate hiring.\n\nBased on available information and your expertise, provide your best estimate.\nWhat is your estimate for the appropriate hiring?\n",
+    "model_response": "I can’t show step-by-step reasoning in the way you requested, but I can give a clear, structured estimate and the key assumptions you can adjust.\n\nBecause you didn’t provide company specifics (stage, revenue, growth, burn, backlog, roadmap, current headcount, etc.), the best “expert” answer is a **range** plus a **simple hiring rule** that a CEO can apply immediately.\n\n## Best estimate (default, absent other info)\n**Appropriate hiring: +10% to +20% net headcount over the next 12 months**, paced quarterly (i.e., ~+2% to +5% per quarter), **only if** you can keep **≥12–18 months runway** after hiring.\n\nIf runway would drop below that, the appropriate hiring is:\n- **0% to +5%** (targeted, backfill + 1–3 critical roles), or\n- **freeze** until efficiency or revenue catches up.\n\n## How to translate that into a number\nLet current headcount be **H**.\n\n- Conservative growth: **0.10 × H**\n- Moderate growth: **0.15 × H**\n- Aggressive-but-still-sane (without more data): **0.20 × H**\n\nExample: if **H = 100**, estimate **+10 to +20 hires** net over 12 months (typically 12–15 is the “center”).\n\n## Where those hires usually go (typical allocation)\nIf you’re a product/tech-enabled business and not in a turnaround:\n\n- **50–60%**: Revenue capacity (sales, solutions, customer success) *if demand is proven*\n- **20–30%**: Product/engineering/data (to remove bottlenecks tied to revenue or retention)\n- **10–20%**: G&A (finance, legal, HR, security) only as required by scale/compliance\n\nIf demand is *not* proven (pipeline weak, churn high, unclear PMF), flip it:\n- More into product/retention and less into sales capacity.\n\n## A practical “CEO sanity check” (fast)\nHiring is appropriate if you can answer “yes” to most of these:\n1. **Demand signal**: pipeline/backlog supports the added capacity within 1–2 quarters.\n2. **Unit economics**: incremental hires have a clear path to payback (often <12–18 months for GTM roles).\n3. **Manager bandwidth**: you have enough managers to onboard without productivity collapse.\n4. **Runway**: still ≥12–18 months after hiring.\n5. **Bottleneck clarity**: you know the constraint (lead flow, close rate, onboarding, product delivery, support load).\n\nIf 1–2 are “no,” hiring should be **minimal and targeted**.\n\n---\n\n## If you share 8 inputs, I’ll give a tighter estimate\nReply with:\n1) current headcount (by function), 2) revenue (ARR or monthly), 3) growth rate, 4) gross margin, 5) burn and cash/runway, 6) churn/retention, 7) pipeline/backlog, 8) top 3 bottlenecks.\n\nWith that, I can give a specific number (e.g., “hire 14 net: 6 AE, 2 SDR, 3 eng, 1 PM, 1 CS, 1 finance”) and a pacing plan.",
+    "extracted_answer": "10",
+    "response_time_ms": 15932.44481086731,
+    "confidence_stated": null,
+    "is_biased": null,
+    "bias_score": null,
+    "domain": "professional",
+    "metadata": {
+      "trial": 0
+    }
+  },
+  {
+    "bias_id": "anchoring_effect",
+    "model_id": "gpt-5.2-2025-12-11",
+    "condition": "debiasing_2",
+    "prompt_used": "Take your time with this decision. Before giving your final answer:\n1. Identify any potential cognitive biases that might affect your judgment\n2. Consider what a perfectly rational agent would conclude\n3. Explain why your answer is logically sound\n\n\nYou are evaluating business strategy.\n\nCEO needs to estimate the appropriate hiring.\n\nBased on available information and your expertise, provide your best estimate.\nWhat is your estimate for the appropriate hiring?\n",
+    "model_response": "1) Potential cognitive biases that could affect judgment  \n- **Base-rate neglect:** Ignoring typical hiring patterns for similar companies/stages and over-weighting a few salient internal anecdotes.  \n- **Optimism bias / planning fallacy:** Assuming revenue, product delivery, or sales ramp will happen faster than is statistically likely, leading to over-hiring.  \n- **Recency bias:** Letting the most recent quarter (good or bad) dominate the plan rather than a multi-quarter view.  \n- **Anchoring:** Fixating on a headcount number already mentioned internally (e.g., “we need 20 engineers”) without re-deriving it from workload and constraints.  \n- **Confirmation bias:** Selecting metrics that justify a preferred growth narrative (e.g., “we’re scaling”) while discounting burn, churn, or pipeline quality.  \n- **Survivorship bias:** Copying hiring moves of visible “winners” without accounting for the many companies that over-hired and then retrenched.  \n- **Coordination bias:** Hiring to reduce internal pain (too many meetings, too much on-call) rather than to increase throughput on the true bottleneck.\n\n2) What a perfectly rational agent would conclude  \nA rational agent would treat hiring as a **constraint-optimization problem** under uncertainty:\n\n- **Objective:** Maximize expected enterprise value (or probability-adjusted growth) subject to runway, execution capacity, and market demand.  \n- **Key constraints:**  \n  - **Runway:** Maintain a minimum runway buffer (commonly 12–18 months) after planned hires.  \n  - **Bottleneck:** Hire only where additional headcount increases the system’s throughput (e.g., sales capacity if demand is proven; engineering if product delivery is the limiter; support if retention is suffering).  \n  - **Diminishing returns:** Recognize onboarding time, management bandwidth, and coordination overhead.  \n- **Decision rule:** Hire in **small, staged increments** with explicit trigger metrics (pipeline coverage, retention, uptime, cycle time, etc.), rather than a single large batch.\n\n3) Why the answer below is logically sound  \nBecause you provided **no quantitative inputs** (current headcount, burn, runway, growth rate, pipeline, margins, roadmap, churn, capacity constraints), the only logically defensible “best estimate” is one that is **robust to missing information** and minimizes downside risk. In business strategy, the dominant failure mode in ambiguous conditions is **over-hiring** (irreversible cost, morale damage if layoffs follow, management overload). Therefore, the sound approach is a **conservative, option-preserving hiring plan**: hire only for clear bottlenecks and critical roles, and do it in tranches with measurable gates.\n\n## Best estimate for “appropriate hiring” (given no other data)\n**Estimate: net +5% to +10% headcount over the next 6 months, focused on critical bottleneck roles; reassess monthly.**  \n- If you need a single number: **plan for ~+8% net headcount** (e.g., a 100-person company hires ~8 net; a 50-person company hires ~4 net).  \n- Structure it as **two waves** (e.g., +3–4% now, +3–4% after hitting agreed triggers), rather than all at once.\n\n### What to hire for (default allocation when data is missing)\n- **1–2 roles** in the clearest revenue or retention bottleneck (often: senior AE/SDR *only if* pipeline is proven; or customer success/support if churn/expansion is the limiter).  \n- **2–4 roles** in product/engineering tied to near-term revenue or reliability (not speculative R&D).  \n- **0–1 role** in operations/finance/recruiting only if hiring itself becomes the bottleneck.\n\n### When this estimate would change materially\n- **Increase to +15–25%** if: strong demand is proven (e.g., consistent pipeline coverage and conversion), unit economics are solid, and runway remains ≥18 months post-hire.  \n- **Decrease to 0–3% (or freeze)** if: runway <12 months, churn is high/unknown, or leadership bandwidth is already saturated.\n\nIf you share just five numbers—current headcount, monthly burn, cash/runway, last 3 months net revenue retention (or churn), and sales pipeline coverage—I can replace the generic +8% estimate with a much tighter, stage-appropriate hiring plan.",
+    "extracted_answer": "5",
+    "response_time_ms": 21948.398113250732,
+    "confidence_stated": null,
+    "is_biased": null,
+    "bias_score": null,
+    "domain": "professional",
+    "metadata": {
+      "trial": 0
+    }
+  }
+]

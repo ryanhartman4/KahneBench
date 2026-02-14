@@ -200,11 +200,16 @@ A disease threatens {total_affected} lives. Consider two programs:
 Which program do you recommend? Reply with A or B.
 """,
     },
+    # CONTAMINATION NOTE (PP-011): The original template used the famous K&T 1973
+    # "engineers vs lawyers" paradigm which frontier LLMs have memorized. Diversified
+    # to use novel profession pairs with stereotype-matching descriptions that preserve
+    # the same mechanism (vivid description overrides base rate) without triggering
+    # memorized pattern-matching from training data.
     "base_rate_neglect": {
         "control": """
-In a population, {base_rate}% are engineers and {comp_rate}% are lawyers.
+In a professional community, {base_rate}% are {category_a_plural} and {comp_rate}% are {category_b_plural}.
 
-A person is randomly selected from this population.
+A person is randomly selected from this community.
 Without any additional information, which is more likely?
 
 A) This person is {category_a}
@@ -213,9 +218,9 @@ B) This person is {category_b}
 Reply with just A or B.
 """,
         "treatment": """
-In a population, {base_rate}% are engineers and {comp_rate}% are lawyers.
+In a professional community, {base_rate}% are {category_a_plural} and {comp_rate}% are {category_b_plural}.
 
-A person is randomly selected from this population. Here is a description:
+A person is randomly selected from this community. Here is a description:
 "{description}"
 
 Which is more likely?
@@ -1840,10 +1845,14 @@ class TestCaseGenerator:
             else:
                 treatment_prompts[intensity] = formatted
 
-        # Generate debiasing prompts
+        # Generate debiasing prompts from MODERATE treatment (not control).
+        # BMP measures "can the model resist bias when actively triggered + given
+        # debiasing instruction?" — using control would test debiasing against a
+        # neutral baseline, which is scientifically less informative (PP-008).
         debiasing_prompts = []
         if include_debiasing:
-            debiasing_prompts = self._generate_debiasing_prompts(bias_def, control_prompt)
+            moderate_treatment = treatment_prompts[TriggerIntensity.MODERATE]
+            debiasing_prompts = self._generate_debiasing_prompts(bias_def, moderate_treatment)
 
         metadata = {
             "bias_name": bias_def.name,
@@ -1932,9 +1941,12 @@ Please provide your immediate judgment.
             for intensity in TriggerIntensity
         }
 
+        # Generate debiasing prompts from MODERATE treatment (not control).
+        # See PP-008: BMP should measure mitigation under active trigger pressure.
         debiasing_prompts = []
         if include_debiasing:
-            debiasing_prompts = self._generate_debiasing_prompts(bias_def, control_prompt)
+            moderate_treatment = treatment_prompts[TriggerIntensity.MODERATE]
+            debiasing_prompts = self._generate_debiasing_prompts(bias_def, moderate_treatment)
 
         # Generate expected answers based on bias definition
         # Use system2_override as guidance for rational response
@@ -2190,16 +2202,67 @@ Please provide your immediate judgment.
             })
 
         elif bias_def.id == "base_rate_neglect":
+            # PP-011: Diversified scenarios to avoid contamination from the canonical
+            # K&T 1973 "engineers/lawyers" paradigm. Each entry uses novel profession
+            # pairs with a stereotype-matching description for the MINORITY category (A).
+            # The mechanism is identical: vivid description triggers representativeness
+            # heuristic, overriding the base rate that favors category B.
+            base_rate_scenarios = [
+                {
+                    "category_a": "a forensic accountant",
+                    "category_a_plural": "forensic accountants",
+                    "category_b": "a marketing coordinator",
+                    "category_b_plural": "marketing coordinators",
+                    "description": "meticulous with spreadsheets, prefers working alone, "
+                        "and has a reputation for spotting numerical discrepancies others miss",
+                },
+                {
+                    "category_a": "a marine biologist",
+                    "category_a_plural": "marine biologists",
+                    "category_b": "a supply chain analyst",
+                    "category_b_plural": "supply chain analysts",
+                    "description": "passionate about ocean conservation, keeps a saltwater "
+                        "aquarium at home, and volunteers at the local aquarium on weekends",
+                },
+                {
+                    "category_a": "an urban planner",
+                    "category_a_plural": "urban planners",
+                    "category_b": "a payroll specialist",
+                    "category_b_plural": "payroll specialists",
+                    "description": "fascinated by city design, frequently photographs buildings, "
+                        "and reads about public transit systems for fun",
+                },
+                {
+                    "category_a": "a data scientist",
+                    "category_a_plural": "data scientists",
+                    "category_b": "a compliance officer",
+                    "category_b_plural": "compliance officers",
+                    "description": "codes personal projects on weekends, has won several "
+                        "hackathons, and subscribes to machine learning research journals",
+                },
+                {
+                    "category_a": "a wildlife veterinarian",
+                    "category_a_plural": "wildlife veterinarians",
+                    "category_b": "a procurement manager",
+                    "category_b_plural": "procurement managers",
+                    "description": "grew up on a farm, has treated injured birds since childhood, "
+                        "and keeps detailed field notes about local animal populations",
+                },
+            ]
+            chosen = random.choice(base_rate_scenarios)
+
             # Ensure category_a is minority so base rate favors category_b
             base_rate = random.choice([5, 10, 15, 20])
             variables.update({
                 "base_rate": base_rate,
                 "comp_rate": 100 - base_rate,
-                "category_a": "an engineer",
-                "category_b": "a lawyer",
-                "description": "analytical, enjoys puzzles, somewhat introverted",
-                # Rational: B (lawyers more likely since base_rate < 50%)
-                # Biased: A (representativeness heuristic - description matches engineer)
+                "category_a": chosen["category_a"],
+                "category_a_plural": chosen["category_a_plural"],
+                "category_b": chosen["category_b"],
+                "category_b_plural": chosen["category_b_plural"],
+                "description": chosen["description"],
+                # Rational: B (majority by base rate since base_rate < 50%)
+                # Biased: A (representativeness heuristic — description matches minority)
                 "rational_answer": "B",
                 "biased_answer": "A",
                 "answer_type": "option",
