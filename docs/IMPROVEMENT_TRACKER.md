@@ -129,3 +129,4 @@ After all improvements:
 2. **Further expand interaction matrix** - Target 50%+ coverage
 3. **Add human baselines for remaining 7 memory/attention biases** - Requires literature review
 4. **Implement RAE (Rationality Alignment Environment)** - RL training infrastructure per spec
+5. **Increase evaluation run verbosity and heartbeat logging** - Emit periodic progress checkpoints (e.g., completed/total, elapsed, ETA, last successful batch timestamp) and warnings for potential hang-ups (long no-output intervals, repeated retries/rate-limits)
