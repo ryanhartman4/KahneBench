@@ -7,6 +7,7 @@ and computing metrics.
 
 import asyncio
 import json
+import logging
 import sys
 
 import click
@@ -403,11 +404,14 @@ def info():
               help="Allow running even if input biases don't match the specified tier")
 @click.option("--include-adversarial", is_flag=True, default=False,
               help="Include ADVERSARIAL intensity (default: WEAK/MODERATE/STRONG only)")
+@click.option("--verbose", is_flag=True, default=False,
+              help="Enable detailed logging of evaluation progress")
 def evaluate(input_file: str, provider: str, model: str | None, trials: int, output: str,
              fingerprint: str, tier: str, concurrency: int,
              rate_limit_retries: int, rate_limit_retry_delay: float,
              judge_provider: str, judge_model: str,
-             allow_tier_mismatch: bool, include_adversarial: bool):
+             allow_tier_mismatch: bool, include_adversarial: bool,
+             verbose: bool):
     """Evaluate an LLM for cognitive biases.
 
     Run a complete bias evaluation on a model using pre-generated test cases.
@@ -425,6 +429,13 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
 
         kahne-bench evaluate -i test_cases.json -p openai -m gpt-5.2 --include-adversarial
     """
+    if verbose:
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(asctime)s %(name)s %(levelname)s %(message)s",
+            datefmt="%H:%M:%S",
+        )
+
     from collections import Counter
     from rich.progress import Progress, BarColumn, TaskProgressColumn, TimeRemainingColumn
 
@@ -518,25 +529,31 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
     console.print(f"  Intensities: {', '.join(intensity_names)}\n")
 
     async def run_evaluation():
-        with Progress(
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            TimeRemainingColumn(),
-            console=console,
-        ) as progress:
-            task = progress.add_task("Evaluating...", total=len(instances))
-
-            def progress_callback(current: int, total: int):
-                progress.update(task, completed=current)
-
+        if verbose:
             session = await evaluator.evaluate_batch(
                 instances=instances,
                 model_id=model_id,
-                progress_callback=progress_callback,
             )
+        else:
+            with Progress(
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TaskProgressColumn(),
+                TimeRemainingColumn(),
+                console=console,
+            ) as progress:
+                task = progress.add_task("Evaluating...", total=len(instances))
 
-            return session
+                def progress_callback(current: int, total: int):
+                    progress.update(task, completed=current)
+
+                session = await evaluator.evaluate_batch(
+                    instances=instances,
+                    model_id=model_id,
+                    progress_callback=progress_callback,
+                )
+
+        return session
 
     session = asyncio.run(run_evaluation())
 

@@ -7,10 +7,13 @@ reads the full model response and produces a structured bias score.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 
 from kahne_bench.core import LLMProvider
+
+logger = logging.getLogger(__name__)
 
 
 JUDGE_SCORING_PROMPT = """You are an expert evaluator for cognitive bias research. \
@@ -94,6 +97,10 @@ class LLMJudge:
         answer_type: str,
     ) -> JudgeResult:
         """Score a model response using LLM judgment when regex extraction fails."""
+        logger.debug(
+            "Judge fallback invoked for bias=%s, answer_type=%s",
+            bias_name, answer_type,
+        )
         prompt = JUDGE_SCORING_PROMPT.format(
             bias_name=bias_name,
             bias_description=bias_description,
@@ -112,7 +119,12 @@ class LLMJudge:
             temperature=self.temperature,
         )
 
-        return self._parse_judge_response(response)
+        result = self._parse_judge_response(response)
+        logger.debug(
+            "Judge result: answer=%r, bias_score=%.2f, confidence=%.2f",
+            result.extracted_answer, result.bias_score, result.confidence,
+        )
+        return result
 
     def _parse_judge_response(self, response: str) -> JudgeResult:
         """Parse XML-tagged judge response into JudgeResult."""

@@ -529,3 +529,66 @@ class TestExportBackwardsCompat:
             assert isinstance(data, list)
         finally:
             filepath.unlink()
+
+
+class TestEvaluateVerbose:
+    """Test --verbose flag on evaluate command."""
+
+    def test_evaluate_verbose_succeeds(self, tmp_path):
+        """Evaluate with --verbose and mock provider should succeed."""
+        from kahne_bench.engines.generator import TestCaseGenerator
+        from kahne_bench.utils.io import export_instances_to_json
+
+        generator = TestCaseGenerator(seed=42)
+        instances = generator.generate_batch(
+            bias_ids=["anchoring_effect"],
+            instances_per_combination=1,
+        )
+        input_file = str(tmp_path / "test_cases.json")
+        export_instances_to_json(instances, input_file)
+
+        output_file = str(tmp_path / "results.json")
+        fingerprint_file = str(tmp_path / "fingerprint.json")
+
+        runner = CliRunner()
+        result = runner.invoke(main, [
+            "evaluate",
+            "-i", input_file,
+            "-p", "mock",
+            "-o", output_file,
+            "-f", fingerprint_file,
+            "--allow-tier-mismatch",
+            "--verbose",
+            *MOCK_EVAL_ARGS,
+        ])
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+
+    def test_evaluate_without_verbose_succeeds(self, tmp_path):
+        """Evaluate without --verbose should also still succeed."""
+        from kahne_bench.engines.generator import TestCaseGenerator
+        from kahne_bench.utils.io import export_instances_to_json
+
+        generator = TestCaseGenerator(seed=42)
+        instances = generator.generate_batch(
+            bias_ids=["anchoring_effect"],
+            instances_per_combination=1,
+        )
+        input_file = str(tmp_path / "test_cases.json")
+        export_instances_to_json(instances, input_file)
+
+        output_file = str(tmp_path / "results.json")
+        fingerprint_file = str(tmp_path / "fingerprint.json")
+
+        runner = CliRunner()
+        result = runner.invoke(main, [
+            "evaluate",
+            "-i", input_file,
+            "-p", "mock",
+            "-o", output_file,
+            "-f", fingerprint_file,
+            "--allow-tier-mismatch",
+            *MOCK_EVAL_ARGS,
+        ])
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"

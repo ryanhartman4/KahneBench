@@ -811,11 +811,18 @@ class BiasEvaluator:
             max_attempts = self.config.rate_limit_retries + 1
             for attempt in range(max_attempts):
                 try:
-                    return await self.provider.complete(
+                    start = time.time()
+                    result = await self.provider.complete(
                         prompt=prompt,
                         max_tokens=self.config.max_tokens,
                         temperature=self.config.temperature,
                     )
+                    elapsed = time.time() - start
+                    logger.debug(
+                        "API call completed: %d chars prompt, %d chars response, %.2fs",
+                        len(prompt), len(result), elapsed,
+                    )
+                    return result
                 except Exception as exc:
                     is_last_attempt = attempt == (max_attempts - 1)
                     if is_last_attempt or not self._is_rate_limit_error(exc):
@@ -906,6 +913,10 @@ class BiasEvaluator:
 
         async def run_single_trial(trial_num: int) -> TestResult:
             """Execute a single trial with timing and scoring."""
+            logger.debug(
+                "  Trial %d/%d for condition=%s",
+                trial_num + 1, self.config.num_trials, condition,
+            )
             start_time = time.time()
 
             try:
@@ -991,6 +1002,14 @@ class BiasEvaluator:
                 except Exception as e:
                     logger.warning("LLM judge failed for %s: %s", instance.bias_id, e)
 
+            logger.debug(
+                "  Extracted=%r, biased=%s, score=%s, method=%s",
+                result.extracted_answer,
+                result.is_biased,
+                f"{result.bias_score:.2f}" if result.bias_score is not None else "N/A",
+                result.metadata.get("scoring_method", "none"),
+            )
+
             return result
 
         # Run all trials concurrently (semaphore limits actual concurrency)
@@ -1059,17 +1078,33 @@ class BiasEvaluator:
             start_time=datetime.now().isoformat(),
         )
 
+        logger.info(
+            "Starting evaluation batch: %d instances, model=%s, trials=%d",
+            len(instances), model_id, self.config.num_trials,
+        )
+
         # Track progress with thread-safe counter
         completed_count = 0
         progress_lock = asyncio.Lock()
 
         async def eval_with_progress(instance: CognitiveBiasInstance) -> list[TestResult]:
             nonlocal completed_count
+            instance_num = instances.index(instance) + 1
+            logger.info(
+                "Evaluating instance %d/%d: %s [%s]",
+                instance_num, len(instances),
+                instance.bias_id, instance.domain.value,
+            )
             results = await self.evaluate_instance(instance, model_id)
             async with progress_lock:
                 completed_count += 1
                 if progress_callback:
                     progress_callback(completed_count, len(instances))
+            logger.info(
+                "Completed instance %d/%d: %s (%d results)",
+                instance_num, len(instances),
+                instance.bias_id, len(results),
+            )
             return results
 
         # Run all instances concurrently (semaphore limits actual API concurrency)
