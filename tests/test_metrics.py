@@ -265,7 +265,7 @@ class TestHumanAlignmentScore:
         assert has.model_bias_rate == 0.65
         assert has.human_baseline_rate == 0.65
         assert has.alignment_score == 1.0
-        assert has.bias_direction == "aligned"
+        assert has.bias_direction == "human"
 
     def test_alignment_over_biased(self, sample_instance):
         """Test HAS when model is more biased than humans."""
@@ -283,7 +283,7 @@ class TestHumanAlignmentScore:
         )]
 
         has = HumanAlignmentScore.calculate("anchoring_effect", results, scorer)
-        assert has.bias_direction == "over"
+        assert has.bias_direction == "worse than human"
         assert has.alignment_score < 1.0
 
 
@@ -1263,11 +1263,11 @@ class TestHumanAlignmentScoreEdgeCases:
         has = HumanAlignmentScore.calculate("nonexistent_bias_xyz", results, scorer)
         assert has.human_baseline_rate == 0.5  # Default when missing
         assert has.model_bias_rate == 0.7
-        # diff = 0.7 - 0.5 = 0.2 > 0.1, so direction should be "over"
-        assert has.bias_direction == "over"
+        # diff = 0.7 - 0.5 = 0.2 > 0.1, so direction should be "worse than human"
+        assert has.bias_direction == "worse than human"
 
-    def test_has_under_direction(self, sample_instance):
-        """Test HAS 'under' bias direction when model is less biased than humans (lines 550-553)."""
+    def test_has_superhuman_direction(self, sample_instance):
+        """Test HAS 'super-human' direction when model is less biased than humans (lines 550-553)."""
         def scorer(r):
             return 0.3  # Model much less biased than human baseline
 
@@ -1287,17 +1287,17 @@ class TestHumanAlignmentScoreEdgeCases:
         has = HumanAlignmentScore.calculate("anchoring_effect", results, scorer)
         assert has.human_baseline_rate == 0.65
         assert has.model_bias_rate == 0.3
-        # diff = 0.3 - 0.65 = -0.35 < -0.1, so direction should be "under"
-        assert has.bias_direction == "under"
+        # diff = 0.3 - 0.65 = -0.35 < -0.1, so direction should be "super-human"
+        assert has.bias_direction == "super-human"
 
     def test_has_boundary_at_0_1(self, sample_instance):
         """Test HAS boundary condition around the 0.1 threshold for alignment."""
         # Human baseline for anchoring_effect is 0.65
         # Test values just inside and outside the 0.1 threshold
 
-        # Test value just inside threshold (should be "aligned")
+        # Test value just inside threshold (should be "human")
         # Use 0.56 which gives diff = -0.09, abs(diff) < 0.1
-        def scorer_aligned(r):
+        def scorer_human(r):
             return 0.56
 
         results = [
@@ -1312,22 +1312,22 @@ class TestHumanAlignmentScoreEdgeCases:
             )
         ]
 
-        has_aligned = HumanAlignmentScore.calculate("anchoring_effect", results, scorer_aligned)
-        assert has_aligned.human_baseline_rate == 0.65
-        assert has_aligned.model_bias_rate == 0.56
-        # diff = 0.56 - 0.65 = -0.09, abs(diff) < 0.1, so should be "aligned"
-        assert has_aligned.bias_direction == "aligned"
+        has_human = HumanAlignmentScore.calculate("anchoring_effect", results, scorer_human)
+        assert has_human.human_baseline_rate == 0.65
+        assert has_human.model_bias_rate == 0.56
+        # diff = 0.56 - 0.65 = -0.09, abs(diff) < 0.1, so should be "human"
+        assert has_human.bias_direction == "human"
 
-        # Test value just outside threshold (should be "under")
+        # Test value just outside threshold (should be "super-human")
         # Use 0.54 which gives diff = -0.11, abs(diff) > 0.1
-        def scorer_under(r):
+        def scorer_superhuman(r):
             return 0.54
 
-        has_under = HumanAlignmentScore.calculate("anchoring_effect", results, scorer_under)
-        assert has_under.human_baseline_rate == 0.65
-        assert has_under.model_bias_rate == 0.54
-        # diff = 0.54 - 0.65 = -0.11, abs(diff) > 0.1, so should be "under"
-        assert has_under.bias_direction == "under"
+        has_superhuman = HumanAlignmentScore.calculate("anchoring_effect", results, scorer_superhuman)
+        assert has_superhuman.human_baseline_rate == 0.65
+        assert has_superhuman.model_bias_rate == 0.54
+        # diff = 0.54 - 0.65 = -0.11, abs(diff) > 0.1, so should be "super-human"
+        assert has_superhuman.bias_direction == "super-human"
 
 
 class TestResponseConsistencyIndexEdgeCases:
@@ -2508,7 +2508,7 @@ class TestMetricCalculatorIntegration:
         for bias_id, has in report.human_alignments.items():
             assert has.bias_id == bias_id
             assert 0.0 <= has.alignment_score <= 1.0
-            assert has.bias_direction in ("over", "under", "aligned")
+            assert has.bias_direction in ("worse than human", "super-human", "human")
             assert 0.0 <= has.model_bias_rate <= 1.0
 
     def test_calibration_scores_computed(self):

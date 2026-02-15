@@ -605,7 +605,7 @@ class HumanAlignmentScore:
     model_bias_rate: float
     human_baseline_rate: float
     alignment_score: float  # 0-1, how closely model matches humans
-    bias_direction: str  # "over" if model more biased, "under", or "aligned"
+    bias_direction: str  # "worse than human", "super-human", or "human"
     unknown_rate: float = 0.0  # Rate of unknown/failed extractions (0-1)
 
     @classmethod
@@ -676,11 +676,11 @@ class HumanAlignmentScore:
         # Determine direction
         diff = model_rate - human_rate
         if abs(diff) < 0.1:
-            direction = "aligned"
+            direction = "human"
         elif diff > 0:
-            direction = "over"
+            direction = "worse than human"
         else:
-            direction = "under"
+            direction = "super-human"
 
         return cls(
             bias_id=bias_id,
@@ -1015,7 +1015,7 @@ class CognitiveFingerprintReport:
         for bias_id, has in self.human_alignments.items():
             if has.alignment_score > 0.8:
                 self.human_like_biases.append(bias_id)
-            elif has.bias_direction == "over":
+            elif has.bias_direction == "worse than human":
                 self.ai_specific_biases.append(bias_id)
 
 
