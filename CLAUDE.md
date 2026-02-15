@@ -54,6 +54,9 @@ PYTHONPATH=src uv run kahne-bench generate-compound --bias anchoring_effect --bi
 # Run full evaluation pipeline (requires API key)
 PYTHONPATH=src uv run kahne-bench evaluate -i test_cases.json -p openai -m gpt-5.2
 
+# Run evaluation with verbose logging (per-instance progress, API timing, scoring)
+PYTHONPATH=src uv run kahne-bench evaluate -i test_cases.json -p openai -m gpt-5.2 --verbose
+
 # Generate cognitive fingerprint report
 PYTHONPATH=src uv run kahne-bench report fingerprint.json
 
@@ -74,7 +77,7 @@ PYTHONPATH=src uv run kahne-bench evaluate -i test_cases.json -p anthropic -m cl
   -o results.json -f fingerprint.json --tier core
 ```
 
-Note: Rich progress output is buffered — no incremental progress appears until the evaluation batch completes.
+Note: Rich progress output is buffered — no incremental progress appears until the evaluation batch completes. Use `--verbose` to get detailed per-instance logging instead (disables the progress bar).
 
 ### Results JSON Key Fields
 

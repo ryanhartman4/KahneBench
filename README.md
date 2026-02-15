@@ -413,6 +413,9 @@ kahne-bench generate-compound --domain professional
 # Run full evaluation pipeline (requires API key)
 kahne-bench evaluate -i test_cases.json -p openai -m gpt-5.2 --judge-provider openai --judge-model gpt-5.2
 
+# Run evaluation with verbose logging (shows per-instance progress, API timing, scoring details)
+kahne-bench evaluate -i test_cases.json -p openai -m gpt-5.2 --verbose
+
 # Generate cognitive fingerprint report
 kahne-bench report fingerprint.json
 
@@ -428,6 +431,8 @@ kahne-bench evaluate-conversation -i test_cases.json -p openai -m gpt-5.2
 # Show framework information
 kahne-bench info
 ```
+
+The `evaluate` command supports `--verbose` for detailed logging output. When enabled, the Rich progress bar is replaced with timestamped log lines showing per-instance progress, API call timing, answer extraction, scoring results, and LLM judge fallback events.
 
 Note: The CLI covers listing/description, generation, compound tests, evaluation, quality assessment, BLOOM generation, and conversational evaluation. Advanced evaluators are Python API only: `TemporalEvaluator`, `ContextSensitivityEvaluator`, `MacroScaleGenerator`, `RobustnessTester`, and `ContrastiveRobustnessTester`.
 
