@@ -39,9 +39,9 @@ dependencies = [
 kahne-bench = "kahne_bench.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/kahne-bench/kahne-bench"
-Documentation = "https://kahne-bench.readthedocs.io"
-Repository = "https://github.com/kahne-bench/kahne-bench"
+Homepage = "https://www.kahnebench.com/"
+Documentation = "https://github.com/ryanhartman4/KahneBench"
+Repository = "https://github.com/ryanhartman4/KahneBench"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -497,4 +497,9 @@ Zero-score biases should be investigated — see `reports/bias_test_quality_fixe
 
 | Model | Tier | Date | Fingerprint File |
 |-------|------|------|-----------------|
-| Claude Sonnet 4.5 | Core (v2, post-fix) | 2026-02-12 | `sonnet45_core_fingerprint_v2.json` |
+| Claude Sonnet 4.5 | Core (pilot) | 2026-02-09 | `deprecated_results/pilot_fingerprint.json` |
+| GPT-5.2 | Core | 2026-02-14 | `results/fingerprint_gpt52_final_check.json` |
+| Claude Haiku 4.5 | Core | 2026-02-14 | `results/fingerprint_haiku45.json` |
+| Claude Opus 4.6 | Core | 2026-02-14 | `results/fingerprint_opus46.json` |
+| Grok 4.1 Fast | Core | 2026-02-15 | `results/fingerprint_grok.json` |
+| Claude Sonnet 4.6 | Core | 2026-02-17 | `results/fingerprint_sonnet46.json` |

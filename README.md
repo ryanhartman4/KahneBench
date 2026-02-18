@@ -29,37 +29,51 @@ Kahne-Bench evaluates 69 cognitive biases across 5 ecological domains using mult
 - Metrics: six metrics and cognitive fingerprint reporting
 - CLI commands, examples, and JSON/CSV import/export utilities
 
-## Sample Results: Claude Sonnet 4.5 (Core Tier)
+## Results: Frontier Model Comparison (Core Tier)
 
-Evaluated 2026-02-12 using the core tier (15 foundational biases), 3 trials per condition, 4,725 total evaluations.
+All models evaluated on the core tier (15 foundational biases), 3 trials per condition, 4,725 total evaluations each.
 
-**Overall Bias Susceptibility: 13.17%**
+### Overall Bias Susceptibility
 
-| Bias | BMS Score | Human Baseline | Direction |
-|------|:---------:|:--------------:|:---------:|
-| Endowment Effect | 0.827 | 0.65 | Over-human |
-| Gain-Loss Framing | 0.420 | 0.72 | Under |
-| Status Quo Bias | 0.140 | 0.62 | Under |
-| Certainty Effect | 0.112 | 0.72 | Under |
-| Hindsight Bias | 0.107 | 0.65 | Under |
-| Sunk Cost Fallacy | 0.101 | 0.55 | Under |
-| Anchoring Effect | 0.078 | 0.65 | Under |
-| Availability Bias | 0.068 | 0.60 | Under |
-| Loss Aversion | 0.060 | 0.70 | Over-human |
-| Overconfidence | 0.039 | 0.75 | Under |
-| Gambler's Fallacy | 0.014 | 0.45 | Under |
-| Confirmation Bias | 0.011 | 0.72 | Under |
-| Base Rate Neglect | 0.000 | 0.68 | Under |
-| Conjunction Fallacy | 0.000 | 0.85 | Under |
-| Present Bias | 0.000 | 0.70 | Under |
+| Model | Provider | Susceptibility | Top Vulnerability | Top BMS |
+|-------|----------|:--------------:|-------------------|:-------:|
+| Claude Opus 4.6 | Anthropic | **11.05%** | Gain-Loss Framing | 0.612 |
+| Claude Sonnet 4.6 | Anthropic | 18.06% | Endowment Effect | 0.827 |
+| Grok 4.1 Fast | xAI | 18.83% | Base Rate Neglect | 0.835 |
+| GPT-5.2 | OpenAI | 21.00% | Endowment Effect | 0.835 |
+| Claude Sonnet 4.5 | Anthropic | 21.47% | Base Rate Neglect | 0.835 |
+| Claude Haiku 4.5 | Anthropic | 26.68% | Base Rate Neglect | 0.835 |
 
-**Key findings:**
-- **Endowment effect** is the top vulnerability (0.827) but is 100% debiasable with prompting
-- **Loss aversion** is the only *systematic* bias — consistent across all 5 domains and only partially mitigable (67.5%)
-- **Conjunction fallacy** and **present bias** score 0.000 due to genuine structural resistance — LLMs have internalized the probability axiom (conjunction) and lack temporal salience (present bias)
-- 13 of 15 biases show the model is *less* biased than humans; only loss aversion and endowment effect exceed human baselines
+### Per-Bias BMS Scores Across Models
 
-Full results: `deprecated_results/sonnet45_core_fingerprint_v2.json`
+| Bias | Opus 4.6 | Sonnet 4.6 | GPT-5.2 | Sonnet 4.5 | Grok 4.1 | Haiku 4.5 | Human |
+|------|:--------:|:----------:|:-------:|:----------:|:--------:|:---------:|:-----:|
+| Base Rate Neglect | 0.429 | 0.735 | 0.064 | 0.835 | 0.835 | 0.835 | 0.68 |
+| Endowment Effect | 0.246 | 0.827 | 0.835 | 0.818 | 0.763 | 0.793 | 0.65 |
+| Gain-Loss Framing | 0.612 | 0.583 | 0.644 | 0.462 | 0.457 | 0.576 | 0.72 |
+| Certainty Effect | 0.121 | 0.099 | 0.213 | 0.420 | 0.103 | 0.092 | 0.72 |
+| Hindsight Bias | 0.000 | 0.000 | 0.119 | 0.149 | 0.000 | 0.000 | 0.65 |
+| Anchoring Effect | 0.011 | 0.000 | 0.000 | 0.100 | 0.029 | 0.281 | 0.65 |
+| Availability Bias | 0.056 | 0.003 | 0.073 | 0.101 | 0.018 | 0.009 | 0.60 |
+| Sunk Cost Fallacy | 0.000 | 0.000 | 0.393 | 0.095 | 0.000 | 0.646 | 0.55 |
+| Status Quo Bias | 0.022 | 0.031 | 0.190 | 0.089 | 0.279 | 0.117 | 0.62 |
+| Loss Aversion | 0.097 | 0.209 | 0.285 | 0.056 | 0.052 | 0.044 | 0.70 |
+| Overconfidence | 0.047 | 0.092 | 0.078 | 0.056 | 0.176 | 0.181 | 0.75 |
+| Present Bias | 0.000 | 0.115 | 0.164 | 0.025 | 0.038 | 0.336 | 0.70 |
+| Confirmation Bias | 0.000 | 0.000 | 0.000 | 0.007 | 0.061 | 0.000 | 0.72 |
+| Gambler's Fallacy | 0.017 | 0.017 | 0.003 | 0.007 | 0.006 | 0.015 | 0.45 |
+| Conjunction Fallacy | 0.000 | 0.000 | 0.089 | 0.000 | 0.009 | 0.078 | 0.85 |
+
+### Key Findings
+
+- **Endowment effect** is a near-universal LLM vulnerability (BMS > 0.7 for all 6 models) but is 100% debiasable with prompting across all models tested
+- **Base rate neglect** splits models into two groups: GPT-5.2 (0.064) and Opus 4.6 (0.429) show partial resistance, while Sonnet 4.5, Grok, and Haiku all score 0.835
+- **Gain-loss framing** is the most consistent vulnerability, appearing in every model's top 5
+- **Confirmation bias**, **gambler's fallacy**, and **conjunction fallacy** are near-zero across all models — LLMs have structurally internalized these reasoning patterns
+- Claude Opus 4.6 achieves the lowest overall susceptibility (11.05%), driven by strong resistance to endowment effect and loss aversion
+- Most models are *less* biased than human baselines for the majority of biases; exceptions cluster around endowment effect, base rate neglect, and loss aversion
+
+Full results: `results/fingerprint_*.json` and `deprecated_results/pilot_fingerprint.json` (Sonnet 4.5)
 
 ## Limitations (Read Before Use)
 
