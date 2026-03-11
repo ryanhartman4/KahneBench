@@ -503,3 +503,4 @@ Zero-score biases should be investigated — see `reports/bias_test_quality_fixe
 | Claude Opus 4.6 | Core | 2026-02-14 | `results/fingerprint_opus46.json` |
 | Grok 4.1 Fast | Core | 2026-02-15 | `results/fingerprint_grok.json` |
 | Claude Sonnet 4.6 | Core | 2026-02-17 | `results/fingerprint_sonnet46.json` |
+| GPT-5.4 | Core | 2026-03-10 | `results/fingerprint_gpt54.json` |

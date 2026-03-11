@@ -159,21 +159,21 @@ class OpenAIProvider:
             self.model.startswith(prefix)
             for prefix in ("gpt-5", "o3", "o1", "chatgpt-")
         )
-
+        request_kwargs: dict[str, Any] = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+        }
         if uses_completion_tokens:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                max_completion_tokens=max_tokens,
-                temperature=temperature,
-            )
+            request_kwargs["max_completion_tokens"] = max_tokens
         else:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-                temperature=temperature,
-            )
+            request_kwargs["max_tokens"] = max_tokens
+
+        # gpt-5 chat completions currently reject explicit temperature values
+        # and only accept the model default.
+        if not self.model.startswith("gpt-5"):
+            request_kwargs["temperature"] = temperature
+
+        response = await self.client.chat.completions.create(**request_kwargs)
         return response.choices[0].message.content or ""
 
 
