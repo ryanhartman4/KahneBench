@@ -130,22 +130,23 @@ This section tracks the models to benchmark. Models with extended thinking/reaso
 
 | # | Model | Provider | Model ID | Reasoning Variants |
 |---|-------|----------|----------|-------------------|
-| 1 | **Claude Opus 4.6** | Anthropic | `claude-opus-4-6` | 0 thinking budget, full thinking budget |
-| 2 | **Claude Sonnet 4.5** | Anthropic | `claude-sonnet-4-5` | - |
-| 3 | **Claude Haiku 4.5** | Anthropic | `claude-haiku-4-5` | - |
-| 4 | **GPT-5.2** | OpenAI | `gpt-5.2-2025-12-11` | No reasoning effort, high reasoning effort |
-| 5 | **GLM 4.7** | Fireworks | `accounts/fireworks/models/glm-4p7` | - |
-| 6 | **MiniMax M2P1** | Fireworks | `accounts/fireworks/models/minimax-m2p1` | - |
-| 7 | **Gemini 3 Pro** | Google | `gemini-3-pro-preview` | - |
-| 8 | **DeepSeek V3.2** | Fireworks | `accounts/fireworks/models/deepseek-v3p2` | - |
-| 9 | **Kimi K2.5** | Fireworks | `accounts/fireworks/models/kimi-k2p5` | - |
-| 10 | **Grok 4.1 Fast** | xAI | `grok-4-1-fast-reasoning` | - |
+| 1 | **Claude Opus 4.7** | Anthropic | `claude-opus-4-7` | Temperature parameter is deprecated — must be omitted (see Model Notes) |
+| 2 | **Claude Opus 4.6** | Anthropic | `claude-opus-4-6` | 0 thinking budget, full thinking budget |
+| 3 | **Claude Sonnet 4.5** | Anthropic | `claude-sonnet-4-5` | - |
+| 4 | **Claude Haiku 4.5** | Anthropic | `claude-haiku-4-5` | - |
+| 5 | **GPT-5.2** | OpenAI | `gpt-5.2-2025-12-11` | No reasoning effort, high reasoning effort |
+| 6 | **GLM 4.7** | Fireworks | `accounts/fireworks/models/glm-4p7` | - |
+| 7 | **MiniMax M2P1** | Fireworks | `accounts/fireworks/models/minimax-m2p1` | - |
+| 8 | **Gemini 3 Pro** | Google | `gemini-3-pro-preview` | - |
+| 9 | **DeepSeek V3.2** | Fireworks | `accounts/fireworks/models/deepseek-v3p2` | - |
+| 10 | **Kimi K2.5** | Fireworks | `accounts/fireworks/models/kimi-k2p5` | - |
+| 11 | **Grok 4.1 Fast** | xAI | `grok-4-1-fast-reasoning` | - |
 
 ### Provider Support Status
 
 | Provider | CLI Flag | Status | API Compatibility | Models |
 |----------|----------|--------|-------------------|--------|
-| Anthropic | `-p anthropic` | ✅ Ready | Native SDK | `claude-opus-4-6`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
+| Anthropic | `-p anthropic` | ✅ Ready | Native SDK | `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
 | OpenAI | `-p openai` | ✅ Ready | Native SDK | `gpt-5.2-2025-12-11` |
 | Fireworks | `-p fireworks` | ✅ Ready | OpenAI-compatible | `glm-4p7`, `minimax-m2p1`, `deepseek-v3p2`, `kimi-k2p5` |
 | xAI | `-p xai` | ✅ Ready | Native SDK (`xai-sdk`) | `grok-4-1-fast-reasoning` |
@@ -200,6 +201,9 @@ export XAI_API_KEY="xai-..."             # Grok 4.1 Fast
 ### Recommended Evaluation Commands
 
 ```bash
+# Claude Opus 4.7 (temperature is silently omitted by AnthropicProvider — see Model Notes)
+PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-opus-4-7 --trials 3
+
 # Claude Opus 4.6 (no thinking)
 PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-opus-4-6 --trials 3
 
@@ -242,6 +246,7 @@ PYTHONPATH=src uv run kahne-bench evaluate -p xai -m grok-4-1-fast-reasoning --t
 
 | Model | Notes |
 |-------|-------|
+| Claude Opus 4.7 | **Rejects `temperature` with HTTP 400 `invalid_request_error: "temperature is deprecated for this model"`.** `AnthropicProvider.complete` in `engines/evaluator.py` omits the param when `model.startswith("claude-opus-4-7")` — mirrors the existing gpt-5 guard. Consequence for comparability: prior Anthropic runs used `temperature=0.0` (deterministic); 4.7 uses the model's internal default, which may slightly inflate RCI (trial-to-trial variance). |
 | Claude Opus 4.6 | Extended thinking available via `budget_tokens` parameter |
 | Claude Sonnet 4.5 | General-purpose model |
 | Claude Haiku 4.5 | Fast, cost-effective model |
@@ -504,3 +509,4 @@ Zero-score biases should be investigated — see `reports/bias_test_quality_fixe
 | Grok 4.1 Fast | Core | 2026-02-15 | `results/fingerprint_grok.json` |
 | Claude Sonnet 4.6 | Core | 2026-02-17 | `results/fingerprint_sonnet46.json` |
 | GPT-5.4 | Core | 2026-03-10 | `results/fingerprint_gpt54.json` |
+| Claude Opus 4.7 | Core | 2026-04-17 | `results/fingerprint_opus47.json` |

@@ -190,12 +190,18 @@ class AnthropicProvider:
         max_tokens: int = 1024,
         temperature: float = 0.0,
     ) -> str:
-        response = await self.client.messages.create(
-            model=self.model,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        request_kwargs: dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": max_tokens,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+
+        # claude-opus-4-7 rejects explicit temperature with a 400
+        # ("`temperature` is deprecated for this model").
+        if not self.model.startswith("claude-opus-4-7"):
+            request_kwargs["temperature"] = temperature
+
+        response = await self.client.messages.create(**request_kwargs)
         # Handle empty content array (e.g., from content filtering)
         if not response.content:
             return ""
