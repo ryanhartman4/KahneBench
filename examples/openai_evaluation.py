@@ -58,21 +58,23 @@ class OpenAIProvider:
             self.model.startswith(prefix)
             for prefix in ("gpt-5", "o3", "o1", "chatgpt-")
         )
+        request_kwargs = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+        }
 
-        if uses_completion_tokens:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                max_completion_tokens=max_tokens,
-                temperature=temperature,
-            )
-        else:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-                temperature=temperature,
-            )
+        # For GPT-5.x, max_completion_tokens caps reasoning + output together and
+        # can starve visible answers. Let those models self-bound.
+        if uses_completion_tokens and not self.model.startswith("gpt-5"):
+            request_kwargs["max_completion_tokens"] = max_tokens
+        elif not uses_completion_tokens:
+            request_kwargs["max_tokens"] = max_tokens
+
+        # GPT-5 chat completions accept only their default temperature.
+        if not self.model.startswith("gpt-5"):
+            request_kwargs["temperature"] = temperature
+
+        response = await self.client.chat.completions.create(**request_kwargs)
 
         return response.choices[0].message.content or ""
 
@@ -113,7 +115,7 @@ async def run_evaluation(
         domain_list = [Domain(d) for d in domains]
 
     print(f"\n{'='*60}")
-    print(f"KAHNE-BENCH EVALUATION")
+    print("KAHNE-BENCH EVALUATION")
     print(f"{'='*60}")
     print(f"Model: {model}")
     print(f"Tier: {tier} ({len(bias_ids)} biases)")
@@ -147,7 +149,6 @@ async def run_evaluation(
 
     # Run evaluation with progress tracking
     print("Running evaluation...")
-    total = len(instances)
 
     def progress_callback(current: int, total: int):
         pct = current / total * 100
@@ -190,7 +191,7 @@ async def run_evaluation(
     export_results_to_json(session.results, results_file)
     export_fingerprint_to_json(report, fingerprint_file)
 
-    print(f"\nResults exported to:")
+    print("\nResults exported to:")
     print(f"  - {results_file}")
     print(f"  - {fingerprint_file}")
 

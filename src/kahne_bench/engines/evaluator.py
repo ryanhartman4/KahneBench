@@ -163,9 +163,13 @@ class OpenAIProvider:
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
         }
-        if uses_completion_tokens:
+        # max_completion_tokens caps reasoning + output combined for gpt-5.x.
+        # The 1024 default starves the visible response when reasoning is heavy
+        # (empirically: 100% of overconfidence/gambler trials returned "" for
+        # gpt-5.5). Omit the cap and let the model self-bound via reasoning_effort.
+        if uses_completion_tokens and not self.model.startswith("gpt-5"):
             request_kwargs["max_completion_tokens"] = max_tokens
-        else:
+        elif not uses_completion_tokens:
             request_kwargs["max_tokens"] = max_tokens
 
         # gpt-5 chat completions currently reject explicit temperature values
