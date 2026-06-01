@@ -200,9 +200,11 @@ class AnthropicProvider:
             "messages": [{"role": "user", "content": prompt}],
         }
 
-        # claude-opus-4-7 rejects explicit temperature with a 400
-        # ("`temperature` is deprecated for this model").
-        if not self.model.startswith("claude-opus-4-7"):
+        # claude-opus-4-7 and claude-opus-4-8 reject explicit temperature with a
+        # 400 ("`temperature` is deprecated for this model"). Confirmed for 4.8
+        # via probe on 2026-05-31 — identical failure mode to 4.7. Note 4.6 still
+        # accepts temperature, so this stays an explicit per-version denylist.
+        if not self.model.startswith(("claude-opus-4-7", "claude-opus-4-8")):
             request_kwargs["temperature"] = temperature
 
         response = await self.client.messages.create(**request_kwargs)
