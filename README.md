@@ -39,6 +39,7 @@ All models evaluated on the core tier (15 foundational biases), 3 trials per con
 |-------|----------|:--------------:|-------------------|:-------:|
 | Claude Opus 4.7 | Anthropic | **8.34%** | Endowment Effect | 0.335 |
 | Claude Opus 4.8 | Anthropic | 8.74% | Sunk Cost Fallacy | 0.367 |
+| Claude Fable 5 | Anthropic | 10.26% | Base Rate Neglect | 0.391 |
 | Claude Opus 4.6 | Anthropic | 11.05% | Gain-Loss Framing | 0.612 |
 | GPT-5.5 | OpenAI | 13.64% | Base Rate Neglect | 0.744 |
 | Claude Sonnet 4.6 | Anthropic | 18.06% | Endowment Effect | 0.827 |
@@ -50,32 +51,33 @@ All models evaluated on the core tier (15 foundational biases), 3 trials per con
 
 ### Per-Bias BMS Scores Across Models
 
-| Bias | Opus 4.7 | Opus 4.8 | Opus 4.6 | GPT-5.5 | Sonnet 4.6 | GPT-5.4 | GPT-5.2 | Sonnet 4.5 | Grok 4.1 | Haiku 4.5 | Human |
-|------|:--------:|:--------:|:--------:|:-------:|:----------:|:-------:|:-------:|:----------:|:--------:|:---------:|:-----:|
-| Base Rate Neglect | 0.000 | 0.194 | 0.429 | 0.744 | 0.735 | 0.000 | 0.064 | 0.835 | 0.835 | 0.835 | 0.68 |
-| Endowment Effect | 0.335 | 0.030 | 0.246 | 0.335 | 0.827 | 0.835 | 0.835 | 0.818 | 0.763 | 0.793 | 0.65 |
-| Gain-Loss Framing | 0.185 | 0.007 | 0.612 | 0.335 | 0.583 | 0.690 | 0.644 | 0.462 | 0.457 | 0.576 | 0.72 |
-| Status Quo Bias | 0.000 | 0.024 | 0.022 | 0.007 | 0.031 | 0.288 | 0.190 | 0.089 | 0.279 | 0.117 | 0.62 |
-| Certainty Effect | 0.089 | 0.071 | 0.121 | 0.237 | 0.099 | 0.271 | 0.213 | 0.420 | 0.103 | 0.092 | 0.72 |
-| Hindsight Bias | 0.000 | 0.064 | 0.000 | 0.000 | 0.000 | 0.203 | 0.119 | 0.149 | 0.000 | 0.000 | 0.65 |
-| Sunk Cost Fallacy | 0.224 | 0.367 | 0.000 | 0.000 | 0.000 | 0.141 | 0.393 | 0.095 | 0.000 | 0.646 | 0.55 |
-| Overconfidence | 0.057 | 0.015 | 0.047 | 0.071 | 0.092 | 0.112 | 0.078 | 0.056 | 0.176 | 0.181 | 0.75 |
-| Present Bias | 0.185 | 0.212 | 0.000 | 0.017 | 0.115 | 0.085 | 0.164 | 0.025 | 0.038 | 0.336 | 0.70 |
-| Loss Aversion | 0.021 | 0.191 | 0.097 | 0.237 | 0.209 | 0.059 | 0.285 | 0.056 | 0.052 | 0.044 | 0.70 |
-| Availability Bias | 0.020 | 0.049 | 0.056 | 0.033 | 0.003 | 0.028 | 0.073 | 0.101 | 0.018 | 0.009 | 0.60 |
-| Confirmation Bias | 0.124 | 0.043 | 0.000 | 0.012 | 0.000 | 0.024 | 0.000 | 0.007 | 0.061 | 0.000 | 0.72 |
-| Anchoring Effect | 0.000 | 0.041 | 0.011 | 0.002 | 0.000 | 0.011 | 0.000 | 0.100 | 0.029 | 0.281 | 0.65 |
-| Gambler's Fallacy | 0.010 | 0.003 | 0.017 | 0.016 | 0.017 | 0.009 | 0.003 | 0.007 | 0.006 | 0.015 | 0.45 |
-| Conjunction Fallacy | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.089 | 0.000 | 0.009 | 0.078 | 0.85 |
+| Bias | Opus 4.7 | Opus 4.8 | Fable 5 | Opus 4.6 | GPT-5.5 | Sonnet 4.6 | GPT-5.4 | GPT-5.2 | Sonnet 4.5 | Grok 4.1 | Haiku 4.5 | Human |
+|------|:--------:|:--------:|:------:|:--------:|:-------:|:----------:|:-------:|:-------:|:----------:|:--------:|:---------:|:-----:|
+| Base Rate Neglect | 0.000 | 0.194 | 0.391 | 0.429 | 0.744 | 0.735 | 0.000 | 0.064 | 0.835 | 0.835 | 0.835 | 0.68 |
+| Endowment Effect | 0.335 | 0.030 | 0.052 | 0.246 | 0.335 | 0.827 | 0.835 | 0.835 | 0.818 | 0.763 | 0.793 | 0.65 |
+| Gain-Loss Framing | 0.185 | 0.007 | 0.283 | 0.612 | 0.335 | 0.583 | 0.690 | 0.644 | 0.462 | 0.457 | 0.576 | 0.72 |
+| Status Quo Bias | 0.000 | 0.024 | 0.000 | 0.022 | 0.007 | 0.031 | 0.288 | 0.190 | 0.089 | 0.279 | 0.117 | 0.62 |
+| Certainty Effect | 0.089 | 0.071 | 0.301 | 0.121 | 0.237 | 0.099 | 0.271 | 0.213 | 0.420 | 0.103 | 0.092 | 0.72 |
+| Hindsight Bias | 0.000 | 0.064 | 0.000 | 0.000 | 0.000 | 0.000 | 0.203 | 0.119 | 0.149 | 0.000 | 0.000 | 0.65 |
+| Sunk Cost Fallacy | 0.224 | 0.367 | 0.000 | 0.000 | 0.000 | 0.000 | 0.141 | 0.393 | 0.095 | 0.000 | 0.646 | 0.55 |
+| Overconfidence | 0.057 | 0.015 | 0.044 | 0.047 | 0.071 | 0.092 | 0.112 | 0.078 | 0.056 | 0.176 | 0.181 | 0.75 |
+| Present Bias | 0.185 | 0.212 | 0.209 | 0.000 | 0.017 | 0.115 | 0.085 | 0.164 | 0.025 | 0.038 | 0.336 | 0.70 |
+| Loss Aversion | 0.021 | 0.191 | 0.096 | 0.097 | 0.237 | 0.209 | 0.059 | 0.285 | 0.056 | 0.052 | 0.044 | 0.70 |
+| Availability Bias | 0.020 | 0.049 | 0.054 | 0.056 | 0.033 | 0.003 | 0.028 | 0.073 | 0.101 | 0.018 | 0.009 | 0.60 |
+| Confirmation Bias | 0.124 | 0.043 | 0.041 | 0.000 | 0.012 | 0.000 | 0.024 | 0.000 | 0.007 | 0.061 | 0.000 | 0.72 |
+| Anchoring Effect | 0.000 | 0.041 | 0.000 | 0.011 | 0.002 | 0.000 | 0.011 | 0.000 | 0.100 | 0.029 | 0.281 | 0.65 |
+| Gambler's Fallacy | 0.010 | 0.003 | 0.069 | 0.017 | 0.016 | 0.017 | 0.009 | 0.003 | 0.007 | 0.006 | 0.015 | 0.45 |
+| Conjunction Fallacy | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.089 | 0.000 | 0.009 | 0.078 | 0.85 |
 
 ### Key Findings
 
-- **Endowment effect** is a near-universal LLM vulnerability (BMS > 0.7 for 6 of 10 models); Opus 4.8 (0.030), Opus 4.6 (0.246), Opus 4.7 (0.335), and GPT-5.5 (0.335) are the standout exceptions — Opus 4.8 resists it most strongly of any model tested. Across all models tested it is ~100% debiasable with prompting
-- **Base rate neglect** splits models into three groups: Opus 4.7 (0.000) and GPT-5.4 (0.000) show complete resistance; GPT-5.2 (0.064) and Opus 4.6 (0.429) show partial resistance; Sonnet 4.6 (0.735), GPT-5.5 (0.744), and Sonnet 4.5/Grok/Haiku (all 0.835) cluster at the high end. GPT-5.5 represents a significant regression from GPT-5.4 on this bias and drives most of its remaining susceptibility
+- **Endowment effect** is a near-universal LLM vulnerability (BMS > 0.7 for 6 of 11 models); Opus 4.8 (0.030), Fable 5 (0.052), Opus 4.6 (0.246), Opus 4.7 (0.335), and GPT-5.5 (0.335) are the standout exceptions — Opus 4.8 resists it most strongly of any model tested. Across all models tested it is ~100% debiasable with prompting
+- **Base rate neglect** splits models into three groups: Opus 4.7 (0.000) and GPT-5.4 (0.000) show complete resistance; GPT-5.2 (0.064), Fable 5 (0.391), and Opus 4.6 (0.429) show partial resistance; Sonnet 4.6 (0.735), GPT-5.5 (0.744), and Sonnet 4.5/Grok/Haiku (all 0.835) cluster at the high end. GPT-5.5 represents a significant regression from GPT-5.4 on this bias and drives most of its remaining susceptibility
 - **Gain-loss framing** is a consistent vulnerability, appearing in most models' top 5; GPT-5.4 scores the highest (0.690), while Opus 4.7 (0.185) is the lowest, followed by GPT-5.5 (0.335) tied with Opus 4.7's endowment score
 - **Confirmation bias**, **gambler's fallacy**, and **conjunction fallacy** are near-zero across all models — LLMs have structurally internalized these reasoning patterns. Opus 4.7 is a partial exception on confirmation bias (0.124), the highest in the lineup
 - Claude Opus 4.7 achieves the lowest overall susceptibility (8.34%), with zero or near-zero scores on 7 of 15 core biases including base rate neglect, status quo bias, hindsight bias, anchoring, and conjunction fallacy
-- **Claude Opus 4.8** (8.74%) finishes a statistical hair behind Opus 4.7 — the two newest Opus models are the only sub-9% results and lead the field by a wide margin over Opus 4.6 (11.05%). Opus 4.8's residual susceptibility concentrates in sunk cost fallacy (0.367), present bias (0.212), and base rate neglect (0.194), while it fully resists conjunction fallacy (0.000), gambler's fallacy (0.003), gain-loss framing (0.007), and overconfidence (0.015). The 4.7↔4.8 gap is within run-to-run noise — both omit the (now-deprecated) `temperature` parameter, so trials sample non-deterministically
+- **Claude Opus 4.8** (8.74%) finishes a statistical hair behind Opus 4.7 — the two newest Opus models are the only sub-9% results, leading the field ahead of Claude Fable 5 (10.26%) and Opus 4.6 (11.05%). Opus 4.8's residual susceptibility concentrates in sunk cost fallacy (0.367), present bias (0.212), and base rate neglect (0.194), while it fully resists conjunction fallacy (0.000), gambler's fallacy (0.003), gain-loss framing (0.007), and overconfidence (0.015). The 4.7↔4.8 gap is within run-to-run noise — both omit the (now-deprecated) `temperature` parameter, so trials sample non-deterministically
+- **Claude Fable 5** (10.26%) takes 3rd overall, completing an all-Anthropic, newest-generation podium. It fully resists five core biases (anchoring, conjunction fallacy, status quo, sunk cost, and hindsight — all 0.000) and holds endowment effect near-zero (0.052); its residual susceptibility concentrates in base rate neglect (0.391), certainty effect (0.301, the second-highest in the field after Sonnet 4.5), and gain-loss framing (0.283)
 - GPT-5.5 (13.64%) is the best-scoring non-Anthropic model, with notable improvements over GPT-5.4 on endowment effect (0.835 → 0.335) and gain-loss framing (0.690 → 0.335), offset by the base rate neglect regression
 - GPT-5.4 (18.36%) improves on GPT-5.2 (21.00%) with base rate neglect fully resolved, though gain-loss framing and status quo bias increased
 - Most models are *less* biased than human baselines for the majority of biases; exceptions cluster around endowment effect, gain-loss framing, and loss aversion
@@ -385,11 +387,11 @@ The 69 biases are organized into 16 categories based on underlying cognitive mec
 | Representativeness | 8 | Base rate neglect, Conjunction fallacy |
 | Availability | 6 | Availability bias, Recency bias, Primacy bias |
 | Anchoring | 5 | Anchoring effect, Insufficient adjustment |
-| Loss Aversion | 5 | Loss aversion, Endowment effect, Sunk cost |
+| Loss Aversion | 5 | Loss aversion, Endowment effect, Sunk cost | 0.096 |
 | Framing | 6 | Gain-loss framing, Mental accounting |
 | Reference Dependence | 1 | Reference point framing |
 | Probability Distortion | 7 | Certainty effect, Affect heuristic |
-| Overconfidence | 5 | Overconfidence, Planning fallacy |
+| Overconfidence | 5 | Overconfidence, Planning fallacy | 0.044 |
 | Confirmation | 3 | Confirmation bias, Belief perseverance |
 | Temporal | 3 | Present bias, Duration neglect |
 | Extension Neglect | 2 | Scope insensitivity, Identifiable victim |

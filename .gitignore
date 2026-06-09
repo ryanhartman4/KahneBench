@@ -44,6 +44,9 @@ fingerprint_*.json
 results_*.json
 test_subset.json
 
+# Verbose run logs (run/14_*.sh tee output here; can be 100s of MB)
+run/logs/
+
 # Claude Code local config
 .claude/
 

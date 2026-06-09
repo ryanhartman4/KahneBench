@@ -246,7 +246,9 @@ PYTHONPATH=src uv run kahne-bench evaluate -p xai -m grok-4-1-fast-reasoning --t
 
 | Model | Notes |
 |-------|-------|
-| Claude Opus 4.7 | **Rejects `temperature` with HTTP 400 `invalid_request_error: "temperature is deprecated for this model"`.** `AnthropicProvider.complete` in `engines/evaluator.py` omits the param when `model.startswith("claude-opus-4-7")` — mirrors the existing gpt-5 guard. Consequence for comparability: prior Anthropic runs used `temperature=0.0` (deterministic); 4.7 uses the model's internal default, which may slightly inflate RCI (trial-to-trial variance). |
+| Claude Opus 4.7 | **Rejects `temperature` with HTTP 400 `invalid_request_error: "temperature is deprecated for this model"`.** `AnthropicProvider.complete` in `engines/evaluator.py` omits the param via a shared denylist — `model.startswith(("claude-opus-4-7", "claude-opus-4-8", "claude-fable-5"))`. Consequence for comparability: prior Anthropic runs used `temperature=0.0` (deterministic); 4.7 uses the model's internal default, which may slightly inflate RCI (trial-to-trial variance). |
+| Claude Opus 4.8 | Same temperature-deprecation behavior as 4.7 (on the shared denylist). |
+| Claude Fable 5 | **Two silent-failure traps** (both fixed in `evaluator.py`, confirmed 2026-06-09). (1) Rejects `temperature` like Opus 4.7/4.8 — on the shared denylist. (2) **Reasoning model**: returns `content = [ThinkingBlock, TextBlock]`, so the old `response.content[0].text` raised `AttributeError` on every call. `complete()` now concatenates `type=='text'` blocks. Thinking is billed as output tokens (~46 tok/call avg at `max_tokens=1024`; 0/4725 truncated). Either trap alone yields a clean-looking 0.0% ghost fingerprint. |
 | Claude Opus 4.6 | Extended thinking available via `budget_tokens` parameter |
 | Claude Sonnet 4.5 | General-purpose model |
 | Claude Haiku 4.5 | Fast, cost-effective model |
@@ -510,3 +512,6 @@ Zero-score biases should be investigated — see `reports/bias_test_quality_fixe
 | Claude Sonnet 4.6 | Core | 2026-02-17 | `results/fingerprint_sonnet46.json` |
 | GPT-5.4 | Core | 2026-03-10 | `results/fingerprint_gpt54.json` |
 | Claude Opus 4.7 | Core | 2026-04-17 | `results/fingerprint_opus47.json` |
+| GPT-5.5 | Core | 2026-04-24 | `results/fingerprint_gpt55.json` |
+| Claude Opus 4.8 | Core | 2026-05-31 | `results/fingerprint_opus48.json` |
+| Claude Fable 5 | Core | 2026-06-09 | `results/fingerprint_fable5.json` |

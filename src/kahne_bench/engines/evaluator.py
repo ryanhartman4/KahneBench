@@ -200,18 +200,29 @@ class AnthropicProvider:
             "messages": [{"role": "user", "content": prompt}],
         }
 
-        # claude-opus-4-7 and claude-opus-4-8 reject explicit temperature with a
-        # 400 ("`temperature` is deprecated for this model"). Confirmed for 4.8
-        # via probe on 2026-05-31 — identical failure mode to 4.7. Note 4.6 still
-        # accepts temperature, so this stays an explicit per-version denylist.
-        if not self.model.startswith(("claude-opus-4-7", "claude-opus-4-8")):
+        # claude-opus-4-7, claude-opus-4-8, and claude-fable-5 reject explicit
+        # temperature with a 400 ("`temperature` is deprecated for this model").
+        # Confirmed for 4.8 via probe on 2026-05-31 — identical failure mode to
+        # 4.7; confirmed for fable-5 on 2026-06-09. Note 4.6 and the haiku judge
+        # still accept temperature, so this stays an explicit per-version denylist.
+        if not self.model.startswith(
+            ("claude-opus-4-7", "claude-opus-4-8", "claude-fable-5")
+        ):
             request_kwargs["temperature"] = temperature
 
         response = await self.client.messages.create(**request_kwargs)
         # Handle empty content array (e.g., from content filtering)
         if not response.content:
             return ""
-        return response.content[0].text
+        # Reasoning models (e.g. claude-fable-5) prepend a ThinkingBlock that has
+        # no `.text`; the answer lives in the text block(s). Concatenate only the
+        # text blocks rather than assuming content[0] is the answer — otherwise
+        # every call raises AttributeError and silently ghost-runs.
+        return "".join(
+            block.text
+            for block in response.content
+            if getattr(block, "type", None) == "text"
+        )
 
 
 @dataclass
