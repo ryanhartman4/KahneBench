@@ -1,5 +1,8 @@
 # Kahne-Bench
 
+> [!IMPORTANT]
+> **KahneBench is deprecated as of July 2026.** The newest frontier models have saturated the benchmark, clustering at its floor, and the leaderboard below is final. KahneBench ran internally from December 2025 and resisted saturation through six months of frontier model releases, a feat in a period of rapid model progress. The framework, tests, and results remain available for reference and reproduction.
+
 A cognitive bias benchmark framework for evaluating Large Language Models, grounded in Kahneman-Tversky dual-process theory.
 
 Website: https://www.kahnebench.com/
