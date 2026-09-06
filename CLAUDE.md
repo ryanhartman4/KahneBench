@@ -1,517 +1,130 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working in this repository.
 
 ## Project Overview
 
-Kahne-Bench is a cognitive bias benchmark framework for evaluating Large Language Models, grounded in Kahneman-Tversky dual-process theory. It tests 69 cognitive biases across 5 ecological domains with 6 advanced metrics.
-
-**Quick Start:** See `examples/basic_usage.py` for a complete demo with mock provider, or `examples/openai_evaluation.py` for production usage.
+Kahne-Bench is a cognitive bias benchmark for Large Language Models grounded in Kahneman-Tversky dual-process theory: 69 biases, 5 ecological domains, 6 metrics. The benchmark is deprecated as of July 2026 because the newest frontier models saturated it. The leaderboard in `README.md` is final. The code stays runnable for reproduction.
 
 ## Development Commands
 
 ```bash
-# Install dependencies
-uv sync
-
-# Run tests
-PYTHONPATH=src uv run pytest
-
-# Run a single test file
-PYTHONPATH=src uv run pytest tests/test_generator.py
-
-# Run a specific test
-PYTHONPATH=src uv run pytest tests/test_generator.py::TestTestCaseGenerator::test_generate_instance_returns_valid_instance
-
-# Run with verbose output
-PYTHONPATH=src uv run pytest -v
-
-# Run the basic demo
-PYTHONPATH=src uv run python examples/basic_usage.py
-
-# Run OpenAI evaluation (requires OPENAI_API_KEY)
-PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-5.2 --tier core
+uv sync --group dev                     # editable install of the package plus dev tools
+uv run pytest                           # full suite (649 tests, about 20 seconds)
+uv run pytest tests/test_generator.py   # one file
+uv run pytest tests/test_generator.py::TestTestCaseGenerator::test_generate_instance_returns_valid_instance
+uv run ruff check .                     # lint
+uv run ruff format .                    # format (line length 100)
+uv run mypy src/                        # advisory only; not run in CI
+uv run python examples/basic_usage.py   # end-to-end demo with a mock provider
+uv run python scripts/verify_readme_results.py   # README tables vs results/ fingerprints
 ```
 
-### CLI Commands
+CI (`.github/workflows/ci.yml`) runs ruff check, ruff format --check, pytest, and the README verification script on Python 3.10 and 3.12.
+
+`pyproject.toml` sets `pythonpath = ["src"]` for pytest. Everything else relies on the editable install from `uv sync`, which is a `.pth` file in the venv pointing at `src/`.
+
+**macOS trap.** If the checkout lives in an iCloud-synced folder (Desktop or Documents with iCloud Drive on), iCloud marks dot-prefixed paths and everything under them as hidden a few minutes after they are written, and current CPython releases (the check is present in 3.10.19 and 3.14.1) silently skip hidden `.pth` files. The symptom is `ModuleNotFoundError: No module named 'kahne_bench'` from a venv that `uv pip show` says is fine, recurring after every `uv run` that rebuilds the package. Fix: `chflags -R nohidden .venv`, or keep the venv outside the synced tree with `UV_PROJECT_ENVIRONMENT=~/.venvs/kahne-bench`. Do not paper over it with `PYTHONPATH=src`.
+
+## Evaluation Workflow
+
+Two steps: generate test cases, then evaluate a model against them.
 
 ```bash
-# List all 69 biases
-PYTHONPATH=src uv run kahne-bench list-biases
-
-# List all bias categories
-PYTHONPATH=src uv run kahne-bench list-categories
-
-# Show detailed bias information
-PYTHONPATH=src uv run kahne-bench describe anchoring_effect
-
-# Generate test instances
-PYTHONPATH=src uv run kahne-bench generate --bias anchoring_effect --domain INDIVIDUAL
-
-# Generate compound (meso-scale) test instances
-PYTHONPATH=src uv run kahne-bench generate-compound --bias anchoring_effect --bias availability_bias
-
-# Run full evaluation pipeline (requires API key)
-PYTHONPATH=src uv run kahne-bench evaluate -i test_cases.json -p openai -m gpt-5.2
-
-# Run evaluation with verbose logging (per-instance progress, API timing, scoring)
-PYTHONPATH=src uv run kahne-bench evaluate -i test_cases.json -p openai -m gpt-5.2 --verbose
-
-# Generate cognitive fingerprint report
-PYTHONPATH=src uv run kahne-bench report fingerprint.json
-
-# Show framework information
-PYTHONPATH=src uv run kahne-bench info
-```
-
-### Evaluation Workflow
-
-Evaluation is a two-step process: generate test cases first, then evaluate.
-
-```bash
-# Step 1: Generate test cases
-PYTHONPATH=src uv run kahne-bench generate --tier core --seed 42 -o test_cases.json
-
-# Step 2: Evaluate (takes ~10-15 min for core tier with 3 trials)
-PYTHONPATH=src uv run kahne-bench evaluate -i test_cases.json -p anthropic -m claude-sonnet-4-5 -n 3 \
+uv run kahne-bench generate --tier core --seed 42 -o test_cases.json
+uv run kahne-bench evaluate -i test_cases.json -p anthropic -m claude-sonnet-4-5 -n 3 \
   -o results.json -f fingerprint.json --tier core
 ```
 
-Note: Rich progress output is buffered — no incremental progress appears until the evaluation batch completes. Use `--verbose` to get detailed per-instance logging instead (disables the progress bar).
+- `core_tests.json` at the repo root is the fixed input every leaderboard run used: core tier, 15 biases, 5 domains, 4,725 evaluations per model at 3 trials.
+- `run/NN_<model>.sh` records the exact command for each leaderboard model. Shared flags live in `run/common.sh`. Verbose logs go to `run/logs/` (gitignored).
+- The `evaluate` command's LLM-judge fallback defaults to `--judge-provider anthropic --judge-model claude-haiku-4-5`, so `ANTHROPIC_API_KEY` is required unless you override both.
+- Rich progress output is buffered until the batch finishes. Pass `--verbose` for timestamped per-instance log lines instead.
+- Outputs land in `results/`. Fingerprints (`fingerprint_*.json`, about 30KB each) are tracked. Raw results (`results_*.json`, about 10MB each) are gitignored.
 
-### Results JSON Key Fields
+### Results JSON key fields
 
-- `model_response` (not `response`) — the model's full text reply
-- `extracted_answer` — parsed answer (A/B/C or descriptive)
-- `is_biased` / `bias_score` — scoring output
-- `condition` — e.g., `treatment_strong`, `debiasing_0`
-- `domain` — one of the 5 ecological domains
-
-### Code Quality
-
-```bash
-# Format code (line-length: 100)
-black src/ tests/ examples/
-
-# Lint (target: py310)
-ruff check src/ tests/
-
-# Type check (strict mode)
-mypy src/
-```
+- `model_response` (not `response`): the model's full reply
+- `extracted_answer`: parsed answer (A/B/C or descriptive)
+- `is_biased` / `bias_score`: scoring output
+- `condition`: `control`, `treatment_weak|moderate|strong`, or `debiasing_0|1|2`
+- `domain`: one of the 5 ecological domains
 
 ## Architecture
 
-### Core Data Flow
-
-1. **Bias Taxonomy** (`biases/taxonomy.py`) → Defines 69 biases with theoretical grounding
-2. **Test Generation** (`engines/generator.py`) → Creates test instances from templates + domain scenarios
-3. **LLM Evaluation** (`engines/evaluator.py`) → Runs tests via async provider protocol
-4. **Metric Calculation** (`metrics/core.py`) → Computes 6 metrics from results
-
-### Key Abstractions
-
-**LLMProvider Protocol** (`engines/evaluator.py`): Any LLM can be tested by implementing:
-```python
-async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str
-```
-
-**Built-in Providers** (`engines/evaluator.py`):
-- `OpenAIProvider`: Uses AsyncOpenAI client, configurable model (also used for Fireworks via OpenAI-compatible API)
-- `AnthropicProvider`: Uses AsyncAnthropic client
-- `XAIProvider`: Uses xai-sdk, sync wrapped with `asyncio.to_thread()`
-- `GeminiProvider`: Uses google-genai, sync wrapped with `asyncio.to_thread()`
-
-## Frontier Models (January 2026)
-
-This section tracks the models to benchmark. Models with extended thinking/reasoning capabilities are tested twice: once with minimal reasoning budget and once with full reasoning.
-
-### Models to Benchmark
-
-| # | Model | Provider | Model ID | Reasoning Variants |
-|---|-------|----------|----------|-------------------|
-| 1 | **Claude Opus 4.7** | Anthropic | `claude-opus-4-7` | Temperature parameter is deprecated — must be omitted (see Model Notes) |
-| 2 | **Claude Opus 4.6** | Anthropic | `claude-opus-4-6` | 0 thinking budget, full thinking budget |
-| 3 | **Claude Sonnet 4.5** | Anthropic | `claude-sonnet-4-5` | - |
-| 4 | **Claude Haiku 4.5** | Anthropic | `claude-haiku-4-5` | - |
-| 5 | **GPT-5.2** | OpenAI | `gpt-5.2-2025-12-11` | No reasoning effort, high reasoning effort |
-| 6 | **GLM 4.7** | Fireworks | `accounts/fireworks/models/glm-4p7` | - |
-| 7 | **MiniMax M2P1** | Fireworks | `accounts/fireworks/models/minimax-m2p1` | - |
-| 8 | **Gemini 3 Pro** | Google | `gemini-3-pro-preview` | - |
-| 9 | **DeepSeek V3.2** | Fireworks | `accounts/fireworks/models/deepseek-v3p2` | - |
-| 10 | **Kimi K2.5** | Fireworks | `accounts/fireworks/models/kimi-k2p5` | - |
-| 11 | **Grok 4.1 Fast** | xAI | `grok-4-1-fast-reasoning` | - |
-
-### Provider Support Status
-
-| Provider | CLI Flag | Status | API Compatibility | Models |
-|----------|----------|--------|-------------------|--------|
-| Anthropic | `-p anthropic` | ✅ Ready | Native SDK | `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
-| OpenAI | `-p openai` | ✅ Ready | Native SDK | `gpt-5.2-2025-12-11` |
-| Fireworks | `-p fireworks` | ✅ Ready | OpenAI-compatible | `glm-4p7`, `minimax-m2p1`, `deepseek-v3p2`, `kimi-k2p5` |
-| xAI | `-p xai` | ✅ Ready | Native SDK (`xai-sdk`) | `grok-4-1-fast-reasoning` |
-| Google | `-p gemini` | ✅ Ready | Native SDK (`google-genai`) | `gemini-3-pro-preview` |
-
-### API Configuration
-
-```python
-# Fireworks (GLM, MiniMax, DeepSeek, Kimi) - OpenAI-compatible
-from openai import AsyncOpenAI
-client = AsyncOpenAI(
-    api_key=os.getenv("FIREWORKS_API_KEY"),
-    base_url="https://api.fireworks.ai/inference/v1"
-)
-provider = OpenAIProvider(client=client, model="accounts/fireworks/models/glm-4p7")
-
-# xAI Grok - Native SDK (pip install xai-sdk)
-from xai_sdk import Client
-from xai_sdk.chat import user, system
-
-client = Client(
-    api_key=os.getenv("XAI_API_KEY"),
-    timeout=3600,  # Extended timeout for reasoning models
-)
-chat = client.chat.create(model="grok-4-1-fast-reasoning")
-chat.append(system("You are a helpful assistant."))
-chat.append(user(prompt))
-response = chat.sample()
-# response.content contains the answer
-
-# Google Gemini - Native SDK (pip install google-genai)
-from google import genai
-
-client = genai.Client()  # Uses GOOGLE_API_KEY env var
-response = client.models.generate_content(
-    model="gemini-3-pro-preview",
-    contents=prompt,
-)
-# response.text contains the answer
-```
-
-### Environment Variables
-
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."    # Claude Opus 4.6, Sonnet 4.5, Haiku 4.5
-export OPENAI_API_KEY="sk-..."           # GPT-5.2
-export FIREWORKS_API_KEY="fw_..."        # GLM 4.7, MiniMax, DeepSeek V3.2, Kimi K2.5
-export GOOGLE_API_KEY="..."              # Gemini 3 Pro (after implementing)
-export XAI_API_KEY="xai-..."             # Grok 4.1 Fast
-```
-
-### Recommended Evaluation Commands
-
-```bash
-# Claude Opus 4.7 (temperature is silently omitted by AnthropicProvider — see Model Notes)
-PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-opus-4-7 --trials 3
-
-# Claude Opus 4.6 (no thinking)
-PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-opus-4-6 --trials 3
-
-# Claude Opus 4.6 (full thinking) - requires extended_thinking support
-PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-opus-4-6 --extended-thinking --trials 3
-
-# Claude Sonnet 4.5
-PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-sonnet-4-5 --trials 3
-
-# Claude Haiku 4.5
-PYTHONPATH=src uv run kahne-bench evaluate -p anthropic -m claude-haiku-4-5 --trials 3
-
-# GPT-5.2 (no reasoning)
-PYTHONPATH=src uv run kahne-bench evaluate -p openai -m gpt-5.2-2025-12-11 --trials 3
-
-# GPT-5.2 (high reasoning) - requires reasoning_effort support
-PYTHONPATH=src uv run kahne-bench evaluate -p openai -m gpt-5.2-2025-12-11 --reasoning-effort high --trials 3
-
-# GLM 4.7 (via Fireworks)
-PYTHONPATH=src uv run kahne-bench evaluate -p fireworks \
-    -m accounts/fireworks/models/glm-4p7 --trials 3
-
-# MiniMax M2P1 (via Fireworks)
-PYTHONPATH=src uv run kahne-bench evaluate -p fireworks \
-    -m accounts/fireworks/models/minimax-m2p1 --trials 3
-
-# DeepSeek V3.2 (via Fireworks)
-PYTHONPATH=src uv run kahne-bench evaluate -p fireworks \
-    -m accounts/fireworks/models/deepseek-v3p2 --trials 3
-
-# Kimi K2.5 (via Fireworks)
-PYTHONPATH=src uv run kahne-bench evaluate -p fireworks \
-    -m accounts/fireworks/models/kimi-k2p5 --trials 3
-
-# Grok 4.1 Fast Reasoning (via xAI)
-PYTHONPATH=src uv run kahne-bench evaluate -p xai -m grok-4-1-fast-reasoning --trials 3
-```
-
-### Model Notes
-
-| Model | Notes |
-|-------|-------|
-| Claude Opus 4.7 | **Rejects `temperature` with HTTP 400 `invalid_request_error: "temperature is deprecated for this model"`.** `AnthropicProvider.complete` in `engines/evaluator.py` omits the param via a shared denylist — `model.startswith(("claude-opus-4-7", "claude-opus-4-8", "claude-fable-5"))`. Consequence for comparability: prior Anthropic runs used `temperature=0.0` (deterministic); 4.7 uses the model's internal default, which may slightly inflate RCI (trial-to-trial variance). |
-| Claude Opus 4.8 | Same temperature-deprecation behavior as 4.7 (on the shared denylist). |
-| Claude Fable 5 | **Two silent-failure traps** (both fixed in `evaluator.py`, confirmed 2026-06-09). (1) Rejects `temperature` like Opus 4.7/4.8 — on the shared denylist. (2) **Reasoning model**: returns `content = [ThinkingBlock, TextBlock]`, so the old `response.content[0].text` raised `AttributeError` on every call. `complete()` now concatenates `type=='text'` blocks. Thinking is billed as output tokens (~46 tok/call avg at `max_tokens=1024`; 0/4725 truncated). Either trap alone yields a clean-looking 0.0% ghost fingerprint. |
-| Claude Opus 4.6 | Extended thinking available via `budget_tokens` parameter |
-| Claude Sonnet 4.5 | General-purpose model |
-| Claude Haiku 4.5 | Fast, cost-effective model |
-| GPT-5.2 | Reasoning effort available via `reasoning_effort` parameter (low/medium/high) |
-| Kimi K2.5 | Thinking model - includes chain-of-thought by default |
-| Grok 4.1 Fast | Uses `xai-sdk`; sync SDK wrapped with `asyncio.to_thread()` |
-| DeepSeek V3.2 | MoE architecture, cost-effective |
-| Gemini 3 Pro | Uses `google-genai`; sync SDK wrapped with `asyncio.to_thread()` |
-
-**CognitiveBiasInstance** (`core.py`): Central test case type containing:
-- Control prompt (baseline, no bias trigger)
-- Treatment prompts keyed by `TriggerIntensity` (WEAK, MODERATE, STRONG, ADVERSARIAL)
-- Expected rational and biased responses
-- Optional debiasing prompts for meta-scale testing
-- Cross-domain variants for efficient multi-domain testing
-
-**TestResult** (`core.py`): Evaluation output containing:
-- Model response and extracted answer
-- `is_biased` flag and `bias_score` (0-1 magnitude)
-- `confidence_stated` for metacognition analysis
-- Response timing and metadata
-
-**EvaluationConfig** (`engines/evaluator.py`): Key configuration options:
-- `num_trials`: Trials per condition (default: 3, used for RCI calculation)
-- `intensities`: Which trigger levels to test
-- `include_control` / `include_debiasing`: Enable/disable conditions
-- `max_concurrent_requests`: Semaphore-based concurrency control (default: 50)
-
-**Benchmark Tiers** (`engines/generator.py`):
-- CORE: 15 foundational biases for quick evaluation
-- EXTENDED: All 69 biases
-- INTERACTION: Bias pairs for compound effect testing
-
-### The 6 Metrics
-
-| Metric | Class | Purpose |
-|--------|-------|---------|
-| BMS | `BiasMagnitudeScore` | Strength of bias (weighted by trigger intensity) |
-| BCI | `BiasConsistencyIndex` | Cross-domain consistency + systematic prevalence |
-| BMP | `BiasMitigationPotential` | System 2 override capacity with debiasing prompts |
-| HAS | `HumanAlignmentScore` | Comparison to human baselines from research literature |
-| RCI | `ResponseConsistencyIndex` | Trial-to-trial variance (distinguishes noise from systematic bias) |
-| CAS | `CalibrationAwarenessScore` | Metacognitive accuracy (confidence vs actual performance) |
-
-### Module Dependencies
+Data flow: `biases/taxonomy.py` defines the biases. `engines/generator.py` builds test instances from prompt templates and domain scenarios. `engines/evaluator.py` runs them through a provider and scores the responses. `metrics/core.py` turns the results into a `CognitiveFingerprintReport`.
 
 ```
-kahne_bench/
-├── core.py              # Core types + context sensitivity (no dependencies)
-├── cli.py               # Click-based CLI with evaluate/report/generate commands
-├── biases/
-│   └── taxonomy.py      # 69 BiasDefinition instances (depends on core)
+src/kahne_bench/
+├── core.py              # CognitiveBiasInstance, TestResult, enums, LLMProvider protocol, context sensitivity
+├── cli.py               # Click CLI; run `kahne-bench --help` for the command list
+├── biases/taxonomy.py   # 69 BiasDefinition instances in 16 categories, plus the interaction matrix
 ├── engines/
-│   ├── generator.py     # TestCaseGenerator, NovelScenarioGenerator, MacroScaleGenerator
-│   ├── evaluator.py     # BiasEvaluator, TemporalEvaluator, ContextSensitivityEvaluator
-│   ├── judge.py         # LLMJudge fallback scoring with XML parsing
-│   ├── compound.py      # Meso-scale testing (depends on generator)
-│   ├── bloom_generator.py # LLM-driven BLOOM scenario generation
-│   ├── variation.py     # Prompt variation and robustness testing
-│   ├── quality.py       # Test quality assessment with LLM judge
-│   ├── conversation.py  # Multi-turn conversational bias evaluation
-│   └── robustness.py    # Adversarial testing
-├── metrics/
-│   └── core.py          # All 6 metric classes + MetricCalculator
-└── utils/
-    ├── io.py            # JSON/CSV export functions
-    └── diversity.py     # Dataset validation (self-BLEU, ROUGE)
+│   ├── generator.py     # BIAS_TEMPLATES, DOMAIN_SCENARIOS, TestCaseGenerator, tiers, NovelScenarioGenerator, MacroScaleGenerator
+│   ├── evaluator.py     # Provider clients, AnswerExtractor, BiasEvaluator, TemporalEvaluator, ContextSensitivityEvaluator
+│   ├── judge.py         # LLM judge fallback scoring
+│   ├── compound.py      # Meso-scale bias interaction tests
+│   ├── bloom_generator.py  # LLM-driven scenario generation (not used for the leaderboard)
+│   ├── conversation.py  # Multi-turn conversational evaluation
+│   ├── quality.py       # Test quality assessment
+│   ├── robustness.py    # Adversarial testing
+│   └── variation.py     # Prompt variation
+├── metrics/core.py      # BMS, BCI, BMP, HAS, RCI, CAS, HUMAN_BASELINES, MetricCalculator
+└── utils/               # io.py (JSON/CSV import and export), diversity.py (dataset validation)
 ```
 
-## Bias Taxonomy
+### Key abstractions
 
-### 16 Bias Categories
+- **`LLMProvider`** (`core.py`): any object with `async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str`. Built-ins in `engines/evaluator.py`: `OpenAIProvider` (also serves Fireworks through `base_url`), `AnthropicProvider`, `XAIProvider`, `GeminiProvider`. The last two wrap sync SDKs in `asyncio.to_thread`.
+- **`CognitiveBiasInstance`** (`core.py`): one test case. Control prompt, treatment prompts keyed by `TriggerIntensity`, expected rational and biased responses, optional debiasing prompts.
+- **`TestResult`** (`core.py`): one model response with `extracted_answer`, `is_biased`, `bias_score`, `confidence_stated`.
+- **`EvaluationConfig`** (`engines/evaluator.py`): `num_trials` (default 3), `intensities`, `include_control`, `include_debiasing`, `max_concurrent_requests` (default 50), rate-limit retry settings.
+- **Tiers** (`engines/generator.py`): `KahneBenchTier.CORE` (15 biases), `EXTENDED` (all 69), `INTERACTION` (bias pairs).
 
-| Category | Description | Example Biases |
-|----------|-------------|----------------|
-| REPRESENTATIVENESS | Judging by similarity to prototypes | base_rate_neglect, conjunction_fallacy |
-| AVAILABILITY | Judging by ease of recall | availability_bias, recency_bias |
-| ANCHORING | Over-reliance on initial information | anchoring_effect, insufficient_adjustment |
-| LOSS_AVERSION | Losses loom larger than gains | loss_aversion, endowment_effect |
-| FRAMING | Decisions affected by presentation | gain_loss_framing, attribute_framing, default_effect |
-| REFERENCE_DEPENDENCE | Outcomes evaluated relative to reference points | reference_point_framing |
-| PROBABILITY_DISTORTION | Misweighting probabilities | probability_weighting, certainty_effect |
-| UNCERTAINTY_JUDGMENT | Errors in assessing uncertainty | overconfidence_effect, illusion_of_control |
-| MEMORY_BIAS | Systematic distortions in recall | hindsight_bias, rosy_retrospection |
-| ATTENTION_BIAS | Selective focus on certain information | salience_bias, focalism |
-| SOCIAL_BIAS | Biases in social judgments | stereotype_bias, ingroup_bias |
-| ATTRIBUTION_BIAS | Errors in explaining causes | fundamental_attribution_error |
-| OVERCONFIDENCE | Excessive certainty in judgments | planning_fallacy, illusion_of_validity |
-| CONFIRMATION | Seeking confirming evidence | confirmation_bias, belief_perseverance |
-| TEMPORAL_BIAS | Biases related to time perception | present_bias, duration_neglect |
-| EXTENSION_NEGLECT | Ignoring sample size and scope | scope_insensitivity, identifiable_victim_effect |
+### Key design decisions
 
-**Note:** All 69 biases with full definitions (K&T theoretical basis, System 1 mechanism, System 2 override, classic paradigm) are in `biases/taxonomy.py`.
+1. **BMS intensity weights** (`DEFAULT_INTENSITY_WEIGHTS` in `metrics/core.py`): WEAK 2.0, MODERATE 1.0, STRONG 0.67, ADVERSARIAL 0.5. A model that bites on a weak trigger is more biased than one that needs strong pressure. The weights are design choices, not empirically calibrated (see `docs/LIMITATIONS.md`).
+2. **Human baselines** (`HUMAN_BASELINES` in `metrics/core.py`): literature-derived susceptibility rates used by the Human Alignment Score.
+3. **Placeholder answers**: expected answers starting with `[` are non-evaluable and score neutral (0.5).
+4. **Async evaluation** bounded by a semaphore (`max_concurrent_requests`) rather than a fixed rate limit.
 
-## Ecological Domains
+## Provider Gotchas
 
-| Domain | Description | Typical Decisions |
-|--------|-------------|-------------------|
-| INDIVIDUAL | Personal finance, consumer choice, lifestyle | Investment, purchases, health |
-| PROFESSIONAL | Managerial, medical, legal decisions | Hiring, diagnosis, case assessment |
-| SOCIAL | Negotiation, persuasion, collaboration | Offers, influence, team dynamics |
-| TEMPORAL | Long-term planning, delayed gratification | Retirement, project timelines |
-| RISK | Policy, technology, environmental uncertainty | Safety protocols, innovation |
+Each of these produced a clean-looking 0.0% fingerprint before it was caught. Treat a 0.0% overall susceptibility as a bug until proven otherwise.
 
-## Test Scales & Intensities
-
-### Test Scales
-
-| Scale | Purpose |
-|-------|---------|
-| MICRO | Single isolated bias, control vs treatment comparison |
-| MESO | Multiple bias interactions in complex scenarios |
-| MACRO | Bias persistence across sequential related decisions |
-| META | Self-correction and debiasing capacity testing |
-
-### Trigger Intensities
-
-| Intensity | Weight | Rationale |
-|-----------|--------|-----------|
-| WEAK | 2.0x | High susceptibility if subtle triggers cause bias |
-| MODERATE | 1.0x | Baseline standard trigger |
-| STRONG | 0.67x | Expected that strong pressure causes deviation |
-| ADVERSARIAL | 0.5x | Compound triggers, lowest weight |
-
-**Philosophy:** The weighting reflects susceptibility, not trigger strength. A model vulnerable to weak anchors is more biased than one requiring strong pressure.
-
-## Temporal Testing
-
-**TemporalCondition** enum (`core.py`):
-- `IMMEDIATE`: Instant response, System 1 dominant
-- `DELIBERATIVE`: With explicit reflection time
-- `PERSISTENT`: Bias stability across sequential prompts
-- `ADAPTIVE`: Pre/post feedback comparison
-
-**TemporalEvaluator** (`engines/evaluator.py`): Extends BiasEvaluator with:
-- `evaluate_persistent()`: Tests bias evolution over sequential decisions (5 rounds default)
-- `evaluate_adaptive()`: Pre/post feedback testing for learning effects
-
-**ContextSensitivityEvaluator** (`engines/evaluator.py`): Tests how context affects bias:
-- `evaluate_context_sensitivity()`: Tests all context combinations (6 preset configs)
-- `evaluate_expertise_gradient()`: Isolates expertise level effects (NOVICE → AUTHORITY)
-- `evaluate_stakes_gradient()`: Isolates stakes level effects (LOW → CRITICAL)
-
-## Advanced Generators
-
-**NovelScenarioGenerator** (`engines/generator.py`): Contamination-resistant testing:
-- Uses futuristic professions (quantum computing architect, space debris analyst, etc.)
-- Uses novel contexts unlikely in training data (Mars colonization, AI governance boards)
-- `generate_novel_instance()`: Single contamination-resistant test
-- `generate_contamination_resistant_batch()`: Batch generation for all bias-domain pairs
-
-**MacroScaleGenerator** (`engines/generator.py`): Sequential decision chain testing:
-- `generate_decision_chain()`: Creates multi-turn bias persistence tests
-- Bias-specific chain generators for anchoring, prospect theory, confirmation, overconfidence
-- `DecisionNode` and `DecisionChain` dataclasses for structured chain representation
-
-## Context Sensitivity
-
-**Context Types** (`core.py`):
-- `ExpertiseLevel`: NOVICE, INTERMEDIATE, EXPERT, AUTHORITY
-- `Formality`: CASUAL, PROFESSIONAL, FORMAL, ACADEMIC
-- `Stakes`: LOW, MODERATE, HIGH, CRITICAL
-
-**ContextSensitivityConfig** (`core.py`): Wraps prompts with context framing:
-- `get_expertise_prefix()`: Generates role descriptions
-- `get_formality_framing()`: Generates setting descriptions
-- `get_stakes_emphasis()`: Generates stakes descriptions
-
-**CognitiveBiasInstance** methods for context:
-- `apply_context_sensitivity()`: Wraps prompts with context framing
-- `get_context_variant()`: Gets treatment with specific context overrides
+| Model | Behavior | Handling in `engines/evaluator.py` |
+|---|---|---|
+| `claude-opus-4-7`, `claude-opus-4-8`, `claude-fable-5` | Reject `temperature` with HTTP 400 "temperature is deprecated for this model" | `AnthropicProvider.complete` omits the parameter for models on an explicit prefix denylist. Older Claude models still accept it. Runs without `temperature` sample non-deterministically, which can inflate RCI. |
+| `claude-fable-5` | Reasoning model: `response.content` is `[ThinkingBlock, TextBlock]`, so `content[0].text` raises `AttributeError` | `complete()` concatenates the blocks whose `type == "text"`. Thinking tokens bill as output. |
+| `gpt-5*` | Chat completions reject explicit `temperature`; `max_completion_tokens` caps reasoning plus output and starved visible answers | `OpenAIProvider.complete` omits both for `gpt-5*` models and lets them self-bound. |
+| Grok, Gemini | Sync SDKs | `XAIProvider` and `GeminiProvider` wrap calls in `asyncio.to_thread`. |
 
 ## Testing Patterns
 
-- Tests use `pytest` with `pytest-asyncio` for async evaluator tests
-- Generator tests use `seed=42` for reproducibility
-- Test files mirror source structure: `test_generator.py` tests `engines/generator.py`
-- No `conftest.py` - fixtures are defined locally within test files
-- Temporary file tests use try/finally for cleanup
-
-### Test Files
-
-| File | Tests | Coverage |
-|------|-------|----------|
-| `test_evaluator.py` | ~112 | Extraction, scoring, frame-aware, temporal, context |
-| `test_generator.py` | ~71 | Instance generation, batch, tiers, intensity, framing |
-| `test_advanced_generators.py` | ~63 | Novel scenarios, macro chains |
-| `test_metrics.py` | ~55 | All 6 metrics, MetricCalculator, guardrails |
-| `test_io.py` | ~26 | JSON/CSV export/import roundtrips |
-| `test_taxonomy.py` | ~24 | Bias definitions, interaction matrix |
-| `test_conversation.py` | ~20 | Multi-turn conversational evaluation |
-| `test_variation.py` | ~20 | Robustness and variation dimensions |
-| `test_bloom_generator.py` | ~19 | BLOOM LLM-driven generation |
-| `test_judge.py` | ~11 | LLM judge fallback scoring |
-| `test_quality.py` | ~9 | Test quality assessment |
-| `test_integration.py` | ~6 | End-to-end workflows |
-
-**Total:** ~548 tests
-
-## Key Design Decisions
-
-1. **Intensity weighting in BMS**: Weak triggers causing bias are weighted higher (2.0x) than strong triggers (0.67x) - a model susceptible to weak triggers is more biased than one only affected by strong pressure
-
-2. **Human baselines** in `metrics/core.py` (`HUMAN_BASELINES` dict): Research-backed susceptibility rates from K&T literature for 40+ biases, enabling human-AI alignment scoring
-
-3. **Template-based generation**: `BIAS_TEMPLATES` and `DOMAIN_SCENARIOS` in generator.py enable consistent test creation across all bias×domain combinations
-
-4. **Async-first evaluation**: `BiasEvaluator.evaluate_batch()` is async with rate limiting built in (`requests_per_minute` config)
-
-5. **Placeholder answers**: Expected answers starting with `[` are treated as non-evaluable (default score: 0.5)
-
-## Dependencies
-
-### Core
-- `openai>=1.0.0` - OpenAI API client (also used for Fireworks)
-- `anthropic>=0.18.0` - Anthropic API client
-- `xai-sdk>=0.1.0` - xAI/Grok API client
-- `google-genai>=0.1.0` - Google Gemini API client
-- `pandas>=2.0.0` - Data analysis
-- `numpy>=1.24.0` - Numerical computing
-- `rich>=13.0.0` - Terminal output formatting
-- `click>=8.0.0` - CLI framework
-
-### Development
-- `pytest>=7.0.0` - Testing framework
-- `pytest-asyncio>=0.21.0` - Async test support
-- `black>=23.0.0` - Code formatting
-- `ruff>=0.1.0` - Linting
-- `mypy>=1.0.0` - Type checking
-
-**Python:** 3.10, 3.11, 3.12 supported
-
-## Examples
-
-| File | Purpose |
-|------|---------|
-| `examples/basic_usage.py` | Full demo with MockProvider - taxonomy, generation, evaluation, metrics |
-| `examples/openai_evaluation.py` | Production usage with CLI args: `--model`, `--tier`, `--domains`, `--trials` |
-
-**Environment:** Set `OPENAI_API_KEY` for OpenAI examples, `ANTHROPIC_API_KEY` for Anthropic.
-
-**Note:** No CI/CD configuration exists currently. Run tests locally before committing.
+- `pytest` with `pytest-asyncio` in strict mode for async evaluator tests.
+- Generator tests use `seed=42` for reproducibility.
+- Test files mirror source files: `tests/test_generator.py` covers `engines/generator.py`.
+- No `conftest.py`; fixtures live in the test files that use them.
+- `TestResult` in `core.py` sets `__test__ = False` so pytest does not try to collect it.
 
 ## Bias Test Quality
 
-Zero-score biases should be investigated — see `reports/bias_test_quality_fixes_2026-02-12.md` for the full methodology. Four failure modes:
-1. **Training contamination** — famous examples (Linda problem) that models memorize
-2. **Dominant options** — one answer is objectively correct with no trade-offs
-3. **Unrealistic parameters** — numbers make the rational choice trivially obvious
-4. **Structurally untestable** — bias requires embodied/temporal cognition LLMs lack (legitimate zero)
+A zero score on a bias deserves investigation before it is reported as resistance. Four failure modes: training contamination (famous examples the model memorized, such as the Linda problem), dominant options (one answer is objectively right with no trade-off), unrealistic parameters (the numbers make the rational choice trivial), and structurally untestable biases (they need embodied or temporal cognition, so the zero is legitimate).
 
-## Completed Evaluations
+## Completed Evaluations (core tier)
 
-| Model | Tier | Date | Fingerprint File |
-|-------|------|------|-----------------|
-| Claude Sonnet 4.5 | Core (pilot) | 2026-02-09 | `deprecated_results/pilot_fingerprint.json` |
-| GPT-5.2 | Core | 2026-02-14 | `results/fingerprint_gpt52_final_check.json` |
-| Claude Haiku 4.5 | Core | 2026-02-14 | `results/fingerprint_haiku45.json` |
-| Claude Opus 4.6 | Core | 2026-02-14 | `results/fingerprint_opus46.json` |
-| Grok 4.1 Fast | Core | 2026-02-15 | `results/fingerprint_grok.json` |
-| Claude Sonnet 4.6 | Core | 2026-02-17 | `results/fingerprint_sonnet46.json` |
-| GPT-5.4 | Core | 2026-03-10 | `results/fingerprint_gpt54.json` |
-| Claude Opus 4.7 | Core | 2026-04-17 | `results/fingerprint_opus47.json` |
-| GPT-5.5 | Core | 2026-04-24 | `results/fingerprint_gpt55.json` |
-| Claude Opus 4.8 | Core | 2026-05-31 | `results/fingerprint_opus48.json` |
-| Claude Fable 5 | Core | 2026-06-09 | `results/fingerprint_fable5.json` |
+| Model | Date | Fingerprint |
+|---|---|---|
+| Claude Sonnet 4.5 | 2026-02-09 | `results/fingerprint_sonnet45.json` (pilot run) |
+| GPT-5.2 | 2026-02-14 | `results/fingerprint_gpt52.json` |
+| Claude Haiku 4.5 | 2026-02-14 | `results/fingerprint_haiku45.json` |
+| Claude Opus 4.6 | 2026-02-14 | `results/fingerprint_opus46.json` |
+| Grok 4.1 Fast | 2026-02-15 | `results/fingerprint_grok.json` |
+| Claude Sonnet 4.6 | 2026-02-17 | `results/fingerprint_sonnet46.json` |
+| GPT-5.4 | 2026-03-10 | `results/fingerprint_gpt54.json` |
+| Claude Opus 4.7 | 2026-04-17 | `results/fingerprint_opus47.json` |
+| GPT-5.5 | 2026-04-24 | `results/fingerprint_gpt55.json` |
+| Claude Opus 4.8 | 2026-05-31 | `results/fingerprint_opus48.json` |
+| Claude Fable 5 | 2026-06-09 | `results/fingerprint_fable5.json` |
+
+To publish a result to the website, run `scripts/fingerprint_to_website.py` (its docstring lists the field-mapping gotchas) and `scripts/export_samples_for_website.py`.
