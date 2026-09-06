@@ -141,11 +141,11 @@ export XAI_API_KEY="xai-..."             # xAI models (default CLI model: grok-4
 
 ```bash
 # Run the demo
-PYTHONPATH=src uv run python examples/basic_usage.py
+uv run python examples/basic_usage.py
 
 # Run a full evaluation with OpenAI
 export OPENAI_API_KEY="your-openai-key"
-PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-5.2 --tier core
+uv run python examples/openai_evaluation.py --model gpt-5.2 --tier core
 ```
 
 ---
@@ -512,14 +512,14 @@ src/kahne_bench/
 
 ### Basic Demo
 ```bash
-PYTHONPATH=src uv run python examples/basic_usage.py
+uv run python examples/basic_usage.py
 ```
 Demonstrates taxonomy exploration, test generation, evaluation with a mock provider, and metrics calculation.
 
 ### OpenAI Evaluation
 ```bash
 export OPENAI_API_KEY="your-openai-key"
-PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-5.2 --tier core
+uv run python examples/openai_evaluation.py --model gpt-5.2 --tier core
 ```
 
 Options:
@@ -531,7 +531,7 @@ Options:
 
 Example with extended tier:
 ```bash
-PYTHONPATH=src uv run python examples/openai_evaluation.py --model gpt-5.2 --tier extended --trials 5
+uv run python examples/openai_evaluation.py --model gpt-5.2 --tier extended --trials 5
 ```
 
 ---

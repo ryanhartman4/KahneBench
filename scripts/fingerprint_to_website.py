@@ -23,7 +23,7 @@ validation fails, the tool refuses to emit anything.
 
 Usage:
     # validate the transform only (no new model):
-    PYTHONPATH=src python scripts/fingerprint_to_website.py --validate-only
+    uv run python scripts/fingerprint_to_website.py --validate-only
 
     # generate entries for a newly-benchmarked model:
     python scripts/fingerprint_to_website.py results/fingerprint_fable5.json \\

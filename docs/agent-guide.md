@@ -18,14 +18,14 @@ export XAI_API_KEY="xai-..."
 export GOOGLE_API_KEY="..."
 
 # 3. Generate test cases (small test)
-PYTHONPATH=src uv run kahne-bench generate \
+uv run kahne-bench generate \
   --bias anchoring_effect \
   --domain professional \
   --instances 1 \
   -o test_cases.json
 
 # 4. Run evaluation
-PYTHONPATH=src uv run kahne-bench evaluate \
+uv run kahne-bench evaluate \
   -i test_cases.json \
   -p openai \
   -m gpt-5.2-2025-12-11 \
@@ -79,19 +79,19 @@ Use `--domain` and `--instances` to control test size.
 
 ```bash
 # Single bias, single domain, 1 instance (minimal test: 1 instance)
-PYTHONPATH=src uv run kahne-bench generate \
+uv run kahne-bench generate \
   --bias anchoring_effect \
   --domain professional \
   --instances 1 \
   -o test_cases.json
 
 # Single bias, all defaults (5 domains × 3 instances = 15 instances)
-PYTHONPATH=src uv run kahne-bench generate \
+uv run kahne-bench generate \
   --bias anchoring_effect \
   -o test_cases.json
 
 # Core tier, controlled size (15 biases × 1 domain × 1 instance = 15 instances)
-PYTHONPATH=src uv run kahne-bench generate \
+uv run kahne-bench generate \
   --bias anchoring_effect \
   --bias availability_bias \
   --bias base_rate_neglect \
@@ -112,13 +112,13 @@ PYTHONPATH=src uv run kahne-bench generate \
   -o core_tests.json
 
 # All 69 biases, controlled size (69 × 1 domain × 1 instance = 69 instances)
-PYTHONPATH=src uv run kahne-bench generate \
+uv run kahne-bench generate \
   --domain professional \
   --instances 1 \
   -o all_tests.json
 
 # Multiple specific biases
-PYTHONPATH=src uv run kahne-bench generate \
+uv run kahne-bench generate \
   --bias anchoring_effect \
   --bias loss_aversion \
   --bias confirmation_bias \
@@ -132,14 +132,14 @@ PYTHONPATH=src uv run kahne-bench generate \
 
 ```bash
 # Basic evaluation
-PYTHONPATH=src uv run kahne-bench evaluate \
+uv run kahne-bench evaluate \
   -i test_cases.json \
   -p <provider> \
   -m <model> \
   --trials 3
 
 # With custom output files
-PYTHONPATH=src uv run kahne-bench evaluate \
+uv run kahne-bench evaluate \
   -i test_cases.json \
   -p anthropic \
   -m claude-opus-4-6 \
@@ -198,7 +198,7 @@ Each evaluation produces a result object:
 
 ```bash
 # 1. Generate test cases (3 biases × 1 domain × 1 instance = 3 instances)
-PYTHONPATH=src uv run kahne-bench generate \
+uv run kahne-bench generate \
   --bias anchoring_effect \
   --bias loss_aversion \
   --bias confirmation_bias \
@@ -207,7 +207,7 @@ PYTHONPATH=src uv run kahne-bench generate \
   -o test_cases.json
 
 # 2. Run on your model
-PYTHONPATH=src uv run kahne-bench evaluate \
+uv run kahne-bench evaluate \
   -i test_cases.json \
   -p anthropic \
   -m claude-opus-4-6 \
@@ -230,7 +230,7 @@ print(f\"Most Resistant: {data['summary']['most_resistant_biases'][:3]}\")
 
 ```bash
 # First generate tests once (3 biases × 1 domain × 1 instance = 3 instances)
-PYTHONPATH=src uv run kahne-bench generate \
+uv run kahne-bench generate \
   --bias anchoring_effect \
   --bias loss_aversion \
   --bias confirmation_bias \
@@ -243,7 +243,7 @@ for provider_model in "openai:gpt-5.2-2025-12-11" "anthropic:claude-opus-4-6" "g
   provider="${provider_model%%:*}"
   model="${provider_model##*:}"
   echo "Testing $model..."
-  PYTHONPATH=src uv run kahne-bench evaluate \
+  uv run kahne-bench evaluate \
     -i test_cases.json \
     -p "$provider" \
     -m "$model" \
@@ -266,10 +266,10 @@ for f in sorted(glob.glob('fingerprint_*.json')):
 
 ```bash
 # List all 69 biases
-PYTHONPATH=src uv run kahne-bench list-biases
+uv run kahne-bench list-biases
 
 # Get details on a specific bias
-PYTHONPATH=src uv run kahne-bench describe anchoring_effect
+uv run kahne-bench describe anchoring_effect
 ```
 
 ## Troubleshooting

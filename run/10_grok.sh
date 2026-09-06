@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 source run/common.sh
 
 echo "Grok 4.1 Fast..."
-PYTHONPATH=src uv run kahne-bench evaluate $COMMON_ARGS \
+uv run kahne-bench evaluate $COMMON_ARGS \
   -p xai -m grok-4-1-fast-reasoning \
   -o results/results_grok.json \
   -f results/fingerprint_grok.json
