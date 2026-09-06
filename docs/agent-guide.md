@@ -1,6 +1,8 @@
 # Kahne-Bench: Agent Guide
 
-This guide helps AI agents run cognitive bias benchmarks on themselves or other LLMs.
+This guide helps AI agents run cognitive bias benchmarks on themselves or other LLMs with the smallest possible spend.
+
+KahneBench is deprecated as of July 2026 and its leaderboard is final. The commands below still work for reproduction. All commands assume `uv sync` has been run from the repository root.
 
 ## Quick Start
 
