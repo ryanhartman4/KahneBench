@@ -85,7 +85,7 @@ All models evaluated on the core tier (15 foundational biases), 3 trials per con
 - GPT-5.4 (18.36%) improves on GPT-5.2 (21.00%) with base rate neglect fully resolved, though gain-loss framing and status quo bias increased
 - Most models are *less* biased than human baselines for the majority of biases; exceptions cluster around endowment effect, gain-loss framing, and loss aversion
 
-Full results: `results/fingerprint_*.json` and `deprecated_results/pilot_fingerprint.json` (Sonnet 4.5)
+Full results: one cognitive fingerprint per model in `results/fingerprint_*.json`. Every number in the two tables above is checked against those files by `scripts/verify_readme_results.py`, which runs in CI. The fixed test set every run used is `core_tests.json`, and `run/` holds the exact command per model.
 
 ## Limitations (Read Before Use)
 
@@ -125,6 +125,8 @@ uv sync
 uv sync --group dev
 ```
 
+On macOS, if the clone sits in an iCloud-synced folder and `import kahne_bench` fails after `uv sync`, run `chflags -R nohidden .venv`. iCloud marks dot-paths hidden and Python skips hidden `.pth` files. `CLAUDE.md` has the details.
+
 ## Environment Variables
 
 For the CLI `evaluate` command, the LLM judge fallback defaults to Anthropic Haiku 4.5 (`--judge-provider anthropic --judge-model claude-haiku-4-5`), so `ANTHROPIC_API_KEY` is required unless you override judge settings.
@@ -147,6 +149,8 @@ uv run python examples/basic_usage.py
 export OPENAI_API_KEY="your-openai-key"
 uv run python examples/openai_evaluation.py --model gpt-5.2 --tier core
 ```
+
+For the cheapest possible runs (one bias, one domain, one trial) and cost estimates, see `docs/agent-guide.md`.
 
 ---
 
@@ -390,11 +394,11 @@ The 69 biases are organized into 16 categories based on underlying cognitive mec
 | Representativeness | 8 | Base rate neglect, Conjunction fallacy |
 | Availability | 6 | Availability bias, Recency bias, Primacy bias |
 | Anchoring | 5 | Anchoring effect, Insufficient adjustment |
-| Loss Aversion | 5 | Loss aversion, Endowment effect, Sunk cost | 0.096 |
+| Loss Aversion | 5 | Loss aversion, Endowment effect, Sunk cost |
 | Framing | 6 | Gain-loss framing, Mental accounting |
 | Reference Dependence | 1 | Reference point framing |
 | Probability Distortion | 7 | Certainty effect, Affect heuristic |
-| Overconfidence | 5 | Overconfidence, Planning fallacy | 0.044 |
+| Overconfidence | 5 | Overconfidence, Planning fallacy |
 | Confirmation | 3 | Confirmation bias, Belief perseverance |
 | Temporal | 3 | Present bias, Duration neglect |
 | Extension Neglect | 2 | Scope insensitivity, Identifiable victim |
@@ -479,17 +483,22 @@ Note: The CLI covers listing/description, generation, compound tests, evaluation
 ## Project Structure
 
 ```
+core_tests.json          # Fixed core-tier test set used by every leaderboard run
+results/                 # One cognitive fingerprint per evaluated model (tracked)
+run/                     # Exact evaluate command per model; common.sh holds shared flags
+scripts/                 # README verification and website export helpers
+examples/                # Mock-provider demo and an OpenAI evaluation script
+tests/                   # pytest suite (649 tests)
+docs/                    # LIMITATIONS.md and agent-guide.md
 src/kahne_bench/
 ├── __init__.py          # Main exports
-├── core.py              # Core data structures
+├── core.py              # Core data structures and the LLMProvider protocol
 ├── cli.py               # Command-line interface
 ├── biases/
-│   ├── __init__.py
-│   └── taxonomy.py      # 69-bias taxonomy
+│   └── taxonomy.py      # 69-bias taxonomy in 16 categories
 ├── engines/
-│   ├── __init__.py
-│   ├── generator.py     # Test case generation
-│   ├── evaluator.py     # LLM evaluation
+│   ├── generator.py     # Templates, domain scenarios, test case generation, tiers
+│   ├── evaluator.py     # Provider clients, answer extraction, evaluators
 │   ├── judge.py         # LLM judge fallback scoring
 │   ├── compound.py      # Compound bias testing
 │   ├── bloom_generator.py # LLM-driven BLOOM scenario generation
@@ -498,10 +507,8 @@ src/kahne_bench/
 │   ├── conversation.py  # Multi-turn conversational evaluation
 │   └── robustness.py    # Adversarial testing
 ├── metrics/
-│   ├── __init__.py
-│   └── core.py          # 6 advanced metrics
+│   └── core.py          # The 6 metrics and human baselines
 └── utils/
-    ├── __init__.py
     ├── diversity.py     # Dataset validation
     └── io.py            # Export/import utilities
 ```
