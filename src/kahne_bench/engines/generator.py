@@ -9,7 +9,7 @@ import json
 import random
 import re
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 from kahne_bench.core import (
     BiasDefinition,
@@ -2017,7 +2017,7 @@ Please provide your immediate judgment.
         decision = random.choice(scenario.typical_decisions)
 
         # Common variables
-        variables = {
+        variables: dict[str, Any] = {
             "context": scenario.context,
             "decision_maker": actor,
             "decision": decision,
@@ -4145,7 +4145,7 @@ Please provide your immediate judgment.
         self, bias_def: BiasDefinition, scenario: DomainScenario
     ) -> dict:
         """Generate template variables for generic bias templates."""
-        variables = {
+        variables: dict[str, Any] = {
             "context": scenario.context,
             "decision_maker": random.choice(scenario.actors),
             "decision": random.choice(scenario.typical_decisions),
