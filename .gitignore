@@ -3,55 +3,49 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
 *.egg
 
 # Virtual environments
 .venv/
 venv/
-ENV/
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Testing
+# Tool caches
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.uv-cache/
 .coverage
 htmlcov/
 
-# OS
+# IDE and OS
+.idea/
+.vscode/
+*.swp
 .DS_Store
-Thumbs.db
 
-# Evaluation outputs
+# Evaluation outputs. The published fingerprint per model under results/
+# is tracked (about 30KB each). Raw per-response results are not (about
+# 10MB per model). Everything from the pre-publication pilot phase lives
+# in deprecated_results/ and stays out of the tree.
 fingerprint_*.json
 results_*.json
 test_subset.json
+!results/fingerprint_*.json
+deprecated_results/
 
-# Verbose run logs (run/14_*.sh tee output here; can be 100s of MB)
+# Verbose run logs (run/*.sh tee output here; can be hundreds of MB)
 run/logs/
 
 # Claude Code local config
 .claude/
 
-# Internal dev artifacts (docs, reports, handoffs, audits)
-docs/
+# Internal notes and reviews. Only the two public docs are tracked.
+docs/*
+!docs/LIMITATIONS.md
+!docs/agent-guide.md
 reports/
 HANDOFF*.md
 ARXIV_AUDIT_REPORT.md
