@@ -85,12 +85,12 @@ src/kahne_bench/
 
 1. **BMS intensity weights** (`DEFAULT_INTENSITY_WEIGHTS` in `metrics/core.py`): WEAK 2.0, MODERATE 1.0, STRONG 0.67, ADVERSARIAL 0.5. A model that bites on a weak trigger is more biased than one that needs strong pressure. The weights are design choices, not empirically calibrated (see `docs/LIMITATIONS.md`).
 2. **Human baselines** (`HUMAN_BASELINES` in `metrics/core.py`): literature-derived susceptibility rates used by the Human Alignment Score.
-3. **Placeholder answers**: expected answers starting with `[` are non-evaluable and score neutral (0.5).
+3. **Placeholder answers**: expected answers starting with `[` are non-evaluable. `score_response` returns `(None, None)` for them, and such results count toward the per-bias `unknown_rate` rather than as biased or unbiased.
 4. **Async evaluation** bounded by a semaphore (`max_concurrent_requests`) rather than a fixed rate limit.
 
 ## Provider Gotchas
 
-Each of these produced a clean-looking 0.0% fingerprint before it was caught. Treat a 0.0% overall susceptibility as a bug until proven otherwise.
+The two Anthropic rows each produced a clean-looking 0.0% fingerprint before they were caught, and the gpt-5 token cap returned empty answers for entire biases. Treat a 0.0% overall susceptibility, or a bias whose answers are all empty, as a bug until proven otherwise.
 
 | Model | Behavior | Handling in `engines/evaluator.py` |
 |---|---|---|
@@ -113,9 +113,9 @@ A zero score on a bias deserves investigation before it is reported as resistanc
 
 ## Completed Evaluations (core tier)
 
-| Model | Date | Fingerprint |
+| Model | Fingerprint generated | Fingerprint |
 |---|---|---|
-| Claude Sonnet 4.5 | 2026-02-09 | `results/fingerprint_sonnet45.json` (pilot run) |
+| Claude Sonnet 4.5 | 2026-02-14 | `results/fingerprint_sonnet45.json` (pilot run) |
 | GPT-5.2 | 2026-02-14 | `results/fingerprint_gpt52.json` |
 | Claude Haiku 4.5 | 2026-02-14 | `results/fingerprint_haiku45.json` |
 | Claude Opus 4.6 | 2026-02-14 | `results/fingerprint_opus46.json` |
