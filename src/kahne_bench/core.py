@@ -74,6 +74,8 @@ class TestScale(Enum):
     Each scale provides a different lens on cognitive bias manifestation.
     """
 
+    __test__ = False  # Not a pytest test class, despite the name.
+
     MICRO = "micro"  # Single isolated bias, control vs treatment
     MESO = "meso"  # Multiple bias interactions in complex scenarios
     MACRO = "macro"  # Bias persistence across sequential decisions

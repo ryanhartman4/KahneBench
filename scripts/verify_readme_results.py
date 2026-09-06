@@ -101,6 +101,7 @@ def check_leaderboard(fingerprints: dict[str, dict]) -> list[str]:
     problems: list[str] = []
     _, rows = markdown_table("### Overall Bias Susceptibility")
     seen: set[str] = set()
+    susceptibilities: list[float] = []
     for cells in rows:
         if len(cells) != 5:
             problems.append(f"leaderboard: expected 5 cells, found {len(cells)}: {cells}")
@@ -119,17 +120,26 @@ def check_leaderboard(fingerprints: dict[str, dict]) -> list[str]:
             bias_id: fp["magnitude_scores"][bias_id]["overall_magnitude"]
             for bias_id in fp["biases_tested"]
         }
-        best = max(scores, key=lambda bias_id: scores[bias_id])
-        if abs(scores[best] - number(top_bms)) > 0.0005:
-            problems.append(f"{model}: top BMS README {top_bms} vs fingerprint {scores[best]:.3f}")
-        if BIAS_LABELS[best] != top_vulnerability:
+        best_score = max(scores.values())
+        if abs(best_score - number(top_bms)) > 0.0005:
+            problems.append(f"{model}: top BMS README {top_bms} vs fingerprint {best_score:.3f}")
+        # Any bias within rounding distance of the maximum is an acceptable label.
+        top_labels = {
+            BIAS_LABELS[bias_id]
+            for bias_id, score in scores.items()
+            if abs(score - best_score) <= 0.0005
+        }
+        if top_vulnerability not in top_labels:
             problems.append(
                 f"{model}: top vulnerability README {top_vulnerability!r} "
-                f"vs fingerprint {BIAS_LABELS[best]!r}"
+                f"vs fingerprint {sorted(top_labels)}"
             )
+        susceptibilities.append(want)
     missing = set(fingerprints) - seen
     if missing:
         problems.append(f"leaderboard: models missing from README table: {sorted(missing)}")
+    if susceptibilities != sorted(susceptibilities):
+        problems.append("leaderboard: rows are not sorted by ascending susceptibility")
     return problems
 
 
@@ -161,11 +171,22 @@ def check_bias_table(fingerprints: dict[str, dict]) -> list[str]:
     return problems
 
 
+def load_fingerprints() -> tuple[dict[str, dict], list[str]]:
+    fingerprints: dict[str, dict] = {}
+    problems: list[str] = []
+    for name, filename in MODELS.items():
+        path = RESULTS / filename
+        if not path.exists():
+            problems.append(f"{name}: fingerprint file missing: {path.relative_to(ROOT)}")
+            continue
+        fingerprints[name] = json.loads(path.read_text())
+    return fingerprints, problems
+
+
 def main() -> int:
-    fingerprints = {
-        name: json.loads((RESULTS / filename).read_text()) for name, filename in MODELS.items()
-    }
-    problems = check_leaderboard(fingerprints) + check_bias_table(fingerprints)
+    fingerprints, problems = load_fingerprints()
+    if not problems:
+        problems = check_leaderboard(fingerprints) + check_bias_table(fingerprints)
     for problem in problems:
         print(f"MISMATCH: {problem}")
     print(f"Checked {len(MODELS)} models across both README results tables.")

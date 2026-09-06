@@ -2,8 +2,8 @@
 """Transform a KahneBench fingerprint_<m>.json into the website's camelCase
 LEADERBOARD + FINGERPRINTS entries (for src/lib/data/results.ts).
 
-The website's model data is HAND-MAINTAINED, not generated from the Python
-fingerprints, and a naive snake_case->camelCase conversion produces valid-but-
+The website's results.ts is regenerated from the Python fingerprints by this
+script rather than edited by hand, because a naive snake_case->camelCase conversion produces valid-but-
 WRONG optional keys that TypeScript will not flag (blank charts at runtime).
 The known gotchas this tool encodes:
 
@@ -33,8 +33,8 @@ Paste the printed LEADERBOARD block (replacing the existing array) and the
 FINGERPRINTS entry (anywhere inside the FINGERPRINTS object) into
 website/src/lib/data/results.ts, then run `npx tsc --noEmit && npx next
 build` and visually check /results (leaderboard rank + radar color). Remember
-to also add a MODEL_COLORS hex entry in bias-radar-chart.tsx and bump
-STATS.modelCount — those are not emitted here.
+to also add a MODEL_COLORS hex entry in bias-radar-chart.tsx; that is not
+emitted here.
 """
 
 import argparse
@@ -231,7 +231,7 @@ def validate(leaderboard: list, fingerprints: dict) -> None:
     problems = diff(gen_lb, gt_lb, "leaderboard") + diff(gen_fp, gt_fp, "fingerprint")
     if problems:
         print(
-            f"VALIDATION FAILED — {len(problems)} mismatches reproducing {VALIDATION_MODEL_ID}:",
+            f"VALIDATION FAILED: {len(problems)} mismatches reproducing {VALIDATION_MODEL_ID}:",
             file=sys.stderr,
         )
         for p in problems[:40]:
@@ -240,7 +240,7 @@ def validate(leaderboard: list, fingerprints: dict) -> None:
             "Refusing to emit: the transform no longer matches the website. "
             "The website schema or fingerprint format likely changed."
         )
-    print(f"validation OK — reproduced {VALIDATION_MODEL_ID} byte-for-byte (tol 1e-9)")
+    print(f"validation OK: reproduced {VALIDATION_MODEL_ID} byte-for-byte (tol 1e-9)")
 
 
 def ts_block(obj, statement_prefix="") -> str:
@@ -276,7 +276,7 @@ def main() -> None:
     fp = json.load(open(args.fingerprint))
     if fp["model_id"] in fingerprints:
         print(
-            f"NOTE: {fp['model_id']} is already in the website data — "
+            f"NOTE: {fp['model_id']} is already in the website data; "
             f"emitting anyway (you may be re-running).",
             file=sys.stderr,
         )

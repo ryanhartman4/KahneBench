@@ -37,7 +37,7 @@ uv run kahne-bench evaluate -i test_cases.json -p anthropic -m claude-sonnet-4-5
 ```
 
 - `core_tests.json` at the repo root is the fixed input every leaderboard run used: core tier, 15 biases, 5 domains, 4,725 evaluations per model at 3 trials.
-- `run/NN_<model>.sh` records the exact command for each leaderboard model. Shared flags live in `run/common.sh`. Verbose logs go to `run/logs/` (gitignored).
+- `run/NN_<model>.sh` records the exact command for every model that was run; 11 of the 14 produced a published fingerprint. Shared flags live in `run/common.sh`. Verbose logs go to `run/logs/` (gitignored).
 - The `evaluate` command's LLM-judge fallback defaults to `--judge-provider anthropic --judge-model claude-haiku-4-5`, so `ANTHROPIC_API_KEY` is required unless you override both.
 - Rich progress output is buffered until the batch finishes. Pass `--verbose` for timestamped per-instance log lines instead.
 - Outputs land in `results/`. Fingerprints (`fingerprint_*.json`, about 30KB each) are tracked. Raw results (`results_*.json`, about 10MB each) are gitignored.

@@ -77,7 +77,7 @@ All models evaluated on the core tier (15 foundational biases), 3 trials per con
 ### Key Findings
 
 - **Endowment effect** is a near-universal LLM vulnerability (BMS > 0.7 for 6 of 11 models); Opus 4.8 (0.030), Fable 5 (0.052), Opus 4.6 (0.246), Opus 4.7 (0.335), and GPT-5.5 (0.335) are the standout exceptions. Opus 4.8 resists it most strongly of any model tested. Across all 11 models it is fully debiasable with prompting (mitigation effectiveness 1.000)
-- **Base rate neglect** splits models into three groups: Opus 4.7 (0.000) and GPT-5.4 (0.000) show complete resistance; GPT-5.2 (0.064), Fable 5 (0.391), and Opus 4.6 (0.429) show partial resistance; Sonnet 4.6 (0.735), GPT-5.5 (0.744), and Sonnet 4.5/Grok/Haiku (all 0.835) cluster at the high end. GPT-5.5 represents a significant regression from GPT-5.4 on this bias and drives most of its remaining susceptibility
+- **Base rate neglect** splits models into three groups: Opus 4.7 (0.000) and GPT-5.4 (0.000) show complete resistance; GPT-5.2 (0.064), Opus 4.8 (0.194), Fable 5 (0.391), and Opus 4.6 (0.429) show partial resistance; Sonnet 4.6 (0.735), GPT-5.5 (0.744), and Sonnet 4.5/Grok/Haiku (all 0.835) cluster at the high end. GPT-5.5 represents a significant regression from GPT-5.4 on this bias and drives most of its remaining susceptibility
 - **Gain-loss framing** is a consistent vulnerability, in the top 5 for 10 of 11 models; GPT-5.4 scores the highest (0.690), Opus 4.8 the lowest (0.007), followed by Opus 4.7 (0.185)
 - **Confirmation bias**, **gambler's fallacy**, and **conjunction fallacy** are near-zero across all models. LLMs have structurally internalized these reasoning patterns. Opus 4.7 is a partial exception on confirmation bias (0.124), the highest in the lineup
 - Claude Opus 4.7 achieves the lowest overall susceptibility (8.34%), with a score of exactly zero on 5 of 15 core biases (base rate neglect, status quo bias, hindsight bias, anchoring, and conjunction fallacy) and under 0.03 on three more
@@ -96,7 +96,7 @@ Kahne-Bench is a research framework, not a validated psychometric instrument. Re
 - No direct human validation data for these exact prompts; baselines are literature-derived and may be outdated or population-biased.
 - Metric weights (e.g., BMS intensity weights) are design choices, not empirically calibrated.
 - Template-based prompts and heuristic answer extraction can misclassify or miss responses.
-- Some expected answers are placeholders or context-dependent, which can yield neutral scores.
+- Some expected answers are placeholders or context-dependent; those instances score `None` and count toward the bias's unknown rate rather than as biased or unbiased.
 
 See `docs/LIMITATIONS.md` for full details.
 
@@ -487,7 +487,7 @@ Note: The CLI covers listing/description, generation, compound tests, evaluation
 ```
 core_tests.json          # Fixed core-tier test set used by every leaderboard run
 results/                 # One cognitive fingerprint per evaluated model (tracked)
-run/                     # Exact evaluate command per model; common.sh holds shared flags
+run/                     # Evaluate command per model run (11 of 14 reached the leaderboard); common.sh holds shared flags
 scripts/                 # README verification and website export helpers
 examples/                # Mock-provider demo and an OpenAI evaluation script
 tests/                   # pytest suite (649 tests)

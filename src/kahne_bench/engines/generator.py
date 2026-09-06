@@ -1787,6 +1787,8 @@ class TestCaseGenerator:
     for creating diverse, domain-specific test instances.
     """
 
+    __test__ = False  # Not a pytest test class, despite the name.
+
     def __init__(self, llm_client: LLMClient | None = None, seed: int | None = None):
         """
         Initialize the generator.

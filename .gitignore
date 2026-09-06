@@ -47,6 +47,3 @@ docs/*
 !docs/LIMITATIONS.md
 !docs/agent-guide.md
 reports/
-HANDOFF*.md
-ARXIV_AUDIT_REPORT.md
-AUDIT_RESULTS_ANALYSIS.md

@@ -2,6 +2,8 @@
 
 This document transparently describes the current limitations of Kahne-Bench to inform users and reviewers about areas where results should be interpreted with caution.
 
+**Status (2026-09-05):** KahneBench is deprecated as of July 2026 and its leaderboard is final. The limitations below stand as written; none were resolved after the last evaluation run.
+
 ## 1. Validation Limitations
 
 ### 1.1 No Human Validation Data
@@ -47,7 +49,7 @@ Some test instances have expected answers that are:
 - **Subjectively defined**: "Rational" vs "biased" may not be objectively distinguishable
 - **Context-dependent**: The "correct" answer may vary based on unstated assumptions
 
-Affected biases are handled by returning a default score of 0.5 when expected answers cannot be evaluated.
+Instances whose expected answers cannot be evaluated score `(None, None)` and count toward the bias's `unknown_rate` rather than as biased or unbiased.
 
 ### 2.3 Template-Based Generation Constraints
 While all 69 taxonomy biases now have templates, the template-based approach has inherent limitations:
@@ -97,7 +99,7 @@ The `AnswerExtractor` uses pattern matching that may:
 - **Confidence extraction**: May miss confidence statements not matching expected patterns; values are clamped to [0, 1]
 
 ### 4.3 Rate Limiting
-Rate limiting is applied between instances but not between trials within an instance, which could cause API issues with strict rate limits.
+Concurrency is bounded by a semaphore (`max_concurrent_requests`) rather than a per-minute rate limiter, so providers with strict limits can still return 429 responses; `rate_limit_retries` and `rate_limit_retry_delay_s` control the retry.
 
 ## 5. Recommendations for Users
 
@@ -115,7 +117,7 @@ Rate limiting is applied between instances but not between trials within an inst
 
 ## 6. Future Improvements
 
-We are actively working to address these limitations:
+These improvements were planned; the benchmark was retired in July 2026 before the open items were undertaken:
 
 - [ ] Conduct human validation studies
 - [x] Expand interaction matrix coverage to 60%+ (now 100%)
@@ -135,4 +137,4 @@ For a complete list of bias-specific citations, see `src/kahne_bench/biases/taxo
 
 ---
 
-*Last updated: 2026-01-06*
+*Last updated: 2026-09-05*
