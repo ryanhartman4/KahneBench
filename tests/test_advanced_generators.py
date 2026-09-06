@@ -1,7 +1,6 @@
 """Tests for advanced generator components: NovelScenarioGenerator, MacroScaleGenerator,
 CompoundTestGenerator, and RobustnessTester."""
 
-
 import pytest
 
 from kahne_bench.core import Domain, TestScale, TriggerIntensity, CognitiveBiasInstance
@@ -45,7 +44,9 @@ class TestNovelScenarioGenerator:
 
         # Check contexts include futuristic elements
         context_text = " ".join(elements["contexts"]).lower()
-        assert any(word in context_text for word in ["mars", "ai", "quantum", "pandemic", "renewable"])
+        assert any(
+            word in context_text for word in ["mars", "ai", "quantum", "pandemic", "renewable"]
+        )
 
     def test_generate_novel_instance_returns_valid_instance(self):
         generator = NovelScenarioGenerator(seed=42)
@@ -101,10 +102,7 @@ class TestNovelScenarioGenerator:
 
         # Novel generator should work across domains
         for domain in [Domain.PROFESSIONAL, Domain.INDIVIDUAL, Domain.RISK]:
-            instance = generator.generate_novel_instance(
-                "anchoring_effect",
-                domain=domain
-            )
+            instance = generator.generate_novel_instance("anchoring_effect", domain=domain)
             assert instance.domain == domain
 
     def test_generate_contamination_resistant_batch_returns_instances(self):
@@ -138,9 +136,7 @@ class TestNovelScenarioGenerator:
         generator = NovelScenarioGenerator(seed=42)
         instance = generator.generate_novel_instance("anchoring_effect")
 
-        all_prompts = instance.control_prompt + " " + " ".join(
-            instance.treatment_prompts.values()
-        )
+        all_prompts = instance.control_prompt + " " + " ".join(instance.treatment_prompts.values())
         # The instance should reference novel scenarios
         # (allowing for some flexibility in implementation)
         assert len(all_prompts) > 100  # Non-trivial prompts
@@ -195,9 +191,7 @@ class TestMacroScaleGenerator:
 
         for domain in [Domain.PROFESSIONAL, Domain.INDIVIDUAL, Domain.RISK]:
             chain = generator.generate_decision_chain(
-                "anchoring_effect",
-                chain_length=3,
-                domain=domain
+                "anchoring_effect", chain_length=3, domain=domain
             )
             assert chain.domain == domain
 

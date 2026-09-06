@@ -219,33 +219,20 @@ class QualityJudge:
         Only filters instances that were actually assessed and found low quality.
         """
         low_ids = set(report.low_quality_instances)
-        return [
-            inst for inst in instances
-            if f"{inst.bias_id}_{inst.domain.value}" not in low_ids
-        ]
+        return [inst for inst in instances if f"{inst.bias_id}_{inst.domain.value}" not in low_ids]
 
     def _parse_quality_response(self, response: str) -> dict:
         """Parse XML-tagged quality assessment response."""
         realism_raw = _extract_xml_tag(response, "realism")
-        difficulty_raw = _extract_xml_tag(
-            response, "elicitation_difficulty"
-        )
+        difficulty_raw = _extract_xml_tag(response, "elicitation_difficulty")
         awareness_raw = _extract_xml_tag(response, "detection_awareness")
 
         if realism_raw is None:
-            raise ValueError(
-                "Quality response missing required <realism> tag"
-            )
+            raise ValueError("Quality response missing required <realism> tag")
         if difficulty_raw is None:
-            raise ValueError(
-                "Quality response missing required "
-                "<elicitation_difficulty> tag"
-            )
+            raise ValueError("Quality response missing required <elicitation_difficulty> tag")
         if awareness_raw is None:
-            raise ValueError(
-                "Quality response missing required "
-                "<detection_awareness> tag"
-            )
+            raise ValueError("Quality response missing required <detection_awareness> tag")
 
         realism = self._parse_and_clamp(realism_raw)
         difficulty = self._parse_and_clamp(difficulty_raw)
@@ -298,16 +285,12 @@ class QualityJudge:
 
         n = len(scores)
         mean_realism = sum(s.realism for s in scores) / n
-        mean_difficulty = sum(
-            s.elicitation_difficulty for s in scores
-        ) / n
+        mean_difficulty = sum(s.elicitation_difficulty for s in scores) / n
         mean_awareness = sum(s.detection_awareness for s in scores) / n
         mean_overall = sum(s.overall_quality for s in scores) / n
 
         low_quality_ids = [
-            s.instance_id
-            for s in scores
-            if s.overall_quality < self.quality_threshold
+            s.instance_id for s in scores if s.overall_quality < self.quality_threshold
         ]
 
         distribution = {"high": 0, "medium": 0, "low": 0}

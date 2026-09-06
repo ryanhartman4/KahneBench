@@ -55,7 +55,8 @@ class MockProvider:
             elif "estimate" in prompt.lower():
                 # Anchored response
                 import re
-                numbers = re.findall(r'\d+', prompt)
+
+                numbers = re.findall(r"\d+", prompt)
                 if numbers:
                     anchor = int(numbers[0])
                     return f"Based on my analysis, I estimate approximately {int(anchor * 0.9)}. I am 80% confident."
@@ -167,6 +168,7 @@ async def demonstrate_evaluation():
 
     # Create evaluator with config
     from kahne_bench.engines.evaluator import EvaluationConfig
+
     config = EvaluationConfig(
         num_trials=2,  # Reduced for demo
         intensities=[TriggerIntensity.MODERATE, TriggerIntensity.STRONG],

@@ -87,9 +87,7 @@ def convert_to_sample(tc: dict) -> dict:
         "scale": tc.get("scale", "micro"),
         "baseScenario": tc["base_scenario"],
         "controlPrompt": tc["control_prompt"].strip(),
-        "treatmentPrompts": {
-            k: v.strip() for k, v in tc["treatment_prompts"].items()
-        },
+        "treatmentPrompts": {k: v.strip() for k, v in tc["treatment_prompts"].items()},
         "expectedRationalResponse": tc["expected_rational_response"],
         "expectedBiasedResponse": tc["expected_biased_response"],
         "debiasingPrompts": [p.strip() for p in tc.get("debiasing_prompts", [])],

@@ -1,6 +1,5 @@
 """Tests for data import/export utilities."""
 
-
 import json
 import tempfile
 import warnings
@@ -219,14 +218,19 @@ class TestInstanceExportImport:
     def test_import_handles_missing_optional_fields(self):
         """Test that import handles minimal data."""
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
-            json.dump([{
-                "bias_id": "test_bias",
-                "base_scenario": "Test scenario",
-                "bias_trigger": "Test trigger",
-                "control_prompt": "Control",
-                "treatment_prompts": {"moderate": "Treatment"},
-                "domain": "individual",
-            }], f)
+            json.dump(
+                [
+                    {
+                        "bias_id": "test_bias",
+                        "base_scenario": "Test scenario",
+                        "bias_trigger": "Test trigger",
+                        "control_prompt": "Control",
+                        "treatment_prompts": {"moderate": "Treatment"},
+                        "domain": "individual",
+                    }
+                ],
+                f,
+            )
             filepath = Path(f.name)
 
         try:
@@ -397,10 +401,15 @@ class TestIOErrorHandling:
         """Test import with missing required fields (bias_id, control_prompt) raises KeyError."""
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
             # Missing bias_id and other required fields
-            json.dump([{
-                "base_scenario": "Test scenario",
-                "domain": "individual",
-            }], f)
+            json.dump(
+                [
+                    {
+                        "base_scenario": "Test scenario",
+                        "domain": "individual",
+                    }
+                ],
+                f,
+            )
             filepath = Path(f.name)
 
         try:
@@ -412,14 +421,19 @@ class TestIOErrorHandling:
     def test_import_invalid_domain_enum(self):
         """Test import with invalid Domain value emits warning and skips item."""
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
-            json.dump([{
-                "bias_id": "test_bias",
-                "base_scenario": "Test scenario",
-                "bias_trigger": "Test trigger",
-                "control_prompt": "Control prompt",
-                "treatment_prompts": {"moderate": "Treatment"},
-                "domain": "UNKNOWN_DOMAIN",  # Invalid domain
-            }], f)
+            json.dump(
+                [
+                    {
+                        "bias_id": "test_bias",
+                        "base_scenario": "Test scenario",
+                        "bias_trigger": "Test trigger",
+                        "control_prompt": "Control prompt",
+                        "treatment_prompts": {"moderate": "Treatment"},
+                        "domain": "UNKNOWN_DOMAIN",  # Invalid domain
+                    }
+                ],
+                f,
+            )
             filepath = Path(f.name)
 
         try:
@@ -440,17 +454,22 @@ class TestIOErrorHandling:
     def test_import_invalid_trigger_intensity(self):
         """Test import with invalid TriggerIntensity value emits warning and skips intensity."""
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
-            json.dump([{
-                "bias_id": "test_bias",
-                "base_scenario": "Test scenario",
-                "bias_trigger": "Test trigger",
-                "control_prompt": "Control prompt",
-                "treatment_prompts": {
-                    "invalid_intensity": "Treatment with invalid intensity",
-                    "moderate": "Valid treatment",
-                },
-                "domain": "individual",
-            }], f)
+            json.dump(
+                [
+                    {
+                        "bias_id": "test_bias",
+                        "base_scenario": "Test scenario",
+                        "bias_trigger": "Test trigger",
+                        "control_prompt": "Control prompt",
+                        "treatment_prompts": {
+                            "invalid_intensity": "Treatment with invalid intensity",
+                            "moderate": "Valid treatment",
+                        },
+                        "domain": "individual",
+                    }
+                ],
+                f,
+            )
             filepath = Path(f.name)
 
         try:
@@ -466,7 +485,10 @@ class TestIOErrorHandling:
 
                 # Should have emitted a warning about invalid intensity
                 warning_messages = [str(warning.message) for warning in w]
-                assert any("TriggerIntensity" in msg or "invalid_intensity" in msg for msg in warning_messages)
+                assert any(
+                    "TriggerIntensity" in msg or "invalid_intensity" in msg
+                    for msg in warning_messages
+                )
         finally:
             filepath.unlink()
 
@@ -562,7 +584,10 @@ class TestDataIntegrity:
             for intensity in sample_instance.treatment_prompts.keys():
                 assert intensity in inst.treatment_prompts
                 assert isinstance(intensity, TriggerIntensity)
-                assert inst.treatment_prompts[intensity] == sample_instance.treatment_prompts[intensity]
+                assert (
+                    inst.treatment_prompts[intensity]
+                    == sample_instance.treatment_prompts[intensity]
+                )
         finally:
             filepath.unlink()
 
@@ -642,7 +667,10 @@ class TestDataIntegrity:
             assert Domain.INDIVIDUAL in inst.cross_domain_variants
             assert Domain.SOCIAL in inst.cross_domain_variants
             assert Domain.RISK in inst.cross_domain_variants
-            assert inst.cross_domain_variants[Domain.INDIVIDUAL] == "Individual variant for personal finance"
+            assert (
+                inst.cross_domain_variants[Domain.INDIVIDUAL]
+                == "Individual variant for personal finance"
+            )
         finally:
             filepath.unlink()
 
@@ -660,7 +688,7 @@ class TestFingerprintExportExtended:
 
             with open(filepath) as f:
                 content = f.read()
-                header_line = content.split('\n')[0]
+                header_line = content.split("\n")[0]
 
             # Verify all expected columns are present
             expected_columns = [
@@ -730,7 +758,7 @@ class TestFingerprintExportExtended:
                 content = f.read()
 
             # Should have header and two data rows (for two biases_tested)
-            lines = [line for line in content.strip().split('\n') if line]
+            lines = [line for line in content.strip().split("\n") if line]
             assert len(lines) == 3  # header + 2 bias rows
         finally:
             json_path.unlink()

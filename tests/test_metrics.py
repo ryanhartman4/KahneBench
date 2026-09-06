@@ -1,6 +1,5 @@
 """Tests for the evaluation metrics."""
 
-
 import pytest
 from kahne_bench.metrics import (
     BiasMagnitudeScore,
@@ -66,29 +65,34 @@ class TestBiasMagnitudeScore:
 
     def test_calculate_with_no_bias(self, sample_instance):
         """Test BMS when control and treatment are the same."""
+
         def scorer(r):
             return 0.0  # No bias
 
-        control = [TestResult(
-            instance=sample_instance,
-            model_id="test",
-            condition="control",
-            prompt_used="",
-            model_response="",
-            extracted_answer="A",
-            response_time_ms=100.0,
-        )]
-
-        treatment = {
-            TriggerIntensity.MODERATE: [TestResult(
+        control = [
+            TestResult(
                 instance=sample_instance,
                 model_id="test",
-                condition="treatment",
+                condition="control",
                 prompt_used="",
                 model_response="",
                 extracted_answer="A",
                 response_time_ms=100.0,
-            )]
+            )
+        ]
+
+        treatment = {
+            TriggerIntensity.MODERATE: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="A",
+                    response_time_ms=100.0,
+                )
+            ]
         }
 
         bms = BiasMagnitudeScore.calculate("anchoring_effect", control, treatment, scorer)
@@ -97,29 +101,34 @@ class TestBiasMagnitudeScore:
 
     def test_calculate_with_high_bias(self, sample_instance):
         """Test BMS when treatment shows strong bias."""
+
         def scorer(r):
             return 0.0 if r.condition == "control" else 1.0
 
-        control = [TestResult(
-            instance=sample_instance,
-            model_id="test",
-            condition="control",
-            prompt_used="",
-            model_response="",
-            extracted_answer="A",
-            response_time_ms=100.0,
-        )]
-
-        treatment = {
-            TriggerIntensity.MODERATE: [TestResult(
+        control = [
+            TestResult(
                 instance=sample_instance,
                 model_id="test",
-                condition="treatment",
+                condition="control",
                 prompt_used="",
                 model_response="",
-                extracted_answer="B",
+                extracted_answer="A",
                 response_time_ms=100.0,
-            )]
+            )
+        ]
+
+        treatment = {
+            TriggerIntensity.MODERATE: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                )
+            ]
         }
 
         bms = BiasMagnitudeScore.calculate("anchoring_effect", control, treatment, scorer)
@@ -136,19 +145,22 @@ class TestBiasConsistencyIndex:
 
     def test_calculate_single_domain(self, sample_instance):
         """Test BCI with a single domain."""
+
         def scorer(r):
             return 0.5
 
         results = {
-            Domain.PROFESSIONAL: [TestResult(
-                instance=sample_instance,
-                model_id="test",
-                condition="treatment",
-                prompt_used="",
-                model_response="",
-                extracted_answer="A",
-                response_time_ms=100.0,
-            )]
+            Domain.PROFESSIONAL: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="A",
+                    response_time_ms=100.0,
+                )
+            ]
         }
 
         bci = BiasConsistencyIndex.calculate("anchoring_effect", results, scorer)
@@ -158,6 +170,7 @@ class TestBiasConsistencyIndex:
 
     def test_calculate_multiple_domains(self, sample_instance):
         """Test BCI across multiple domains."""
+
         def scorer(r):
             return 0.7
 
@@ -166,24 +179,28 @@ class TestBiasConsistencyIndex:
         )
 
         results = {
-            Domain.PROFESSIONAL: [TestResult(
-                instance=sample_instance,
-                model_id="test",
-                condition="treatment",
-                prompt_used="",
-                model_response="",
-                extracted_answer="A",
-                response_time_ms=100.0,
-            )],
-            Domain.INDIVIDUAL: [TestResult(
-                instance=sample_instance_individual,
-                model_id="test",
-                condition="treatment",
-                prompt_used="",
-                model_response="",
-                extracted_answer="A",
-                response_time_ms=100.0,
-            )],
+            Domain.PROFESSIONAL: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="A",
+                    response_time_ms=100.0,
+                )
+            ],
+            Domain.INDIVIDUAL: [
+                TestResult(
+                    instance=sample_instance_individual,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="A",
+                    response_time_ms=100.0,
+                )
+            ],
         }
 
         bci = BiasConsistencyIndex.calculate("anchoring_effect", results, scorer)
@@ -207,24 +224,28 @@ class TestBiasConsistencyIndex:
         )
 
         results = {
-            Domain.PROFESSIONAL: [TestResult(
-                instance=sample_instance,
-                model_id="test",
-                condition="treatment",
-                prompt_used="",
-                model_response="",
-                extracted_answer="A",
-                response_time_ms=100.0,
-            )],
-            Domain.INDIVIDUAL: [TestResult(
-                instance=sample_instance_individual,
-                model_id="test",
-                condition="treatment",
-                prompt_used="",
-                model_response="",
-                extracted_answer="A",
-                response_time_ms=100.0,
-            )],
+            Domain.PROFESSIONAL: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="A",
+                    response_time_ms=100.0,
+                )
+            ],
+            Domain.INDIVIDUAL: [
+                TestResult(
+                    instance=sample_instance_individual,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="A",
+                    response_time_ms=100.0,
+                )
+            ],
         }
 
         bci = BiasConsistencyIndex.calculate("anchoring_effect", results, scorer)
@@ -245,18 +266,21 @@ class TestHumanAlignmentScore:
 
     def test_calculate_alignment(self, sample_instance):
         """Test HAS calculation."""
+
         def scorer(r):
             return 0.65  # Match human baseline for anchoring_effect
 
-        results = [TestResult(
-            instance=sample_instance,
-            model_id="test",
-            condition="treatment",
-            prompt_used="",
-            model_response="",
-            extracted_answer="A",
-            response_time_ms=100.0,
-        )]
+        results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            )
+        ]
 
         has = HumanAlignmentScore.calculate("anchoring_effect", results, scorer)
         assert has.bias_id == "anchoring_effect"
@@ -269,18 +293,21 @@ class TestHumanAlignmentScore:
 
     def test_alignment_over_biased(self, sample_instance):
         """Test HAS when model is more biased than humans."""
+
         def scorer(r):
             return 0.95  # Much higher than human baseline (0.65)
 
-        results = [TestResult(
-            instance=sample_instance,
-            model_id="test",
-            condition="treatment",
-            prompt_used="",
-            model_response="",
-            extracted_answer="A",
-            response_time_ms=100.0,
-        )]
+        results = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="treatment",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            )
+        ]
 
         has = HumanAlignmentScore.calculate("anchoring_effect", results, scorer)
         assert has.bias_direction == "worse than human"
@@ -292,6 +319,7 @@ class TestResponseConsistencyIndex:
 
     def test_perfect_consistency(self, sample_instance):
         """Test RCI when all responses are identical."""
+
         def scorer(r):
             return 0.5
 
@@ -402,6 +430,7 @@ class TestMetricCalculator:
 
     def test_custom_scorer(self, sample_results):
         """Test with custom scorer."""
+
         def custom_scorer(r):
             return 0.5
 
@@ -415,6 +444,7 @@ class TestBiasMitigationPotential:
 
     def test_bmp_calculate_basic(self, sample_instance):
         """Test basic BMP calculation with mock debiasing results."""
+
         def scorer(r):
             # Treatment results have high bias, debiased results have lower bias
             if "chain" in r.condition or "warn" in r.condition:
@@ -469,6 +499,7 @@ class TestBiasMitigationPotential:
 
     def test_bmp_with_zero_baseline(self, sample_instance):
         """Test BMP when baseline_bias_score is 0 (potential division issue at line 340)."""
+
         def scorer(r):
             return 0.0  # All results show zero bias
 
@@ -553,6 +584,7 @@ class TestBiasMitigationPotential:
 
     def test_bmp_requires_explicit_warning(self, sample_instance):
         """Test the requires_explicit_warning logic."""
+
         # Scenario: warning methods work better than chain-of-thought methods
         def scorer(r):
             if "warn" in r.condition or "bias" in r.condition:
@@ -606,6 +638,7 @@ class TestBiasMitigationPotential:
 
     def test_bmp_empty_debiasing_results(self, sample_instance):
         """Test BMP when no debiasing results are provided."""
+
         def scorer(r):
             return 0.7
 
@@ -621,9 +654,7 @@ class TestBiasMitigationPotential:
             )
         ]
 
-        bmp = BiasMitigationPotential.calculate(
-            "anchoring_effect", treatment_results, {}, scorer
-        )
+        bmp = BiasMitigationPotential.calculate("anchoring_effect", treatment_results, {}, scorer)
         assert bmp.best_mitigation_method == "none"
         assert bmp.mitigation_effectiveness == 0.0
         assert bmp.debiased_scores == {}
@@ -650,55 +681,83 @@ class TestBMSIntensityRenormalization:
         def scorer(r):
             return 0.0 if r.condition == "control" else 0.8
 
-        control = [TestResult(
-            instance=sample_instance,
-            model_id="test",
-            condition="control",
-            prompt_used="",
-            model_response="",
-            extracted_answer="A",
-            response_time_ms=100.0,
-        )]
+        control = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="control",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            )
+        ]
 
         # 3 intensities (no ADVERSARIAL)
         treatment_3 = {
-            TriggerIntensity.WEAK: [TestResult(
-                instance=sample_instance, model_id="test",
-                condition="treatment_weak", prompt_used="",
-                model_response="", extracted_answer="B",
-                response_time_ms=100.0,
-            )],
-            TriggerIntensity.MODERATE: [TestResult(
-                instance=sample_instance, model_id="test",
-                condition="treatment_moderate", prompt_used="",
-                model_response="", extracted_answer="B",
-                response_time_ms=100.0,
-            )],
-            TriggerIntensity.STRONG: [TestResult(
-                instance=sample_instance, model_id="test",
-                condition="treatment_strong", prompt_used="",
-                model_response="", extracted_answer="B",
-                response_time_ms=100.0,
-            )],
+            TriggerIntensity.WEAK: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment_weak",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                )
+            ],
+            TriggerIntensity.MODERATE: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment_moderate",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                )
+            ],
+            TriggerIntensity.STRONG: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment_strong",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                )
+            ],
         }
 
         # 4 intensities (all same rate)
         treatment_4 = {
             **treatment_3,
-            TriggerIntensity.ADVERSARIAL: [TestResult(
-                instance=sample_instance, model_id="test",
-                condition="treatment_adversarial", prompt_used="",
-                model_response="", extracted_answer="B",
-                response_time_ms=100.0,
-            )],
+            TriggerIntensity.ADVERSARIAL: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment_adversarial",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                )
+            ],
         }
 
         bms_3 = BiasMagnitudeScore.calculate(
-            "test_bias", control, treatment_3, scorer,
+            "test_bias",
+            control,
+            treatment_3,
+            scorer,
             intensity_weights=uniform_weights,
         )
         bms_4 = BiasMagnitudeScore.calculate(
-            "test_bias", control, treatment_4, scorer,
+            "test_bias",
+            control,
+            treatment_4,
+            scorer,
             intensity_weights=uniform_weights,
         )
 
@@ -715,38 +774,56 @@ class TestBMSIntensityRenormalization:
         pulling the overall score down. After the fix, missing intensities are
         excluded from both numerator and denominator.
         """
+
         def scorer(r):
             return 0.0 if r.condition == "control" else 0.6
 
-        control = [TestResult(
-            instance=sample_instance,
-            model_id="test",
-            condition="control",
-            prompt_used="",
-            model_response="",
-            extracted_answer="A",
-            response_time_ms=100.0,
-        )]
+        control = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="control",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            )
+        ]
 
         treatment_3 = {
-            TriggerIntensity.WEAK: [TestResult(
-                instance=sample_instance, model_id="test",
-                condition="treatment_weak", prompt_used="",
-                model_response="", extracted_answer="B",
-                response_time_ms=100.0,
-            )],
-            TriggerIntensity.MODERATE: [TestResult(
-                instance=sample_instance, model_id="test",
-                condition="treatment_moderate", prompt_used="",
-                model_response="", extracted_answer="B",
-                response_time_ms=100.0,
-            )],
-            TriggerIntensity.STRONG: [TestResult(
-                instance=sample_instance, model_id="test",
-                condition="treatment_strong", prompt_used="",
-                model_response="", extracted_answer="B",
-                response_time_ms=100.0,
-            )],
+            TriggerIntensity.WEAK: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment_weak",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                )
+            ],
+            TriggerIntensity.MODERATE: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment_moderate",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                )
+            ],
+            TriggerIntensity.STRONG: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment_strong",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                )
+            ],
         }
 
         bms = BiasMagnitudeScore.calculate("test_bias", control, treatment_3, scorer)
@@ -762,26 +839,34 @@ class TestBMSIntensityRenormalization:
 
     def test_bms_single_intensity_not_deflated(self, sample_instance):
         """BMS with only MODERATE intensity should not be deflated by missing intensities."""
+
         def scorer(r):
             return 0.0 if r.condition == "control" else 1.0
 
-        control = [TestResult(
-            instance=sample_instance,
-            model_id="test",
-            condition="control",
-            prompt_used="",
-            model_response="",
-            extracted_answer="A",
-            response_time_ms=100.0,
-        )]
+        control = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="control",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            )
+        ]
 
         treatment = {
-            TriggerIntensity.MODERATE: [TestResult(
-                instance=sample_instance, model_id="test",
-                condition="treatment_moderate", prompt_used="",
-                model_response="", extracted_answer="B",
-                response_time_ms=100.0,
-            )],
+            TriggerIntensity.MODERATE: [
+                TestResult(
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment_moderate",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
+                    response_time_ms=100.0,
+                )
+            ],
         }
 
         bms = BiasMagnitudeScore.calculate("test_bias", control, treatment, scorer)
@@ -795,18 +880,21 @@ class TestBMSIntensityRenormalization:
 
     def test_bms_no_treatment_data_returns_zero(self, sample_instance):
         """BMS with empty treatment dict should return 0.0 overall magnitude."""
+
         def scorer(r):
             return 0.5
 
-        control = [TestResult(
-            instance=sample_instance,
-            model_id="test",
-            condition="control",
-            prompt_used="",
-            model_response="",
-            extracted_answer="A",
-            response_time_ms=100.0,
-        )]
+        control = [
+            TestResult(
+                instance=sample_instance,
+                model_id="test",
+                condition="control",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
+                response_time_ms=100.0,
+            )
+        ]
 
         bms = BiasMagnitudeScore.calculate("test_bias", control, {}, scorer)
         assert bms.overall_magnitude == 0.0
@@ -817,6 +905,7 @@ class TestBMSHighUnknownRateGuardrail:
 
     def test_high_unknown_rate_flag_set(self, sample_instance):
         """BMS should flag high_unknown_rate when >50% of results are unknown."""
+
         def scorer(r):
             if r.extracted_answer == "UNKNOWN":
                 return None
@@ -824,24 +913,33 @@ class TestBMSHighUnknownRateGuardrail:
 
         control = [
             TestResult(
-                instance=sample_instance, model_id="test",
-                condition="control", prompt_used="",
-                model_response="", extracted_answer="UNKNOWN",
+                instance=sample_instance,
+                model_id="test",
+                condition="control",
+                prompt_used="",
+                model_response="",
+                extracted_answer="UNKNOWN",
                 response_time_ms=100.0,
             ),
             TestResult(
-                instance=sample_instance, model_id="test",
-                condition="control", prompt_used="",
-                model_response="", extracted_answer="UNKNOWN",
+                instance=sample_instance,
+                model_id="test",
+                condition="control",
+                prompt_used="",
+                model_response="",
+                extracted_answer="UNKNOWN",
                 response_time_ms=100.0,
             ),
         ]
         treatment = {
             TriggerIntensity.MODERATE: [
                 TestResult(
-                    instance=sample_instance, model_id="test",
-                    condition="treatment", prompt_used="",
-                    model_response="", extracted_answer="B",
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
                     response_time_ms=100.0,
                 ),
             ]
@@ -854,6 +952,7 @@ class TestBMSHighUnknownRateGuardrail:
 
     def test_low_unknown_rate_flag_not_set(self, sample_instance):
         """BMS should NOT flag high_unknown_rate when <=50% of results are unknown."""
+
         def scorer(r):
             if r.extracted_answer == "UNKNOWN":
                 return None
@@ -861,24 +960,33 @@ class TestBMSHighUnknownRateGuardrail:
 
         control = [
             TestResult(
-                instance=sample_instance, model_id="test",
-                condition="control", prompt_used="",
-                model_response="", extracted_answer="A",
+                instance=sample_instance,
+                model_id="test",
+                condition="control",
+                prompt_used="",
+                model_response="",
+                extracted_answer="A",
                 response_time_ms=100.0,
             ),
         ]
         treatment = {
             TriggerIntensity.MODERATE: [
                 TestResult(
-                    instance=sample_instance, model_id="test",
-                    condition="treatment", prompt_used="",
-                    model_response="", extracted_answer="B",
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="B",
                     response_time_ms=100.0,
                 ),
                 TestResult(
-                    instance=sample_instance, model_id="test",
-                    condition="treatment", prompt_used="",
-                    model_response="", extracted_answer="UNKNOWN",
+                    instance=sample_instance,
+                    model_id="test",
+                    condition="treatment",
+                    prompt_used="",
+                    model_response="",
+                    extracted_answer="UNKNOWN",
                     response_time_ms=100.0,
                 ),
             ]
@@ -934,6 +1042,7 @@ class TestBiasMagnitudeScoreEdgeCases:
 
     def test_bms_empty_control_results(self, sample_instance):
         """Test BMS behavior when control_scores is empty (line 147)."""
+
         def scorer(r):
             return 0.5
 
@@ -959,6 +1068,7 @@ class TestBiasMagnitudeScoreEdgeCases:
 
     def test_bms_empty_treatment_results(self, sample_instance):
         """Test BMS returns 0.0 for empty treatment results (line 153)."""
+
         def scorer(r):
             return 0.5
 
@@ -984,6 +1094,7 @@ class TestBiasMagnitudeScoreEdgeCases:
 
     def test_bms_single_intensity(self, sample_instance):
         """Test BMS with only one intensity level provided."""
+
         def scorer(r):
             return 0.0 if r.condition == "control" else 0.8
 
@@ -1025,6 +1136,7 @@ class TestBiasConsistencyIndexEdgeCases:
 
     def test_bci_empty_domain_scores(self):
         """Test BCI with empty domain scores (lines 242-250)."""
+
         def scorer(r):
             return 0.5
 
@@ -1039,6 +1151,7 @@ class TestBiasConsistencyIndexEdgeCases:
 
     def test_bci_single_domain(self, sample_instance):
         """Test BCI with exactly one domain."""
+
         def scorer(r):
             return 0.8
 
@@ -1067,6 +1180,7 @@ class TestBiasConsistencyIndexEdgeCases:
 
     def test_bci_all_identical_scores(self, sample_instance):
         """Test BCI when all domains return the same score - consistency should be 1.0."""
+
         def scorer(r):
             return 0.6  # Same score for all
 
@@ -1244,6 +1358,7 @@ class TestHumanAlignmentScoreEdgeCases:
 
     def test_has_missing_baseline(self, sample_instance):
         """Test HAS for biases without human baselines uses 0.5 default (lines 530-535)."""
+
         def scorer(r):
             return 0.7
 
@@ -1268,6 +1383,7 @@ class TestHumanAlignmentScoreEdgeCases:
 
     def test_has_superhuman_direction(self, sample_instance):
         """Test HAS 'super-human' direction when model is less biased than humans (lines 550-553)."""
+
         def scorer(r):
             return 0.3  # Model much less biased than human baseline
 
@@ -1323,7 +1439,9 @@ class TestHumanAlignmentScoreEdgeCases:
         def scorer_superhuman(r):
             return 0.54
 
-        has_superhuman = HumanAlignmentScore.calculate("anchoring_effect", results, scorer_superhuman)
+        has_superhuman = HumanAlignmentScore.calculate(
+            "anchoring_effect", results, scorer_superhuman
+        )
         assert has_superhuman.human_baseline_rate == 0.65
         assert has_superhuman.model_bias_rate == 0.54
         # diff = 0.54 - 0.65 = -0.11, abs(diff) > 0.1, so should be "super-human"
@@ -1340,6 +1458,7 @@ class TestResponseConsistencyIndexEdgeCases:
         returns consistency=0.0, is_stable=False. Consumers can detect
         this case via trial_count=0.
         """
+
         def scorer(r):
             return 0.5
 
@@ -1353,6 +1472,7 @@ class TestResponseConsistencyIndexEdgeCases:
 
     def test_rci_single_trial(self, sample_instance):
         """Test RCI with a single trial (variance calculation edge case)."""
+
         def scorer(r):
             return 0.7
 
@@ -1401,7 +1521,9 @@ class TestResponseConsistencyIndexEdgeCases:
             for i in range(4)
         ]
 
-        rci_stable = ResponseConsistencyIndex.calculate("anchoring_effect", results_stable, scorer_stable)
+        rci_stable = ResponseConsistencyIndex.calculate(
+            "anchoring_effect", results_stable, scorer_stable
+        )
         assert rci_stable.variance < 0.0625  # 0.25 / 4 trials
         assert rci_stable.is_stable is True
 
@@ -1425,7 +1547,9 @@ class TestResponseConsistencyIndexEdgeCases:
             for i in range(4)
         ]
 
-        rci_unstable = ResponseConsistencyIndex.calculate("anchoring_effect", results_unstable, scorer_unstable)
+        rci_unstable = ResponseConsistencyIndex.calculate(
+            "anchoring_effect", results_unstable, scorer_unstable
+        )
         assert rci_unstable.variance > 0.0625  # 0.25 / 4 trials
         assert rci_unstable.is_stable is False
 
@@ -1499,6 +1623,7 @@ class TestRCIInterpretation:
 
     def test_default_rci_field_value(self, sample_instance):
         """RCI default field value should be behavioral_consistency."""
+
         def scorer(r):
             return 0.5
 
@@ -1608,9 +1733,7 @@ class TestCASAccuracyNormalization:
 
         calculator = MetricCalculator()
         score = calculator._accuracy_scorer(result)
-        assert score == 1.0, (
-            f"'Option A' should match expected 'A' via normalization, got {score}"
-        )
+        assert score == 1.0, f"'Option A' should match expected 'A' via normalization, got {score}"
 
     def test_yes_vs_accept(self):
         """'yes' and 'accept' should be treated as equivalent answers."""
@@ -1637,9 +1760,7 @@ class TestCASAccuracyNormalization:
 
         calculator = MetricCalculator()
         score = calculator._accuracy_scorer(result)
-        assert score == 1.0, (
-            f"'yes' should match expected 'accept' via normalization, got {score}"
-        )
+        assert score == 1.0, f"'yes' should match expected 'accept' via normalization, got {score}"
 
     def test_exact_match_still_works(self):
         """Direct exact matches should still score 1.0."""
@@ -1752,9 +1873,7 @@ class TestHumanBaselines:
         """Verify all taxonomy biases have human baselines."""
         from kahne_bench.biases.taxonomy import BIAS_TAXONOMY
 
-        missing = [
-            bias_id for bias_id in BIAS_TAXONOMY if bias_id not in HUMAN_BASELINES
-        ]
+        missing = [bias_id for bias_id in BIAS_TAXONOMY if bias_id not in HUMAN_BASELINES]
         assert len(missing) == 0, f"Biases missing baselines: {missing}"
 
     def test_baseline_values_are_valid(self):
@@ -1840,6 +1959,7 @@ class TestUnknownHandling:
 
     def test_bms_calculates_unknown_rate(self, sample_instance):
         """Test that BMS correctly calculates unknown_rate."""
+
         def scorer_with_unknowns(r):
             # Return None for some results to simulate unknowns
             if r.extracted_answer == "UNKNOWN":
@@ -1896,6 +2016,7 @@ class TestUnknownHandling:
 
     def test_bci_calculates_unknown_rate(self, sample_instance):
         """Test that BCI correctly calculates unknown_rate."""
+
         def scorer_with_unknowns(r):
             if r.extracted_answer == "UNKNOWN":
                 return None
@@ -1941,10 +2062,11 @@ class TestUnknownHandling:
 
         bci = BiasConsistencyIndex.calculate("test_bias", results, scorer_with_unknowns)
         # 1 out of 3 results is unknown -> ~33% unknown rate
-        assert abs(bci.unknown_rate - 1/3) < 0.01
+        assert abs(bci.unknown_rate - 1 / 3) < 0.01
 
     def test_has_calculates_unknown_rate(self, sample_instance):
         """Test that HAS correctly calculates unknown_rate."""
+
         def scorer_with_unknowns(r):
             if r.extracted_answer == "UNKNOWN":
                 return None
@@ -1982,10 +2104,11 @@ class TestUnknownHandling:
 
         has = HumanAlignmentScore.calculate("anchoring_effect", results, scorer_with_unknowns)
         # 1 out of 3 is unknown -> ~33% unknown rate
-        assert abs(has.unknown_rate - 1/3) < 0.01
+        assert abs(has.unknown_rate - 1 / 3) < 0.01
 
     def test_rci_calculates_unknown_rate(self, sample_instance):
         """Test that RCI correctly calculates unknown_rate."""
+
         def scorer_with_unknowns(r):
             if r.extracted_answer == "UNKNOWN":
                 return None
@@ -2017,6 +2140,7 @@ class TestUnknownHandling:
 
     def test_bmp_calculates_unknown_rate(self, sample_instance):
         """Test that BMP correctly calculates unknown_rate."""
+
         def scorer_with_unknowns(r):
             if r.extracted_answer == "UNKNOWN":
                 return None
@@ -2061,7 +2185,7 @@ class TestUnknownHandling:
             "test_bias", treatment_results, debiasing_results, scorer_with_unknowns
         )
         # 1 out of 3 is unknown -> ~33% unknown rate
-        assert abs(bmp.unknown_rate - 1/3) < 0.01
+        assert abs(bmp.unknown_rate - 1 / 3) < 0.01
 
     def test_unknown_biases_excluded_from_resistant_ranking(self, sample_instance):
         """Test that biases with high unknown rates are excluded from most_resistant_biases."""
@@ -2157,6 +2281,7 @@ class TestUnknownHandling:
 
     def test_all_unknowns_returns_safe_defaults(self, sample_instance):
         """Test that metrics handle the edge case where all results are unknown."""
+
         def always_unknown(r):
             return None
 
@@ -2239,7 +2364,7 @@ class TestUnknownHandling:
 
         cas = CalibrationAwarenessScore.calculate("test_bias", results, accuracy_scorer)
         # 1 out of 3 results has no confidence -> ~33% unknown rate
-        assert abs(cas.unknown_rate - 1/3) < 0.01
+        assert abs(cas.unknown_rate - 1 / 3) < 0.01
 
 
 # ===========================================================================
@@ -2352,34 +2477,38 @@ class TestMetricCalculatorIntegration:
 
                 # Control results (3 trials)
                 for trial in range(3):
-                    results.append(TestResult(
-                        instance=instance,
-                        model_id="test-model",
-                        condition="control",
-                        prompt_used="Control prompt",
-                        model_response=f"Response: {bias_cfg['control_answers'][trial]}",
-                        extracted_answer=bias_cfg["control_answers"][trial],
-                        response_time_ms=100.0 + trial * 10,
-                        confidence_stated=bias_cfg["confidences"][trial],
-                        is_biased=bias_cfg["control_biased"][trial],
-                        bias_score=bias_cfg["control_scores"][trial],
-                    ))
+                    results.append(
+                        TestResult(
+                            instance=instance,
+                            model_id="test-model",
+                            condition="control",
+                            prompt_used="Control prompt",
+                            model_response=f"Response: {bias_cfg['control_answers'][trial]}",
+                            extracted_answer=bias_cfg["control_answers"][trial],
+                            response_time_ms=100.0 + trial * 10,
+                            confidence_stated=bias_cfg["confidences"][trial],
+                            is_biased=bias_cfg["control_biased"][trial],
+                            bias_score=bias_cfg["control_scores"][trial],
+                        )
+                    )
 
                 # Treatment results (3 trials per intensity)
                 for intensity, answers in bias_cfg["treatment_answers"].items():
                     for trial in range(3):
-                        results.append(TestResult(
-                            instance=instance,
-                            model_id="test-model",
-                            condition=f"treatment_{intensity.value}",
-                            prompt_used=f"Treatment {intensity.value}",
-                            model_response=f"Response: {answers[trial]}",
-                            extracted_answer=answers[trial],
-                            response_time_ms=150.0 + trial * 10,
-                            confidence_stated=bias_cfg["confidences"][trial],
-                            is_biased=bias_cfg["treatment_biased"][intensity][trial],
-                            bias_score=bias_cfg["treatment_scores"][intensity][trial],
-                        ))
+                        results.append(
+                            TestResult(
+                                instance=instance,
+                                model_id="test-model",
+                                condition=f"treatment_{intensity.value}",
+                                prompt_used=f"Treatment {intensity.value}",
+                                model_response=f"Response: {answers[trial]}",
+                                extracted_answer=answers[trial],
+                                response_time_ms=150.0 + trial * 10,
+                                confidence_stated=bias_cfg["confidences"][trial],
+                                is_biased=bias_cfg["treatment_biased"][intensity][trial],
+                                bias_score=bias_cfg["treatment_scores"][intensity][trial],
+                            )
+                        )
 
         return results
 
@@ -2486,8 +2615,10 @@ class TestMetricCalculatorIntegration:
         if report.most_susceptible_biases and report.most_resistant_biases:
             top_susceptible = report.most_susceptible_biases[0]
             top_resistant = report.most_resistant_biases[-1]
-            assert report.magnitude_scores[top_susceptible].overall_magnitude >= \
-                report.magnitude_scores[top_resistant].overall_magnitude
+            assert (
+                report.magnitude_scores[top_susceptible].overall_magnitude
+                >= report.magnitude_scores[top_resistant].overall_magnitude
+            )
 
     def test_overall_bias_susceptibility_between_zero_and_one(self):
         """overall_bias_susceptibility should be in [0, 1]."""

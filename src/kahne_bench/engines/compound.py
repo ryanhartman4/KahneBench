@@ -78,17 +78,11 @@ class CompoundTestGenerator(TestCaseGenerator):
 
         # Build compound scenario based on interaction type
         if interaction_type == "amplifying":
-            compound = self._build_amplifying_scenario(
-                primary_def, secondary_defs, scenario
-            )
+            compound = self._build_amplifying_scenario(primary_def, secondary_defs, scenario)
         elif interaction_type == "competing":
-            compound = self._build_competing_scenario(
-                primary_def, secondary_defs, scenario
-            )
+            compound = self._build_competing_scenario(primary_def, secondary_defs, scenario)
         else:  # cascading
-            compound = self._build_cascading_scenario(
-                primary_def, secondary_defs, scenario
-            )
+            compound = self._build_cascading_scenario(primary_def, secondary_defs, scenario)
 
         # Generate control (no triggers)
         control_prompt = f"""You are a {scenario.actors[0]} working in {scenario.context}.
@@ -102,7 +96,9 @@ Please provide your professional judgment on this matter, explaining your reason
         treatment_prompts = {}
         for intensity in TriggerIntensity:
             intensity_modifier = self._get_intensity_modifier(intensity)
-            treatment_prompts[intensity] = f"""You are a {scenario.actors[0]} working in {scenario.context}.
+            treatment_prompts[
+                intensity
+            ] = f"""You are a {scenario.actors[0]} working in {scenario.context}.
 
 {compound.scenario_description}
 
@@ -162,7 +158,9 @@ What is your decision?
             if primary_def.id == "anchoring_effect":
                 return "estimate heavily influenced by anchor value, amplified by easily recalled examples"
             elif primary_def.id == "loss_aversion":
-                return "strongly avoid change due to combined loss aversion and status quo preference"
+                return (
+                    "strongly avoid change due to combined loss aversion and status quo preference"
+                )
             else:
                 return f"response dominated by {primary_def.name.lower()}, amplified by {secondary_defs[0].name.lower() if secondary_defs else 'secondary bias'}"
         elif compound.interaction_type == "competing":
@@ -170,9 +168,7 @@ What is your decision?
         else:  # cascading
             return "error in first judgment cascades through subsequent decisions"
 
-    def _build_amplifying_scenario(
-        self, primary, secondaries, scenario
-    ) -> CompoundBiasScenario:
+    def _build_amplifying_scenario(self, primary, secondaries, scenario) -> CompoundBiasScenario:
         """Build scenario where biases reinforce each other."""
         # Anchoring + Availability + Overconfidence
         if primary.id == "anchoring_effect":
@@ -233,9 +229,7 @@ potential losses if implementation encounters problems.
         # Default compound
         return self._build_default_compound(primary, secondaries, scenario)
 
-    def _build_competing_scenario(
-        self, primary, secondaries, scenario
-    ) -> CompoundBiasScenario:
+    def _build_competing_scenario(self, primary, secondaries, scenario) -> CompoundBiasScenario:
         """Build scenario where biases pull in opposite directions."""
         description = f"""
 A complex decision in {scenario.context} presents conflicting signals:
@@ -259,9 +253,7 @@ toward the more conservative second option.
             interaction_type="competing",
         )
 
-    def _build_cascading_scenario(
-        self, primary, secondaries, scenario
-    ) -> CompoundBiasScenario:
+    def _build_cascading_scenario(self, primary, secondaries, scenario) -> CompoundBiasScenario:
         """Build scenario where one bias triggers another in sequence."""
         description = f"""
 A sequence of decisions must be made in {scenario.context}:
@@ -287,9 +279,7 @@ what you would lose if the project fails.
             interaction_type="cascading",
         )
 
-    def _build_default_compound(
-        self, primary, secondaries, scenario
-    ) -> CompoundBiasScenario:
+    def _build_default_compound(self, primary, secondaries, scenario) -> CompoundBiasScenario:
         """Build a default compound scenario when no specific template exists."""
         secondary_descriptions = "\n".join(
             f"- {s.name}: {s.system1_mechanism}" for s in secondaries
@@ -308,7 +298,7 @@ You must integrate all these factors into a coherent judgment.
 {primary.trigger_template}
 
 Additionally, consider that the following factors are also at play:
-{' '.join(s.trigger_template.split()[:20] + ['...'] for s in secondaries)}
+{" ".join(s.trigger_template.split()[:20] + ["..."] for s in secondaries)}
 """
         return CompoundBiasScenario(
             primary_bias=primary.id,
@@ -411,9 +401,11 @@ def analyze_interaction_effects(
                 "expected_additive": expected_compound,
                 "interaction_ratio": interaction_ratio,
                 "interaction_type": (
-                    "synergistic" if interaction_ratio > 1.2 else
-                    "antagonistic" if interaction_ratio < 0.8 else
-                    "additive"
+                    "synergistic"
+                    if interaction_ratio > 1.2
+                    else "antagonistic"
+                    if interaction_ratio < 0.8
+                    else "additive"
                 ),
             }
 

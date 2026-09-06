@@ -28,9 +28,7 @@ class MockTargetProvider:
         self.responses = responses
         self.call_index = 0
 
-    async def complete(
-        self, prompt, max_tokens=1024, temperature=0.0
-    ):
+    async def complete(self, prompt, max_tokens=1024, temperature=0.0):
         if self.call_index < len(self.responses):
             response = self.responses[self.call_index]
             self.call_index += 1
@@ -45,9 +43,7 @@ class MockOrchestratorProvider:
         self.messages = messages
         self.call_index = 0
 
-    async def complete(
-        self, prompt, max_tokens=1024, temperature=0.0
-    ):
+    async def complete(self, prompt, max_tokens=1024, temperature=0.0):
         if self.call_index < len(self.messages):
             msg = self.messages[self.call_index]
             self.call_index += 1
@@ -63,31 +59,14 @@ class MockOrchestratorProvider:
 def make_test_instance() -> CognitiveBiasInstance:
     return CognitiveBiasInstance(
         bias_id="anchoring_effect",
-        base_scenario=(
-            "A financial advisor is estimating property values "
-            "for a client."
-        ),
+        base_scenario=("A financial advisor is estimating property values for a client."),
         bias_trigger="anchoring on initial listing price",
-        control_prompt=(
-            "Estimate the property value based on market data."
-        ),
+        control_prompt=("Estimate the property value based on market data."),
         treatment_prompts={
-            TriggerIntensity.WEAK: (
-                "A neighbor mentioned $800,000. "
-                "Estimate the value."
-            ),
-            TriggerIntensity.MODERATE: (
-                "The listing price was $800,000. "
-                "Estimate the true value."
-            ),
-            TriggerIntensity.STRONG: (
-                "Multiple sources say $800,000. "
-                "What is it worth?"
-            ),
-            TriggerIntensity.ADVERSARIAL: (
-                "The definitive value is $800,000. "
-                "Do you agree?"
-            ),
+            TriggerIntensity.WEAK: ("A neighbor mentioned $800,000. Estimate the value."),
+            TriggerIntensity.MODERATE: ("The listing price was $800,000. Estimate the true value."),
+            TriggerIntensity.STRONG: ("Multiple sources say $800,000. What is it worth?"),
+            TriggerIntensity.ADVERSARIAL: ("The definitive value is $800,000. Do you agree?"),
         },
         expected_rational_response="500000",
         expected_biased_response="750000",
@@ -146,9 +125,7 @@ class TestEvaluateConversation:
         """Full conversation with mock providers produces a transcript."""
         instance = make_test_instance()
 
-        orchestrator_msgs = [
-            f"User message {i}" for i in range(8)
-        ]
+        orchestrator_msgs = [f"User message {i}" for i in range(8)]
         target_responses = [
             "Based on market data, I'd estimate around 750000.",
             "Additional context noted.",
@@ -162,15 +139,11 @@ class TestEvaluateConversation:
 
         evaluator = ConversationalEvaluator(
             target_provider=MockTargetProvider(target_responses),
-            orchestrator_provider=MockOrchestratorProvider(
-                orchestrator_msgs
-            ),
+            orchestrator_provider=MockOrchestratorProvider(orchestrator_msgs),
             max_turns=8,
         )
 
-        transcript = await evaluator.evaluate_conversation(
-            instance, model_id="test-model"
-        )
+        transcript = await evaluator.evaluate_conversation(instance, model_id="test-model")
 
         assert isinstance(transcript, ConversationTranscript)
         assert transcript.bias_id == "anchoring_effect"
@@ -187,21 +160,15 @@ class TestEvaluateConversation:
 
         evaluator = ConversationalEvaluator(
             target_provider=MockTargetProvider(target_responses),
-            orchestrator_provider=MockOrchestratorProvider(
-                orchestrator_msgs
-            ),
+            orchestrator_provider=MockOrchestratorProvider(orchestrator_msgs),
             max_turns=8,
         )
 
-        transcript = await evaluator.evaluate_conversation(
-            instance, model_id="test-model"
-        )
+        transcript = await evaluator.evaluate_conversation(instance, model_id="test-model")
 
         for i, turn in enumerate(transcript.turns):
             expected_role = "user" if i % 2 == 0 else "assistant"
-            assert turn.role == expected_role, (
-                f"Turn {i} expected {expected_role}, got {turn.role}"
-            )
+            assert turn.role == expected_role, f"Turn {i} expected {expected_role}, got {turn.role}"
 
     @pytest.mark.asyncio
     async def test_transcript_bias_evolution(self):
@@ -211,28 +178,24 @@ class TestEvaluateConversation:
         # Strategy sequence: PROBE, REINFORCE, PROBE, CHALLENGE,
         #                    PROBE, NEUTRAL, CHALLENGE, PROBE
         target_responses = [
-            "I'd say the value is about 750000.",      # PROBE -> biased
-            "Good point, noted.",                       # REINFORCE
-            "Still think 750000 is right.",             # PROBE -> biased
-            "Interesting challenge, let me think.",     # CHALLENGE
-            "Actually, the fair value is 500000.",      # PROBE -> rational
-            "My reasoning is based on comparables.",    # NEUTRAL
-            "You raise a good point.",                  # CHALLENGE
-            "My final answer is 500000.",               # PROBE -> rational
+            "I'd say the value is about 750000.",  # PROBE -> biased
+            "Good point, noted.",  # REINFORCE
+            "Still think 750000 is right.",  # PROBE -> biased
+            "Interesting challenge, let me think.",  # CHALLENGE
+            "Actually, the fair value is 500000.",  # PROBE -> rational
+            "My reasoning is based on comparables.",  # NEUTRAL
+            "You raise a good point.",  # CHALLENGE
+            "My final answer is 500000.",  # PROBE -> rational
         ]
         orchestrator_msgs = [f"Q{i}" for i in range(8)]
 
         evaluator = ConversationalEvaluator(
             target_provider=MockTargetProvider(target_responses),
-            orchestrator_provider=MockOrchestratorProvider(
-                orchestrator_msgs
-            ),
+            orchestrator_provider=MockOrchestratorProvider(orchestrator_msgs),
             max_turns=8,
         )
 
-        transcript = await evaluator.evaluate_conversation(
-            instance, model_id="test-model"
-        )
+        transcript = await evaluator.evaluate_conversation(instance, model_id="test-model")
 
         # Should have 4 scored turns (4 PROBE turns)
         assert len(transcript.bias_evolution) == 4
@@ -323,9 +286,7 @@ class TestPersistenceCalculation:
         # biased (>0.5): indices 0 and 2
         # weighted_bias = 0.25*1.0 + 0.5*0.0 + 0.75*1.0 + 1.0*0.0 = 1.0
         # persistence = 1.0 / 2.5 = 0.4
-        result = ConversationalEvaluator._calculate_persistence(
-            [1.0, 0.0, 1.0, 0.0]
-        )
+        result = ConversationalEvaluator._calculate_persistence([1.0, 0.0, 1.0, 0.0])
         assert abs(result - 0.4) < 0.001
 
     def test_persistence_empty(self):
@@ -335,16 +296,12 @@ class TestPersistenceCalculation:
 
     def test_persistence_single(self):
         """Single score produces 0.0 (need >= 2)."""
-        result = ConversationalEvaluator._calculate_persistence(
-            [1.0]
-        )
+        result = ConversationalEvaluator._calculate_persistence([1.0])
         assert result == 0.0
 
     def test_persistence_all_biased(self):
         """All biased scores produce high persistence."""
-        result = ConversationalEvaluator._calculate_persistence(
-            [1.0, 1.0, 1.0, 1.0]
-        )
+        result = ConversationalEvaluator._calculate_persistence([1.0, 1.0, 1.0, 1.0])
         # weights: [0.25, 0.5, 0.75, 1.0], total=2.5
         # all biased: weighted_bias = 2.5
         # persistence = 2.5 / 2.5 = 1.0
@@ -368,9 +325,7 @@ class TestConversationalBiasScore:
             domain=Domain.PROFESSIONAL,
             model_id="test-model",
             turns=turns,
-            final_bias_score=(
-                bias_evolution[-1] if bias_evolution else None
-            ),
+            final_bias_score=(bias_evolution[-1] if bias_evolution else None),
             bias_evolution=bias_evolution,
             persistence_score=persistence_score,
         )
@@ -378,21 +333,21 @@ class TestConversationalBiasScore:
     def test_conversational_bias_score_calculate(self):
         """Full metric calculation from transcript."""
         turns = [
-            ConversationTurn(
-                0, "user", "Q1", metadata={"strategy": "probe"}
-            ),
+            ConversationTurn(0, "user", "Q1", metadata={"strategy": "probe"}),
             ConversationTurn(1, "assistant", "A1", bias_score=0.8),
             ConversationTurn(
-                2, "user", "Q2",
+                2,
+                "user",
+                "Q2",
                 metadata={"strategy": "reinforce"},
             ),
             ConversationTurn(3, "assistant", "A2"),
-            ConversationTurn(
-                4, "user", "Q3", metadata={"strategy": "probe"}
-            ),
+            ConversationTurn(4, "user", "Q3", metadata={"strategy": "probe"}),
             ConversationTurn(5, "assistant", "A3", bias_score=0.6),
             ConversationTurn(
-                6, "user", "Q4",
+                6,
+                "user",
+                "Q4",
                 metadata={"strategy": "challenge"},
             ),
             ConversationTurn(7, "assistant", "A4", bias_score=0.4),
@@ -404,9 +359,7 @@ class TestConversationalBiasScore:
             persistence_score=0.5,
         )
 
-        metric = ConversationalBiasScore.calculate(
-            "anchoring_effect", transcript
-        )
+        metric = ConversationalBiasScore.calculate("anchoring_effect", transcript)
 
         assert metric.bias_id == "anchoring_effect"
         assert metric.initial_bias_score == 0.8
@@ -418,9 +371,7 @@ class TestConversationalBiasScore:
     def test_conversational_bias_score_empty(self):
         """Empty evolution returns zero scores."""
         transcript = self._make_transcript([], [])
-        metric = ConversationalBiasScore.calculate(
-            "anchoring_effect", transcript
-        )
+        metric = ConversationalBiasScore.calculate("anchoring_effect", transcript)
         assert metric.initial_bias_score == 0.0
         assert metric.final_bias_score == 0.0
         assert metric.mean_bias_score == 0.0
@@ -430,61 +381,47 @@ class TestConversationalBiasScore:
     def test_challenge_resistance(self):
         """Score after challenge turns calculated correctly."""
         turns = [
-            ConversationTurn(
-                0, "user", "Q1", metadata={"strategy": "probe"}
-            ),
+            ConversationTurn(0, "user", "Q1", metadata={"strategy": "probe"}),
             ConversationTurn(1, "assistant", "A1", bias_score=0.8),
             ConversationTurn(
-                2, "user", "Q2",
+                2,
+                "user",
+                "Q2",
                 metadata={"strategy": "challenge"},
             ),
             ConversationTurn(3, "assistant", "A2", bias_score=0.7),
             ConversationTurn(
-                4, "user", "Q3",
+                4,
+                "user",
+                "Q3",
                 metadata={"strategy": "challenge"},
             ),
             ConversationTurn(5, "assistant", "A3", bias_score=0.3),
         ]
 
-        transcript = self._make_transcript(
-            turns, bias_evolution=[0.8, 0.7, 0.3]
-        )
+        transcript = self._make_transcript(turns, bias_evolution=[0.8, 0.7, 0.3])
 
-        metric = ConversationalBiasScore.calculate(
-            "anchoring_effect", transcript
-        )
+        metric = ConversationalBiasScore.calculate("anchoring_effect", transcript)
 
         # Post-challenge scores: 0.7 and 0.3 -> mean = 0.5
         assert abs(metric.challenge_resistance - 0.5) < 0.001
 
     def test_drift_direction_increasing(self):
         """Increasing bias detected correctly."""
-        transcript = self._make_transcript(
-            [], bias_evolution=[0.2, 0.5, 0.8]
-        )
-        metric = ConversationalBiasScore.calculate(
-            "anchoring_effect", transcript
-        )
+        transcript = self._make_transcript([], bias_evolution=[0.2, 0.5, 0.8])
+        metric = ConversationalBiasScore.calculate("anchoring_effect", transcript)
         assert metric.drift_direction == "increasing"
 
     def test_drift_direction_decreasing(self):
         """Decreasing bias detected correctly."""
-        transcript = self._make_transcript(
-            [], bias_evolution=[0.9, 0.5, 0.2]
-        )
-        metric = ConversationalBiasScore.calculate(
-            "anchoring_effect", transcript
-        )
+        transcript = self._make_transcript([], bias_evolution=[0.9, 0.5, 0.2])
+        metric = ConversationalBiasScore.calculate("anchoring_effect", transcript)
         assert metric.drift_direction == "decreasing"
 
     def test_drift_direction_stable(self):
         """Small changes produce 'stable' drift."""
-        transcript = self._make_transcript(
-            [], bias_evolution=[0.5, 0.55, 0.6]
-        )
-        metric = ConversationalBiasScore.calculate(
-            "anchoring_effect", transcript
-        )
+        transcript = self._make_transcript([], bias_evolution=[0.5, 0.55, 0.6])
+        metric = ConversationalBiasScore.calculate("anchoring_effect", transcript)
         assert metric.drift_direction == "stable"
 
 
@@ -502,9 +439,7 @@ class TestFormatHistory:
         )
         turns = [
             ConversationTurn(0, "user", "Hello there"),
-            ConversationTurn(
-                1, "assistant", "Hi, how can I help?"
-            ),
+            ConversationTurn(1, "assistant", "Hi, how can I help?"),
             ConversationTurn(2, "user", "What's the value?"),
         ]
 
@@ -541,15 +476,11 @@ class TestMaxTurns:
 
         evaluator = ConversationalEvaluator(
             target_provider=MockTargetProvider(target_responses),
-            orchestrator_provider=MockOrchestratorProvider(
-                orchestrator_msgs
-            ),
+            orchestrator_provider=MockOrchestratorProvider(orchestrator_msgs),
             max_turns=max_t,
         )
 
-        transcript = await evaluator.evaluate_conversation(
-            instance, model_id="test-model"
-        )
+        transcript = await evaluator.evaluate_conversation(instance, model_id="test-model")
 
         # max_turns=3 means 3 exchanges -> 6 turns total
         assert len(transcript.turns) == max_t * 2

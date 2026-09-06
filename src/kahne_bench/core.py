@@ -18,6 +18,7 @@ class BiasCategory(Enum):
     These categories reflect the underlying cognitive mechanisms that produce biases,
     organized around key concepts from Prospect Theory and heuristics research.
     """
+
     # Judgment heuristics - mental shortcuts that often lead to systematic errors
     REPRESENTATIVENESS = "representativeness"  # Judging by similarity to prototypes
     AVAILABILITY = "availability"  # Judging by ease of recall
@@ -58,6 +59,7 @@ class Domain(Enum):
     Testing biases across multiple domains ensures the benchmark measures
     how biases manifest in practical, high-stakes situations.
     """
+
     INDIVIDUAL = "individual"  # Personal finance, consumer choice, lifestyle
     PROFESSIONAL = "professional"  # Managerial, medical, legal decisions
     SOCIAL = "social"  # Negotiation, persuasion, collaboration
@@ -71,6 +73,7 @@ class TestScale(Enum):
 
     Each scale provides a different lens on cognitive bias manifestation.
     """
+
     MICRO = "micro"  # Single isolated bias, control vs treatment
     MESO = "meso"  # Multiple bias interactions in complex scenarios
     MACRO = "macro"  # Bias persistence across sequential decisions
@@ -84,6 +87,7 @@ class TriggerIntensity(Enum):
     Varying intensity enables calculation of the Bias Magnitude Score (BMS)
     by measuring response changes across different trigger strengths.
     """
+
     WEAK = "weak"
     MODERATE = "moderate"
     STRONG = "strong"
@@ -97,6 +101,7 @@ class TemporalCondition(Enum):
     These conditions simulate different reasoning modes and track
     how biases evolve over time.
     """
+
     IMMEDIATE = "immediate"  # Fast System 1 response
     DELIBERATIVE = "deliberative"  # Extended System 2 reasoning
     PERSISTENT = "persistent"  # Bias tested across prompt sequences
@@ -110,6 +115,7 @@ class ExpertiseLevel(Enum):
     Tests how domain expertise affects bias expression, as documented
     in Section 4.2 of the Kahne-Bench specification.
     """
+
     NOVICE = "novice"  # Minimal domain knowledge
     INTERMEDIATE = "intermediate"  # Some domain experience
     EXPERT = "expert"  # Deep domain expertise
@@ -122,6 +128,7 @@ class Formality(Enum):
 
     Tests how setting formality affects bias expression.
     """
+
     CASUAL = "casual"  # Informal conversation
     PROFESSIONAL = "professional"  # Standard business setting
     FORMAL = "formal"  # High-stakes formal setting
@@ -134,6 +141,7 @@ class Stakes(Enum):
 
     Tests how perceived stakes affect bias expression.
     """
+
     LOW = "low"  # Minor consequences
     MODERATE = "moderate"  # Moderate impact
     HIGH = "high"  # Significant consequences
@@ -171,6 +179,7 @@ class ContextSensitivityConfig:
     Captures the contextual factors that may influence bias expression,
     as specified in Section 4.2 of the Kahne-Bench documentation.
     """
+
     expertise_level: ExpertiseLevel = ExpertiseLevel.INTERMEDIATE
     formality: Formality = Formality.PROFESSIONAL
     stakes: Stakes = Stakes.MODERATE
@@ -214,6 +223,7 @@ class BiasDefinition:
             Kahneman & Tversky. False for biases from other researchers that
             are theoretically related to dual-process theory.
     """
+
     id: str
     name: str
     category: BiasCategory
@@ -250,6 +260,7 @@ class CognitiveBiasInstance:
         context_config: Context sensitivity configuration (expertise, formality, stakes)
         metadata: Additional information about the test case
     """
+
     bias_id: str
     base_scenario: str
     bias_trigger: str
@@ -269,9 +280,9 @@ class CognitiveBiasInstance:
         """Get the treatment prompt for a specific intensity level."""
         if intensity not in self.treatment_prompts:
             import warnings
+
             warnings.warn(
-                f"Missing treatment for {intensity.value}, using control prompt",
-                stacklevel=2
+                f"Missing treatment for {intensity.value}, using control prompt", stacklevel=2
             )
         return self.treatment_prompts.get(intensity, self.control_prompt)
 
@@ -337,18 +348,16 @@ class CognitiveBiasInstance:
 
         # Build config from overrides or defaults
         cfg = ContextSensitivityConfig(
-            expertise_level=expertise or (
+            expertise_level=expertise
+            or (
                 self.context_config.expertise_level
-                if self.context_config else ExpertiseLevel.INTERMEDIATE
+                if self.context_config
+                else ExpertiseLevel.INTERMEDIATE
             ),
-            formality=formality or (
-                self.context_config.formality
-                if self.context_config else Formality.PROFESSIONAL
-            ),
-            stakes=stakes or (
-                self.context_config.stakes
-                if self.context_config else Stakes.MODERATE
-            ),
+            formality=formality
+            or (self.context_config.formality if self.context_config else Formality.PROFESSIONAL),
+            stakes=stakes
+            or (self.context_config.stakes if self.context_config else Stakes.MODERATE),
         )
 
         return self.apply_context_sensitivity(base_prompt, cfg)
@@ -359,6 +368,7 @@ class TestResult:
     """
     Result of running a single bias test on an LLM.
     """
+
     instance: CognitiveBiasInstance
     model_id: str
     condition: str  # "control" or intensity level
@@ -377,6 +387,7 @@ class EvaluationSession:
     """
     A complete evaluation session for a model across multiple test cases.
     """
+
     session_id: str
     model_id: str
     model_config: dict[str, Any]

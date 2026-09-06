@@ -22,11 +22,13 @@ class MockJudgeProvider:
         max_tokens: int = 1024,
         temperature: float = 0.0,
     ) -> str:
-        self.calls.append({
-            "prompt": prompt,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-        })
+        self.calls.append(
+            {
+                "prompt": prompt,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            }
+        )
         return self.response
 
 
@@ -36,10 +38,7 @@ _SCORE_KWARGS = dict(
     bias_description="Estimates biased toward initial reference value",
     system1_mechanism="Initial value activates related concepts",
     control_prompt="Estimate the population of Chicago.",
-    treatment_prompt=(
-        "A recent survey mentioned 10 million. "
-        "Estimate the population of Chicago."
-    ),
+    treatment_prompt=("A recent survey mentioned 10 million. Estimate the population of Chicago."),
     expected_rational="2700000",
     expected_biased="5000000",
     answer_type="numeric",
@@ -111,12 +110,14 @@ def test_parse_valid_xml():
     """All XML tags correctly extracted."""
     provider = MockJudgeProvider("")
     judge = LLMJudge(provider=provider)
-    result = judge._parse_judge_response(_make_xml(
-        answer="Option A",
-        bias_score="0.3",
-        confidence="0.8",
-        justification="Rational reasoning observed.",
-    ))
+    result = judge._parse_judge_response(
+        _make_xml(
+            answer="Option A",
+            bias_score="0.3",
+            confidence="0.8",
+            justification="Rational reasoning observed.",
+        )
+    )
     assert result.extracted_answer == "Option A"
     assert result.bias_score == 0.3
     assert result.confidence == 0.8
@@ -243,12 +244,14 @@ async def test_provider_called_with_correct_params():
 @pytest.mark.asyncio
 async def test_judge_result_fields():
     """Verify JudgeResult dataclass fields are all populated."""
-    provider = MockJudgeProvider(_make_xml(
-        answer="5 million",
-        bias_score="0.7",
-        confidence="0.85",
-        justification="Anchored to initial value.",
-    ))
+    provider = MockJudgeProvider(
+        _make_xml(
+            answer="5 million",
+            bias_score="0.7",
+            confidence="0.85",
+            justification="Anchored to initial value.",
+        )
+    )
     judge = LLMJudge(provider=provider)
     result = await judge.score(
         **_SCORE_KWARGS,
@@ -281,12 +284,14 @@ async def test_scoring_method_always_llm_judge():
 @pytest.mark.asyncio
 async def test_empty_model_response():
     """Handle empty/whitespace model responses gracefully."""
-    provider = MockJudgeProvider(_make_xml(
-        answer="unknown",
-        bias_score="0.0",
-        confidence="0.2",
-        justification="Model produced no substantive answer.",
-    ))
+    provider = MockJudgeProvider(
+        _make_xml(
+            answer="unknown",
+            bias_score="0.0",
+            confidence="0.2",
+            justification="Model produced no substantive answer.",
+        )
+    )
     judge = LLMJudge(provider=provider)
     result = await judge.score(
         **_SCORE_KWARGS,
@@ -377,5 +382,6 @@ async def test_prompt_instructs_independent_assessment():
     # Instructions should come before calibration reference
     instructions_pos = sent_prompt.index("## Instructions")
     calibration_pos = sent_prompt.index("## Calibration Reference")
-    assert instructions_pos < calibration_pos, \
+    assert instructions_pos < calibration_pos, (
         "Instructions should appear before calibration reference"
+    )

@@ -13,7 +13,7 @@ import math
 def _get_ngrams(text: str, n: int) -> list[tuple[str, ...]]:
     """Extract n-grams from text."""
     words = text.lower().split()
-    return [tuple(words[i:i+n]) for i in range(len(words) - n + 1)]
+    return [tuple(words[i : i + n]) for i in range(len(words) - n + 1)]
 
 
 def _count_ngrams(text: str, n: int) -> Counter:
@@ -53,10 +53,7 @@ def calculate_bleu(reference: str, hypothesis: str, max_n: int = 4) -> float:
             continue
 
         # Clipped counts
-        clipped = sum(
-            min(count, ref_ngrams.get(ngram, 0))
-            for ngram, count in hyp_ngrams.items()
-        )
+        clipped = sum(min(count, ref_ngrams.get(ngram, 0)) for ngram, count in hyp_ngrams.items())
         total = sum(hyp_ngrams.values())
 
         precisions.append(clipped / total if total > 0 else 0.0)
@@ -88,6 +85,7 @@ def calculate_self_bleu(texts: Sequence[str], sample_size: int = 100) -> float:
         return 0.0
 
     import random
+
     texts_list = list(texts)
 
     # Sample pairs if corpus is large
@@ -190,6 +188,7 @@ def validate_dataset_diversity(
 
     # Sample ROUGE calculations
     import random
+
     if len(prompts) > sample_size:
         sample_indices = random.sample(range(len(prompts)), sample_size)
         sample = [prompts[i] for i in sample_indices]

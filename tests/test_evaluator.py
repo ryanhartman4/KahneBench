@@ -1,6 +1,5 @@
 """Tests for the evaluation engine components."""
 
-
 import asyncio
 import pytest
 from dataclasses import dataclass, field
@@ -92,9 +91,7 @@ def create_test_instance(
         },
         expected_rational_response="50",
         expected_biased_response="100",
-        debiasing_prompts=[
-            "Ignore any numbers mentioned. What is the value of X?"
-        ],
+        debiasing_prompts=["Ignore any numbers mentioned. What is the value of X?"],
     )
 
 
@@ -154,7 +151,9 @@ class TestAnswerExtractor:
         # Response has "85" as trivia answer and "70%" as stated confidence
         response = "The answer is 85. Confidence: 70%"
         confidence = extractor.extract_confidence(response)
-        assert confidence == 0.70, f"Expected 0.70 but got {confidence} - should extract from 'Confidence:' not '85'"
+        assert confidence == 0.70, (
+            f"Expected 0.70 but got {confidence} - should extract from 'Confidence:' not '85'"
+        )
 
     def test_extract_confidence_decimal_fraction(self):
         """Support 0-1 fractional format."""
@@ -191,7 +190,9 @@ Confidence: 90%"""
         response = """Answer: 1914
 Confidence: 75%"""
         confidence = extractor.extract_confidence(response)
-        assert confidence == 0.75, f"Expected 0.75 but got {confidence} - extracted trivia answer instead"
+        assert confidence == 0.75, (
+            f"Expected 0.75 but got {confidence} - extracted trivia answer instead"
+        )
 
     def test_extract_confidence_numeric_answer_ignored(self):
         """Numeric answer like '206 bones' should not be confused with confidence."""
@@ -243,7 +244,9 @@ Confidence: 65%"""
 The answer is X.
 Confidence: 60%"""
         confidence = extractor.extract_confidence(response)
-        assert confidence == 0.60, "Explicit 'Confidence:' line should override inline '95% confident'"
+        assert confidence == 0.60, (
+            "Explicit 'Confidence:' line should override inline '95% confident'"
+        )
 
     def test_fallback_option_extraction(self):
         extractor = AnswerExtractor()
@@ -254,7 +257,9 @@ Confidence: 60%"""
         extractor = AnswerExtractor()
         response = "The project costs 1,000,000 and we expect 2,500,000 in revenue."
         result = extractor.extract(response, "numeric")
-        assert result == "2500000"  # Last number preferred in fallback (final answers appear at end)
+        assert (
+            result == "2500000"
+        )  # Last number preferred in fallback (final answers appear at end)
 
 
 class TestAnswerLineExtraction:
@@ -528,6 +533,7 @@ class TestBiasEvaluator:
 
         # Create a mock result
         from kahne_bench.core import TestResult
+
         result = TestResult(
             instance=instance,
             model_id="test",
@@ -548,6 +554,7 @@ class TestBiasEvaluator:
         instance = create_test_instance()
 
         from kahne_bench.core import TestResult
+
         result = TestResult(
             instance=instance,
             model_id="test",
@@ -568,6 +575,7 @@ class TestBiasEvaluator:
         instance = create_test_instance()
 
         from kahne_bench.core import TestResult
+
         result = TestResult(
             instance=instance,
             model_id="test",
@@ -604,7 +612,9 @@ class TestTemporalEvaluator:
     @pytest.mark.asyncio
     async def test_evaluate_persistent_includes_context(self):
         # Use responses that we can verify are being used as context
-        provider = MockLLMProvider(responses=["Round 0 response", "Round 1 response", "Round 2 response"])
+        provider = MockLLMProvider(
+            responses=["Round 0 response", "Round 1 response", "Round 2 response"]
+        )
         config = EvaluationConfig(num_trials=1)
         evaluator = TemporalEvaluator(provider, config)
         instance = create_test_instance()
@@ -1022,7 +1032,9 @@ class TestErrorRecovery:
                 raise asyncio.TimeoutError("Request timed out after 30 seconds")
 
         provider = TimeoutProvider()
-        config = EvaluationConfig(num_trials=1, include_control=True, include_debiasing=False, intensities=[])
+        config = EvaluationConfig(
+            num_trials=1, include_control=True, include_debiasing=False, intensities=[]
+        )
         evaluator = BiasEvaluator(provider, config)
         instance = create_test_instance()
 
@@ -1036,7 +1048,9 @@ class TestErrorRecovery:
     async def test_empty_response_from_provider(self):
         """Test handling of empty string responses from provider."""
         provider = MockLLMProvider(default_response="")
-        config = EvaluationConfig(num_trials=1, include_control=True, include_debiasing=False, intensities=[])
+        config = EvaluationConfig(
+            num_trials=1, include_control=True, include_debiasing=False, intensities=[]
+        )
         evaluator = BiasEvaluator(provider, config)
         instance = create_test_instance()
 
@@ -1055,7 +1069,9 @@ class TestErrorRecovery:
             error_type=RuntimeError,
             error_message="API connection failed",
         )
-        config = EvaluationConfig(num_trials=1, include_control=True, include_debiasing=False, intensities=[])
+        config = EvaluationConfig(
+            num_trials=1, include_control=True, include_debiasing=False, intensities=[]
+        )
         evaluator = BiasEvaluator(provider, config)
         instance = create_test_instance()
 
@@ -1097,7 +1113,9 @@ class TestErrorRecovery:
         assert session.results[0].model_response.startswith("ERROR:")
 
         # Later results should succeed
-        successful_results = [r for r in session.results if not r.model_response.startswith("ERROR:")]
+        successful_results = [
+            r for r in session.results if not r.model_response.startswith("ERROR:")
+        ]
         assert len(successful_results) >= 3
 
 
@@ -1350,7 +1368,9 @@ class TestBugFixes:
         extractor = AnswerExtractor()
         response = "My estimate is 50. Confidence: 30%"
         result = extractor.extract(response, "numeric")
-        assert result == "50", f"Expected '50' but got '{result}' - confidence was extracted instead"
+        assert result == "50", (
+            f"Expected '50' but got '{result}' - confidence was extracted instead"
+        )
 
     def test_extract_numeric_answer_with_inline_confidence(self):
         """Bug fix: Answer should be extracted even with inline confidence statement."""
@@ -1603,12 +1623,18 @@ class TestDescriptiveAnswerDetection:
 
     def test_long_prose_answer_is_descriptive(self):
         """Long prose answers are descriptive and require LLM judge."""
-        assert BiasEvaluator._is_descriptive_answer(
-            "based on statistical data rather than memorable examples"
-        ) is True
-        assert BiasEvaluator._is_descriptive_answer(
-            "evaluate options based on objective criteria without anchoring"
-        ) is True
+        assert (
+            BiasEvaluator._is_descriptive_answer(
+                "based on statistical data rather than memorable examples"
+            )
+            is True
+        )
+        assert (
+            BiasEvaluator._is_descriptive_answer(
+                "evaluate options based on objective criteria without anchoring"
+            )
+            is True
+        )
 
     def test_score_response_returns_none_for_descriptive_answers(self):
         """score_response returns None for descriptive expected answers."""
@@ -1688,7 +1714,9 @@ class TestJudgeExceptionLogging:
         import logging
 
         class FailingJudgeProvider:
-            async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str:
+            async def complete(
+                self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0
+            ) -> str:
                 raise RuntimeError("Rate limit exceeded")
 
         from kahne_bench.engines.judge import LLMJudge
@@ -1696,7 +1724,9 @@ class TestJudgeExceptionLogging:
         provider = MockLLMProvider(default_response="I would choose option A.")
         judge = LLMJudge(provider=FailingJudgeProvider())
         config = EvaluationConfig(
-            num_trials=1, include_control=False, include_debiasing=False,
+            num_trials=1,
+            include_control=False,
+            include_debiasing=False,
             intensities=[TriggerIntensity.MODERATE],
         )
         evaluator = BiasEvaluator(provider, config, judge=judge)
@@ -1718,8 +1748,9 @@ class TestJudgeExceptionLogging:
             await evaluator.evaluate_instance(instance, "test-model")
 
         # Judge failure should be logged
-        assert any("LLM judge failed" in record.message for record in caplog.records), \
+        assert any("LLM judge failed" in record.message for record in caplog.records), (
             "Expected warning log about LLM judge failure"
+        )
 
 
 class TestFrameAwareScoring:
@@ -1769,6 +1800,7 @@ class TestFrameAwareScoring:
         instance = self._create_framing_instance()
 
         from kahne_bench.core import TestResult
+
         result = TestResult(
             instance=instance,
             model_id="test",
@@ -1811,6 +1843,7 @@ class TestFrameAwareScoring:
         # (In loss frame: rational=A safe choice, biased=B risk-seeking)
 
         from kahne_bench.core import TestResult
+
         result = TestResult(
             instance=instance,
             model_id="test",
@@ -1839,6 +1872,7 @@ class TestFrameAwareScoring:
         instance = self._create_framing_instance()
 
         from kahne_bench.core import TestResult
+
         result = TestResult(
             instance=instance,
             model_id="test",
@@ -2059,7 +2093,9 @@ class TestUnknownRateTracking:
 
         session = await evaluator.evaluate_batch([instance], "test-model")
         rates = session.metrics["unknown_rates_by_bias"]
-        assert rates["test_bias"]["rate"] == 1.0, "All results should be unknown for placeholder answers"
+        assert rates["test_bias"]["rate"] == 1.0, (
+            "All results should be unknown for placeholder answers"
+        )
 
 
 class TestJudgeFrameAwareness:
@@ -2110,7 +2146,9 @@ class TestJudgeFrameAwareness:
         captured_prompts = []
 
         class CapturingProvider:
-            async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str:
+            async def complete(
+                self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0
+            ) -> str:
                 captured_prompts.append(prompt)
                 return (
                     "<extracted_answer>B</extracted_answer>"
@@ -2141,7 +2179,7 @@ class TestJudgeFrameAwareness:
         # NOT "Maximum bias direction: A" (gain frame default)
         assert "Maximum bias direction: B" in judge_prompt, (
             f"Judge should receive loss-frame biased='B', but prompt contained: "
-            f"...{judge_prompt[judge_prompt.find('Maximum'):judge_prompt.find('Maximum')+50]}..."
+            f"...{judge_prompt[judge_prompt.find('Maximum') : judge_prompt.find('Maximum') + 50]}..."
         )
 
     @pytest.mark.asyncio
@@ -2152,7 +2190,9 @@ class TestJudgeFrameAwareness:
         captured_prompts = []
 
         class CapturingProvider:
-            async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str:
+            async def complete(
+                self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0
+            ) -> str:
                 captured_prompts.append(prompt)
                 return (
                     "<extracted_answer>A</extracted_answer>"
@@ -2258,9 +2298,7 @@ class TestContextEvaluatorFrameResolution:
 
         for i in range(5):
             biased = evaluator._resolve_biased_answer(instance, f"persistent_round_{i}")
-            assert biased == "A", (
-                f"persistent_round_{i} should default to gain-frame biased='A'"
-            )
+            assert biased == "A", f"persistent_round_{i} should default to gain-frame biased='A'"
 
     @pytest.mark.asyncio
     async def test_context_sensitivity_scores_with_gain_frame(self):
@@ -2360,6 +2398,7 @@ class TestFrameConditionalRationalTarget:
         instance = self._create_framing_instance()
 
         from kahne_bench.core import TestResult
+
         result = TestResult(
             instance=instance,
             model_id="test",
@@ -2386,6 +2425,7 @@ class TestFrameConditionalRationalTarget:
         instance = self._create_framing_instance()
 
         from kahne_bench.core import TestResult
+
         result = TestResult(
             instance=instance,
             model_id="test",
@@ -2413,8 +2453,12 @@ class TestFrameConditionalRationalTarget:
 
         # Test biased response
         result_a = TestResult(
-            instance=instance, model_id="test", condition="treatment_weak",
-            prompt_used="test", model_response="A", extracted_answer="A",
+            instance=instance,
+            model_id="test",
+            condition="treatment_weak",
+            prompt_used="test",
+            model_response="A",
+            extracted_answer="A",
             response_time_ms=100.0,
         )
         rational = evaluator._resolve_rational_answer(instance, "treatment_weak")
@@ -2424,8 +2468,12 @@ class TestFrameConditionalRationalTarget:
 
         # Test rational response
         result_b = TestResult(
-            instance=instance, model_id="test", condition="treatment_weak",
-            prompt_used="test", model_response="B", extracted_answer="B",
+            instance=instance,
+            model_id="test",
+            condition="treatment_weak",
+            prompt_used="test",
+            model_response="B",
+            extracted_answer="B",
             response_time_ms=100.0,
         )
         is_biased, score = evaluator.score_response(result_b, rational, biased)
@@ -2553,7 +2601,9 @@ class TestFrameConditionalRationalTarget:
         captured_prompts = []
 
         class CapturingProvider:
-            async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str:
+            async def complete(
+                self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0
+            ) -> str:
                 captured_prompts.append(prompt)
                 return (
                     "<extracted_answer>B</extracted_answer>"
@@ -2580,7 +2630,7 @@ class TestFrameConditionalRationalTarget:
         # Judge should receive loss-frame rational='A' (not default 'B')
         assert "Unbiased baseline: A" in judge_prompt, (
             f"Judge should receive loss-frame rational='A', got: "
-            f"{judge_prompt[judge_prompt.find('Unbiased'):judge_prompt.find('Unbiased')+40]}"
+            f"{judge_prompt[judge_prompt.find('Unbiased') : judge_prompt.find('Unbiased') + 40]}"
         )
 
 
@@ -2631,9 +2681,11 @@ class TestFrameAwareScoringScoreResponse:
         )
 
     def _make_result(
-        self, instance: CognitiveBiasInstance, condition: str, extracted: str,
+        self,
+        instance: CognitiveBiasInstance,
+        condition: str,
+        extracted: str,
     ) -> "TestResult":
-
         return TestResult(
             instance=instance,
             model_id="test",
@@ -2801,7 +2853,9 @@ class TestContextSensitivityWithIntensity:
         instance = create_test_instance()
 
         results = await evaluator.evaluate_context_sensitivity(
-            instance, "test-model", intensity=TriggerIntensity.STRONG,
+            instance,
+            "test-model",
+            intensity=TriggerIntensity.STRONG,
         )
 
         assert len(results) == 6
@@ -2819,7 +2873,8 @@ class TestContextSensitivityWithIntensity:
         instance = create_test_instance()
 
         results = await evaluator.evaluate_context_sensitivity(
-            instance, "test-model",
+            instance,
+            "test-model",
         )
 
         for result in results:
@@ -2836,7 +2891,9 @@ class TestContextSensitivityWithIntensity:
         instance = create_test_instance()
 
         results = await evaluator.evaluate_expertise_gradient(
-            instance, "test-model", intensity=TriggerIntensity.WEAK,
+            instance,
+            "test-model",
+            intensity=TriggerIntensity.WEAK,
         )
 
         for result in results:
@@ -2853,7 +2910,9 @@ class TestContextSensitivityWithIntensity:
         instance = create_test_instance()
 
         results = await evaluator.evaluate_stakes_gradient(
-            instance, "test-model", intensity=TriggerIntensity.ADVERSARIAL,
+            instance,
+            "test-model",
+            intensity=TriggerIntensity.ADVERSARIAL,
         )
 
         for result in results:
@@ -2999,10 +3058,14 @@ class TestAnswerResolution:
 
         # Context condition without intensity token, but explicit intensity=STRONG
         biased = evaluator._resolve_biased_answer(
-            instance, "context_novice_low", intensity=TriggerIntensity.STRONG,
+            instance,
+            "context_novice_low",
+            intensity=TriggerIntensity.STRONG,
         )
         rational = evaluator._resolve_rational_answer(
-            instance, "context_novice_low", intensity=TriggerIntensity.STRONG,
+            instance,
+            "context_novice_low",
+            intensity=TriggerIntensity.STRONG,
         )
         assert biased == "B", "Explicit STRONG intensity should resolve to loss-frame biased=B"
         assert rational == "A", "Explicit STRONG intensity should resolve to loss-frame rational=A"
@@ -3013,13 +3076,19 @@ class TestAnswerResolution:
         instance = self._create_framing_instance()
 
         biased = evaluator._resolve_biased_answer(
-            instance, "expertise_expert", intensity=TriggerIntensity.MODERATE,
+            instance,
+            "expertise_expert",
+            intensity=TriggerIntensity.MODERATE,
         )
         rational = evaluator._resolve_rational_answer(
-            instance, "expertise_expert", intensity=TriggerIntensity.MODERATE,
+            instance,
+            "expertise_expert",
+            intensity=TriggerIntensity.MODERATE,
         )
         assert biased == "A", "Explicit MODERATE intensity should resolve to gain-frame biased=A"
-        assert rational == "B", "Explicit MODERATE intensity should resolve to gain-frame rational=B"
+        assert rational == "B", (
+            "Explicit MODERATE intensity should resolve to gain-frame rational=B"
+        )
 
 
 class TestIsDescriptiveAnswerDetailed:
@@ -3051,15 +3120,24 @@ class TestIsDescriptiveAnswerDetailed:
 
     def test_long_prose_is_descriptive(self):
         """Long prose descriptions (>5 words, non-numeric, non-canonical) are descriptive."""
-        assert BiasEvaluator._is_descriptive_answer(
-            "based on statistical data rather than memorable examples"
-        ) is True
-        assert BiasEvaluator._is_descriptive_answer(
-            "evaluate options based on objective criteria without anchoring"
-        ) is True
-        assert BiasEvaluator._is_descriptive_answer(
-            "consider all evidence equally regardless of vividness or recency"
-        ) is True
+        assert (
+            BiasEvaluator._is_descriptive_answer(
+                "based on statistical data rather than memorable examples"
+            )
+            is True
+        )
+        assert (
+            BiasEvaluator._is_descriptive_answer(
+                "evaluate options based on objective criteria without anchoring"
+            )
+            is True
+        )
+        assert (
+            BiasEvaluator._is_descriptive_answer(
+                "consider all evidence equally regardless of vividness or recency"
+            )
+            is True
+        )
 
     def test_canonical_synonym_answers_not_descriptive(self):
         """Canonical answers in ANSWER_SYNONYMS are not descriptive regardless of word count."""
@@ -3280,7 +3358,9 @@ class TestErrorResponseJudgeGuard:
         judge_called = False
 
         class TrackingJudgeProvider:
-            async def complete(self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0) -> str:
+            async def complete(
+                self, prompt: str, max_tokens: int = 1024, temperature: float = 0.0
+            ) -> str:
                 nonlocal judge_called
                 judge_called = True
                 return (

@@ -45,10 +45,7 @@ def _safe_parse_enum(value: str, enum_class: type[_E], context: str = "") -> _E 
         return enum_class(value)
     except ValueError:
         ctx = f" in {context}" if context else ""
-        warnings.warn(
-            f"Unknown {enum_class.__name__} '{value}'{ctx}, skipping",
-            stacklevel=3
-        )
+        warnings.warn(f"Unknown {enum_class.__name__} '{value}'{ctx}, skipping", stacklevel=3)
         return None
 
 
@@ -67,25 +64,25 @@ def export_instances_to_json(
     """
     data = []
     for inst in instances:
-        data.append({
-            "bias_id": inst.bias_id,
-            "base_scenario": inst.base_scenario,
-            "bias_trigger": inst.bias_trigger,
-            "control_prompt": inst.control_prompt,
-            "treatment_prompts": {
-                k.value: v for k, v in inst.treatment_prompts.items()
-            },
-            "expected_rational_response": inst.expected_rational_response,
-            "expected_biased_response": inst.expected_biased_response,
-            "domain": inst.domain.value,
-            "scale": inst.scale.value,
-            "cross_domain_variants": {
-                k.value: v for k, v in inst.cross_domain_variants.items()
-            },
-            "debiasing_prompts": inst.debiasing_prompts,
-            "interaction_biases": inst.interaction_biases,
-            "metadata": inst.metadata,
-        })
+        data.append(
+            {
+                "bias_id": inst.bias_id,
+                "base_scenario": inst.base_scenario,
+                "bias_trigger": inst.bias_trigger,
+                "control_prompt": inst.control_prompt,
+                "treatment_prompts": {k.value: v for k, v in inst.treatment_prompts.items()},
+                "expected_rational_response": inst.expected_rational_response,
+                "expected_biased_response": inst.expected_biased_response,
+                "domain": inst.domain.value,
+                "scale": inst.scale.value,
+                "cross_domain_variants": {
+                    k.value: v for k, v in inst.cross_domain_variants.items()
+                },
+                "debiasing_prompts": inst.debiasing_prompts,
+                "interaction_biases": inst.interaction_biases,
+                "metadata": inst.metadata,
+            }
+        )
 
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=indent, ensure_ascii=False)
@@ -171,20 +168,22 @@ def export_results_to_json(
     """
     result_rows = []
     for result in results:
-        result_rows.append({
-            "bias_id": result.instance.bias_id,
-            "model_id": result.model_id,
-            "condition": result.condition,
-            "prompt_used": result.prompt_used,
-            "model_response": result.model_response,
-            "extracted_answer": result.extracted_answer,
-            "response_time_ms": result.response_time_ms,
-            "confidence_stated": result.confidence_stated,
-            "is_biased": result.is_biased,
-            "bias_score": result.bias_score,
-            "domain": result.instance.domain.value,
-            "metadata": result.metadata,
-        })
+        result_rows.append(
+            {
+                "bias_id": result.instance.bias_id,
+                "model_id": result.model_id,
+                "condition": result.condition,
+                "prompt_used": result.prompt_used,
+                "model_response": result.model_response,
+                "extracted_answer": result.extracted_answer,
+                "response_time_ms": result.response_time_ms,
+                "confidence_stated": result.confidence_stated,
+                "is_biased": result.is_biased,
+                "bias_score": result.bias_score,
+                "domain": result.instance.domain.value,
+                "metadata": result.metadata,
+            }
+        )
 
     if metadata is not None:
         data = {"run_metadata": metadata, "results": result_rows}
@@ -208,17 +207,19 @@ def export_results_to_csv(
     """
     rows = []
     for result in results:
-        rows.append({
-            "bias_id": result.instance.bias_id,
-            "model_id": result.model_id,
-            "condition": result.condition,
-            "extracted_answer": result.extracted_answer,
-            "response_time_ms": result.response_time_ms,
-            "confidence_stated": result.confidence_stated,
-            "is_biased": result.is_biased,
-            "bias_score": result.bias_score,
-            "domain": result.instance.domain.value,
-        })
+        rows.append(
+            {
+                "bias_id": result.instance.bias_id,
+                "model_id": result.model_id,
+                "condition": result.condition,
+                "extracted_answer": result.extracted_answer,
+                "response_time_ms": result.response_time_ms,
+                "confidence_stated": result.confidence_stated,
+                "is_biased": result.is_biased,
+                "bias_score": result.bias_score,
+                "domain": result.instance.domain.value,
+            }
+        )
 
     df = pd.DataFrame(rows)
     df.to_csv(filepath, index=False)
@@ -319,24 +320,28 @@ def export_transcripts_to_json(
     for transcript in transcripts:
         turns_data = []
         for turn in transcript.turns:
-            turns_data.append({
-                "turn_number": turn.turn_number,
-                "role": turn.role,
-                "content": turn.content,
-                "extracted_answer": turn.extracted_answer,
-                "bias_score": turn.bias_score,
-                "metadata": turn.metadata,
-            })
+            turns_data.append(
+                {
+                    "turn_number": turn.turn_number,
+                    "role": turn.role,
+                    "content": turn.content,
+                    "extracted_answer": turn.extracted_answer,
+                    "bias_score": turn.bias_score,
+                    "metadata": turn.metadata,
+                }
+            )
 
-        data.append({
-            "bias_id": transcript.bias_id,
-            "domain": transcript.domain.value,
-            "model_id": transcript.model_id,
-            "turns": turns_data,
-            "final_bias_score": transcript.final_bias_score,
-            "bias_evolution": transcript.bias_evolution,
-            "persistence_score": transcript.persistence_score,
-        })
+        data.append(
+            {
+                "bias_id": transcript.bias_id,
+                "domain": transcript.domain.value,
+                "model_id": transcript.model_id,
+                "turns": turns_data,
+                "final_bias_score": transcript.final_bias_score,
+                "bias_evolution": transcript.bias_evolution,
+                "persistence_score": transcript.persistence_score,
+            }
+        )
 
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=indent, ensure_ascii=False)
@@ -357,14 +362,16 @@ def export_bloom_understanding_to_json(
     """
     data = []
     for u in understandings:
-        data.append({
-            "bias_id": u.bias_id,
-            "behavioral_markers": u.behavioral_markers,
-            "trigger_patterns": u.trigger_patterns,
-            "resistance_factors": u.resistance_factors,
-            "variation_dimensions": u.variation_dimensions,
-            "raw_understanding": u.raw_understanding,
-        })
+        data.append(
+            {
+                "bias_id": u.bias_id,
+                "behavioral_markers": u.behavioral_markers,
+                "trigger_patterns": u.trigger_patterns,
+                "resistance_factors": u.resistance_factors,
+                "variation_dimensions": u.variation_dimensions,
+                "raw_understanding": u.raw_understanding,
+            }
+        )
 
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=indent, ensure_ascii=False)
@@ -385,18 +392,20 @@ def export_bloom_scenarios_to_json(
     """
     data = []
     for s in scenarios:
-        data.append({
-            "scenario_id": s.scenario_id,
-            "description": s.description,
-            "control_prompt": s.control_prompt,
-            "treatment_prompt": s.treatment_prompt,
-            "bias_trigger": s.bias_trigger,
-            "expected_rational": s.expected_rational,
-            "expected_biased": s.expected_biased,
-            "domain": s.domain.value,
-            "answer_type": s.answer_type,
-            "metadata": s.metadata,
-        })
+        data.append(
+            {
+                "scenario_id": s.scenario_id,
+                "description": s.description,
+                "control_prompt": s.control_prompt,
+                "treatment_prompt": s.treatment_prompt,
+                "bias_trigger": s.bias_trigger,
+                "expected_rational": s.expected_rational,
+                "expected_biased": s.expected_biased,
+                "domain": s.domain.value,
+                "answer_type": s.answer_type,
+                "metadata": s.metadata,
+            }
+        )
 
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=indent, ensure_ascii=False)
@@ -638,22 +647,26 @@ def generate_summary_report(
             mag = report.magnitude_scores[bias_id].overall_magnitude
             lines.append(f"  - {bias_id}: {mag:.3f}")
 
-    lines.extend([
-        "",
-        "Most Resistant Biases:",
-    ])
+    lines.extend(
+        [
+            "",
+            "Most Resistant Biases:",
+        ]
+    )
 
     for bias_id in report.most_resistant_biases[:5]:
         if bias_id in report.magnitude_scores:
             mag = report.magnitude_scores[bias_id].overall_magnitude
             lines.append(f"  - {bias_id}: {mag:.3f}")
 
-    lines.extend([
-        "",
-        "-" * 40,
-        "HUMAN ALIGNMENT",
-        "-" * 40,
-    ])
+    lines.extend(
+        [
+            "",
+            "-" * 40,
+            "HUMAN ALIGNMENT",
+            "-" * 40,
+        ]
+    )
 
     if report.human_like_biases:
         lines.append("Human-Like Biases (high alignment):")
@@ -669,16 +682,17 @@ def generate_summary_report(
                 has = report.human_alignments[bias_id]
                 lines.append(f"  - {bias_id}: {has.bias_direction}")
 
-    lines.extend([
-        "",
-        "-" * 40,
-        "CALIBRATION AWARENESS",
-        "-" * 40,
-    ])
+    lines.extend(
+        [
+            "",
+            "-" * 40,
+            "CALIBRATION AWARENESS",
+            "-" * 40,
+        ]
+    )
 
     overconfident_biases = [
-        bias_id for bias_id, cas in report.calibration_scores.items()
-        if cas.overconfident
+        bias_id for bias_id, cas in report.calibration_scores.items() if cas.overconfident
     ]
 
     if overconfident_biases:
@@ -689,9 +703,11 @@ def generate_summary_report(
     else:
         lines.append("No significant overconfidence detected.")
 
-    lines.extend([
-        "",
-        "=" * 60,
-    ])
+    lines.extend(
+        [
+            "",
+            "=" * 60,
+        ]
+    )
 
     return "\n".join(lines)

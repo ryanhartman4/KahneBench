@@ -183,7 +183,9 @@ def list_categories(category: str | None):
                 table.add_row(
                     bias.id,
                     bias.name,
-                    bias.classic_paradigm[:40] + "..." if len(bias.classic_paradigm) > 40 else bias.classic_paradigm,
+                    bias.classic_paradigm[:40] + "..."
+                    if len(bias.classic_paradigm) > 40
+                    else bias.classic_paradigm,
                 )
 
             console.print(table)
@@ -225,13 +227,32 @@ def list_categories(category: str | None):
 
 @main.command()
 @click.option("--bias", "-b", multiple=True, help="Bias IDs to include (default: all)")
-@click.option("--domain", "-d", type=click.Choice([d.value for d in Domain]), multiple=True, help="Domains to include")
-@click.option("--instances", "-n", default=3, callback=validate_positive, help="Instances per bias-domain pair")
+@click.option(
+    "--domain",
+    "-d",
+    type=click.Choice([d.value for d in Domain]),
+    multiple=True,
+    help="Domains to include",
+)
+@click.option(
+    "--instances",
+    "-n",
+    default=3,
+    callback=validate_positive,
+    help="Instances per bias-domain pair",
+)
 @click.option("--output", "-o", default="test_cases.json", help="Output file path")
 @click.option("--seed", "-s", type=int, default=None, help="Random seed for reproducibility")
-@click.option("--tier", "-t", type=click.Choice(["core", "extended"]), default=None,
-              help="Benchmark tier (core=15 biases, extended=all 69)")
-def generate(bias: tuple, domain: tuple, instances: int, output: str, seed: int | None, tier: str | None):
+@click.option(
+    "--tier",
+    "-t",
+    type=click.Choice(["core", "extended"]),
+    default=None,
+    help="Benchmark tier (core=15 biases, extended=all 69)",
+)
+def generate(
+    bias: tuple, domain: tuple, instances: int, output: str, seed: int | None, tier: str | None
+):
     """Generate test case instances."""
     from kahne_bench.engines.generator import KAHNE_BENCH_CORE_BIASES, KAHNE_BENCH_EXTENDED_BIASES
     from kahne_bench.utils.io import export_instances_to_json
@@ -278,7 +299,9 @@ def generate(bias: tuple, domain: tuple, instances: int, output: str, seed: int 
 
 @main.command()
 @click.option("--bias", "-b", multiple=True, help="Primary bias IDs for compound tests")
-@click.option("--domain", "-d", type=click.Choice([d.value for d in Domain]), default="professional")
+@click.option(
+    "--domain", "-d", type=click.Choice([d.value for d in Domain]), default="professional"
+)
 @click.option("--output", "-o", default="compound_tests.json", help="Output file path")
 def generate_compound(bias: tuple, domain: str, output: str):
     """Generate compound (meso-scale) test cases for bias interactions."""
@@ -305,15 +328,17 @@ def generate_compound(bias: tuple, domain: str, output: str):
     # Export
     data = []
     for inst in instances:
-        data.append({
-            "bias_id": inst.bias_id,
-            "interaction_biases": inst.interaction_biases,
-            "scale": inst.scale.value,
-            "domain": inst.domain.value,
-            "control_prompt": inst.control_prompt,
-            "treatment_prompts": {k.value: v for k, v in inst.treatment_prompts.items()},
-            "metadata": inst.metadata,
-        })
+        data.append(
+            {
+                "bias_id": inst.bias_id,
+                "interaction_biases": inst.interaction_biases,
+                "scale": inst.scale.value,
+                "domain": inst.domain.value,
+                "control_prompt": inst.control_prompt,
+                "treatment_prompts": {k.value: v for k, v in inst.treatment_prompts.items()},
+                "metadata": inst.metadata,
+            }
+        )
 
     with open(output, "w") as f:
         json.dump(data, f, indent=2)
@@ -383,35 +408,87 @@ def info():
 
 @main.command()
 @click.option("--input", "-i", "input_file", required=True, help="Input JSON file with test cases")
-@click.option("--provider", "-p", type=click.Choice(PROVIDER_CHOICES), required=True,
-              help="LLM provider (fireworks for open-source models, xai for Grok, gemini for Google)")
+@click.option(
+    "--provider",
+    "-p",
+    type=click.Choice(PROVIDER_CHOICES),
+    required=True,
+    help="LLM provider (fireworks for open-source models, xai for Grok, gemini for Google)",
+)
 @click.option("--model", "-m", default=None, help="Model name to evaluate")
-@click.option("--trials", "-n", default=3, callback=validate_positive, help="Number of trials per condition")
+@click.option(
+    "--trials", "-n", default=3, callback=validate_positive, help="Number of trials per condition"
+)
 @click.option("--output", "-o", default="results.json", help="Output file for results")
-@click.option("--fingerprint", "-f", default="fingerprint.json", help="Output file for cognitive fingerprint")
-@click.option("--tier", "-t", type=click.Choice(["core", "extended", "interaction"]), default="core",
-              help="Benchmark tier")
-@click.option("--concurrency", "-c", default=50, callback=validate_positive,
-              help="Max concurrent API requests (default: 50, increase for faster runs)")
-@click.option("--rate-limit-retries", default=1, callback=validate_non_negative,
-              help="Retries for 429/rate-limit errors per call (default: 1)")
-@click.option("--rate-limit-retry-delay", default=5.0, type=float, callback=validate_non_negative,
-              help="Seconds to wait before retrying a rate-limited call (default: 5.0)")
-@click.option("--judge-provider", type=click.Choice(PROVIDER_CHOICES), default="anthropic",
-              help="LLM provider for judge fallback scoring (when regex extraction fails)")
+@click.option(
+    "--fingerprint", "-f", default="fingerprint.json", help="Output file for cognitive fingerprint"
+)
+@click.option(
+    "--tier",
+    "-t",
+    type=click.Choice(["core", "extended", "interaction"]),
+    default="core",
+    help="Benchmark tier",
+)
+@click.option(
+    "--concurrency",
+    "-c",
+    default=50,
+    callback=validate_positive,
+    help="Max concurrent API requests (default: 50, increase for faster runs)",
+)
+@click.option(
+    "--rate-limit-retries",
+    default=1,
+    callback=validate_non_negative,
+    help="Retries for 429/rate-limit errors per call (default: 1)",
+)
+@click.option(
+    "--rate-limit-retry-delay",
+    default=5.0,
+    type=float,
+    callback=validate_non_negative,
+    help="Seconds to wait before retrying a rate-limited call (default: 5.0)",
+)
+@click.option(
+    "--judge-provider",
+    type=click.Choice(PROVIDER_CHOICES),
+    default="anthropic",
+    help="LLM provider for judge fallback scoring (when regex extraction fails)",
+)
 @click.option("--judge-model", default="claude-haiku-4-5", help="Model for judge fallback scoring")
-@click.option("--allow-tier-mismatch", is_flag=True, default=False,
-              help="Allow running even if input biases don't match the specified tier")
-@click.option("--include-adversarial", is_flag=True, default=False,
-              help="Include ADVERSARIAL intensity (default: WEAK/MODERATE/STRONG only)")
-@click.option("--verbose", is_flag=True, default=False,
-              help="Enable detailed logging of evaluation progress")
-def evaluate(input_file: str, provider: str, model: str | None, trials: int, output: str,
-             fingerprint: str, tier: str, concurrency: int,
-             rate_limit_retries: int, rate_limit_retry_delay: float,
-             judge_provider: str, judge_model: str,
-             allow_tier_mismatch: bool, include_adversarial: bool,
-             verbose: bool):
+@click.option(
+    "--allow-tier-mismatch",
+    is_flag=True,
+    default=False,
+    help="Allow running even if input biases don't match the specified tier",
+)
+@click.option(
+    "--include-adversarial",
+    is_flag=True,
+    default=False,
+    help="Include ADVERSARIAL intensity (default: WEAK/MODERATE/STRONG only)",
+)
+@click.option(
+    "--verbose", is_flag=True, default=False, help="Enable detailed logging of evaluation progress"
+)
+def evaluate(
+    input_file: str,
+    provider: str,
+    model: str | None,
+    trials: int,
+    output: str,
+    fingerprint: str,
+    tier: str,
+    concurrency: int,
+    rate_limit_retries: int,
+    rate_limit_retry_delay: float,
+    judge_provider: str,
+    judge_model: str,
+    allow_tier_mismatch: bool,
+    include_adversarial: bool,
+    verbose: bool,
+):
     """Evaluate an LLM for cognitive biases.
 
     Run a complete bias evaluation on a model using pre-generated test cases.
@@ -439,7 +516,11 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
     from collections import Counter
     from rich.progress import Progress, BarColumn, TaskProgressColumn, TimeRemainingColumn
 
-    from kahne_bench.utils.io import import_instances_from_json, export_results_to_json, export_fingerprint_to_json
+    from kahne_bench.utils.io import (
+        import_instances_from_json,
+        export_results_to_json,
+        export_fingerprint_to_json,
+    )
     from kahne_bench.engines.evaluator import BiasEvaluator, EvaluationConfig
     from kahne_bench.engines.generator import get_tier_biases
     from kahne_bench.metrics import MetricCalculator
@@ -496,6 +577,7 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
 
     # Configure evaluation intensities (PP-009: explicit 3 vs 4 intensity policy)
     from kahne_bench.core import TriggerIntensity
+
     intensities = [
         TriggerIntensity.WEAK,
         TriggerIntensity.MODERATE,
@@ -580,30 +662,34 @@ def evaluate(input_file: str, provider: str, model: str | None, trials: int, out
     try:
         _proc = _sp.run(
             ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if _proc.returncode == 0:
             git_commit = _proc.stdout.strip()
 
         _branch_proc = _sp.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if _branch_proc.returncode == 0:
             git_branch = _branch_proc.stdout.strip()
 
         _dirty_proc = _sp.run(
             ["git", "status", "--porcelain"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if _dirty_proc.returncode == 0:
             git_is_dirty = bool(_dirty_proc.stdout.strip())
     except Exception:
         pass
 
-    manifest_hash = hashlib.sha256(
-        json.dumps(bias_manifest, sort_keys=True).encode()
-    ).hexdigest()
+    manifest_hash = hashlib.sha256(json.dumps(bias_manifest, sort_keys=True).encode()).hexdigest()
 
     run_metadata = {
         "provider": provider,
@@ -676,7 +762,9 @@ def report(fingerprint_file: str):
 
         summary = data.get("summary", {})
 
-        console.print(f"[bold]Overall Bias Susceptibility:[/bold] {summary.get('overall_bias_susceptibility', 0):.2%}\n")
+        console.print(
+            f"[bold]Overall Bias Susceptibility:[/bold] {summary.get('overall_bias_susceptibility', 0):.2%}\n"
+        )
 
         if summary.get("most_susceptible_biases"):
             console.print("[bold]Most Susceptible Biases:[/bold]")
@@ -713,12 +801,23 @@ def report(fingerprint_file: str):
 
 @main.command("assess-quality")
 @click.option("--input", "-i", "input_file", required=True, help="Input JSON file with test cases")
-@click.option("--provider", "-p", type=click.Choice(PROVIDER_CHOICES), default="mock",
-              help="LLM provider for quality assessment")
+@click.option(
+    "--provider",
+    "-p",
+    type=click.Choice(PROVIDER_CHOICES),
+    default="mock",
+    help="LLM provider for quality assessment",
+)
 @click.option("--model", "-m", default=None, help="Model for quality assessment")
-@click.option("--sample-rate", default=0.2, type=float, help="Fraction of instances to assess (0.0-1.0)")
-@click.option("--output", "-o", default="quality_report.json", help="Output file for quality report")
-def assess_quality(input_file: str, provider: str, model: str | None, sample_rate: float, output: str):
+@click.option(
+    "--sample-rate", default=0.2, type=float, help="Fraction of instances to assess (0.0-1.0)"
+)
+@click.option(
+    "--output", "-o", default="quality_report.json", help="Output file for quality report"
+)
+def assess_quality(
+    input_file: str, provider: str, model: str | None, sample_rate: float, output: str
+):
     """Assess the quality of generated test cases using LLM-as-judge.
 
     Evaluates test cases on realism, elicitation difficulty, and detection
@@ -749,8 +848,10 @@ def assess_quality(input_file: str, provider: str, model: str | None, sample_rat
 
     quality_judge = QualityJudge(provider=llm_provider, sample_rate=sample_rate)
 
-    console.print(f"\n[bold]Assessing quality of {len(instances)} instances "
-                  f"(sampling {sample_rate:.0%})...[/bold]")
+    console.print(
+        f"\n[bold]Assessing quality of {len(instances)} instances "
+        f"(sampling {sample_rate:.0%})...[/bold]"
+    )
 
     async def run_assessment():
         return await quality_judge.assess_batch(instances)
@@ -760,26 +861,48 @@ def assess_quality(input_file: str, provider: str, model: str | None, sample_rat
     export_quality_report_to_json(quality_report, output)
 
     console.print(f"\n[bold green]Quality report saved to {output}[/bold green]")
-    console.print(f"  Assessed: {quality_report.assessed_instances}/{quality_report.total_instances}")
+    console.print(
+        f"  Assessed: {quality_report.assessed_instances}/{quality_report.total_instances}"
+    )
     console.print(f"  Mean Realism: {quality_report.mean_realism:.1f}/10")
-    console.print(f"  Mean Elicitation Difficulty: {quality_report.mean_elicitation_difficulty:.1f}/10")
+    console.print(
+        f"  Mean Elicitation Difficulty: {quality_report.mean_elicitation_difficulty:.1f}/10"
+    )
     console.print(f"  Mean Detection Awareness: {quality_report.mean_detection_awareness:.1f}/10")
     if quality_report.low_quality_instances:
-        console.print(f"  [yellow]Low quality instances: {len(quality_report.low_quality_instances)}[/yellow]")
+        console.print(
+            f"  [yellow]Low quality instances: {len(quality_report.low_quality_instances)}[/yellow]"
+        )
 
 
 @main.command("generate-bloom")
-@click.option("--provider", "-p", type=click.Choice(PROVIDER_CHOICES), default="mock",
-              help="LLM provider for scenario generation")
+@click.option(
+    "--provider",
+    "-p",
+    type=click.Choice(PROVIDER_CHOICES),
+    default="mock",
+    help="LLM provider for scenario generation",
+)
 @click.option("--model", "-m", default=None, help="Model for scenario generation")
 @click.option("--bias", "-b", multiple=True, help="Bias IDs to generate scenarios for")
-@click.option("--domain", "-d", type=click.Choice([d.value for d in Domain]), multiple=True,
-              help="Domains to generate for (default: professional)")
-@click.option("--scenarios", "-n", default=3, callback=validate_positive,
-              help="Scenarios per bias-domain pair")
+@click.option(
+    "--domain",
+    "-d",
+    type=click.Choice([d.value for d in Domain]),
+    multiple=True,
+    help="Domains to generate for (default: professional)",
+)
+@click.option(
+    "--scenarios",
+    "-n",
+    default=3,
+    callback=validate_positive,
+    help="Scenarios per bias-domain pair",
+)
 @click.option("--output", "-o", default="bloom_tests.json", help="Output file")
-def generate_bloom(provider: str, model: str | None, bias: tuple, domain: tuple,
-                   scenarios: int, output: str):
+def generate_bloom(
+    provider: str, model: str | None, bias: tuple, domain: tuple, scenarios: int, output: str
+):
     """Generate test cases using BLOOM-style LLM-driven pipeline.
 
     Uses a two-stage process: (1) deep understanding of each bias via LLM,
@@ -820,22 +943,40 @@ def generate_bloom(provider: str, model: str | None, bias: tuple, domain: tuple,
         sys.exit(1)
 
     export_instances_to_json(instances, output)
-    console.print(f"\n[bold green]Generated {len(instances)} test instances -> {output}[/bold green]")
+    console.print(
+        f"\n[bold green]Generated {len(instances)} test instances -> {output}[/bold green]"
+    )
 
 
 @main.command("evaluate-conversation")
 @click.option("--input", "-i", "input_file", required=True, help="Input JSON file with test cases")
-@click.option("--provider", "-p", "target_provider", type=click.Choice(PROVIDER_CHOICES), default="mock",
-              help="LLM provider for target model")
+@click.option(
+    "--provider",
+    "-p",
+    "target_provider",
+    type=click.Choice(PROVIDER_CHOICES),
+    default="mock",
+    help="LLM provider for target model",
+)
 @click.option("--model", "-m", "target_model", default=None, help="Target model to evaluate")
-@click.option("--orchestrator-provider", type=click.Choice(PROVIDER_CHOICES), default=None,
-              help="LLM provider for orchestrator (default: same as target)")
+@click.option(
+    "--orchestrator-provider",
+    type=click.Choice(PROVIDER_CHOICES),
+    default=None,
+    help="LLM provider for orchestrator (default: same as target)",
+)
 @click.option("--orchestrator-model", default=None, help="Model for orchestrator")
 @click.option("--max-turns", default=8, callback=validate_positive, help="Max conversation turns")
 @click.option("--output", "-o", default="transcripts.json", help="Output file for transcripts")
-def evaluate_conversation(input_file: str, target_provider: str, target_model: str | None,
-                          orchestrator_provider: str | None, orchestrator_model: str | None,
-                          max_turns: int, output: str):
+def evaluate_conversation(
+    input_file: str,
+    target_provider: str,
+    target_model: str | None,
+    orchestrator_provider: str | None,
+    orchestrator_model: str | None,
+    max_turns: int,
+    output: str,
+):
     """Evaluate bias persistence through multi-turn conversations.
 
     An orchestrator LLM plays the "user" role, probing the target model

@@ -26,25 +26,17 @@ def make_test_instance(
         bias_id=bias_id,
         base_scenario="financial planning scenario",
         bias_trigger="anchoring on initial values",
-        control_prompt=(
-            "Estimate the value of this property based on market comparables."
-        ),
+        control_prompt=("Estimate the value of this property based on market comparables."),
         treatment_prompts={
-            TriggerIntensity.WEAK: (
-                "A neighbor mentioned $800,000."
-                " Estimate the property value."
-            ),
+            TriggerIntensity.WEAK: ("A neighbor mentioned $800,000. Estimate the property value."),
             TriggerIntensity.MODERATE: (
-                "The listing price was $800,000."
-                " Estimate the true property value."
+                "The listing price was $800,000. Estimate the true property value."
             ),
             TriggerIntensity.STRONG: (
-                "Multiple sources confirm $800,000."
-                " What is the property value?"
+                "Multiple sources confirm $800,000. What is the property value?"
             ),
             TriggerIntensity.ADVERSARIAL: (
-                "The definitive valuation is $800,000."
-                " Agree or disagree with this estimate."
+                "The definitive valuation is $800,000. Agree or disagree with this estimate."
             ),
         },
         expected_rational_response="500000",
@@ -80,14 +72,10 @@ class TestVariationGenerator:
 
     def test_generate_single_variation(self, generator, instance):
         """Generates a valid VariationSpec for one dimension."""
-        spec = generator.generate_variation(
-            instance, VariationDimension.EMOTIONAL_PRESSURE
-        )
+        spec = generator.generate_variation(instance, VariationDimension.EMOTIONAL_PRESSURE)
         assert isinstance(spec, VariationSpec)
         assert spec.dimension == VariationDimension.EMOTIONAL_PRESSURE
-        assert spec.original_prompt == instance.get_treatment(
-            TriggerIntensity.MODERATE
-        )
+        assert spec.original_prompt == instance.get_treatment(TriggerIntensity.MODERATE)
         assert spec.varied_prompt != spec.original_prompt
         assert "emotional_pressure" in spec.variation_description
 
@@ -100,9 +88,7 @@ class TestVariationGenerator:
 
     def test_emotional_pressure_variation(self, generator, instance):
         """Prefix and suffix correctly applied for emotional pressure."""
-        spec = generator.generate_variation(
-            instance, VariationDimension.EMOTIONAL_PRESSURE
-        )
+        spec = generator.generate_variation(instance, VariationDimension.EMOTIONAL_PRESSURE)
         template = VARIATION_TEMPLATES[VariationDimension.EMOTIONAL_PRESSURE]
         assert spec.varied_prompt.startswith(template["prefix"])
         assert spec.varied_prompt.endswith(template["suffix"])
@@ -110,9 +96,7 @@ class TestVariationGenerator:
 
     def test_authority_framing_variation(self, generator, instance):
         """Prefix and suffix correctly applied for authority framing."""
-        spec = generator.generate_variation(
-            instance, VariationDimension.AUTHORITY_FRAMING
-        )
+        spec = generator.generate_variation(instance, VariationDimension.AUTHORITY_FRAMING)
         template = VARIATION_TEMPLATES[VariationDimension.AUTHORITY_FRAMING]
         assert spec.varied_prompt.startswith(template["prefix"])
         assert spec.varied_prompt.endswith(template["suffix"])
@@ -121,9 +105,7 @@ class TestVariationGenerator:
     def test_numeric_noise_variation(self, generator, instance):
         """Noise values injected into prompt."""
         random.seed(42)
-        spec = generator.generate_variation(
-            instance, VariationDimension.NUMERIC_NOISE
-        )
+        spec = generator.generate_variation(instance, VariationDimension.NUMERIC_NOISE)
         # The varied prompt should contain injected numbers
         assert spec.varied_prompt != spec.original_prompt
         assert len(spec.varied_prompt) > len(spec.original_prompt)
@@ -134,27 +116,21 @@ class TestVariationGenerator:
 
     def test_social_pressure_variation(self, generator, instance):
         """Prefix and suffix correctly applied for social pressure."""
-        spec = generator.generate_variation(
-            instance, VariationDimension.SOCIAL_PRESSURE
-        )
+        spec = generator.generate_variation(instance, VariationDimension.SOCIAL_PRESSURE)
         template = VARIATION_TEMPLATES[VariationDimension.SOCIAL_PRESSURE]
         assert spec.varied_prompt.startswith(template["prefix"])
         assert spec.varied_prompt.endswith(template["suffix"])
 
     def test_time_pressure_variation(self, generator, instance):
         """Prefix and suffix correctly applied for time pressure."""
-        spec = generator.generate_variation(
-            instance, VariationDimension.TIME_PRESSURE
-        )
+        spec = generator.generate_variation(instance, VariationDimension.TIME_PRESSURE)
         template = VARIATION_TEMPLATES[VariationDimension.TIME_PRESSURE]
         assert spec.varied_prompt.startswith(template["prefix"])
         assert spec.varied_prompt.endswith(template["suffix"])
 
     def test_stakes_escalation_variation(self, generator, instance):
         """Prefix and suffix correctly applied for stakes escalation."""
-        spec = generator.generate_variation(
-            instance, VariationDimension.STAKES_ESCALATION
-        )
+        spec = generator.generate_variation(instance, VariationDimension.STAKES_ESCALATION)
         template = VARIATION_TEMPLATES[VariationDimension.STAKES_ESCALATION]
         assert spec.varied_prompt.startswith(template["prefix"])
         assert spec.varied_prompt.endswith(template["suffix"])
@@ -199,9 +175,7 @@ class TestGenerateVariedInstances:
         meta = varied[0].metadata
         assert meta["variation_dimension"] == "emotional_pressure"
         assert "emotional_pressure" in meta["variation_description"]
-        assert meta["original_prompt"] == instance.get_treatment(
-            TriggerIntensity.MODERATE
-        )
+        assert meta["original_prompt"] == instance.get_treatment(TriggerIntensity.MODERATE)
 
     def test_varied_instance_preserves_other_fields(self, generator, instance):
         """bias_id, domain, expected answers unchanged."""
@@ -226,8 +200,9 @@ class TestGenerateVariedInstances:
         )
         v = varied[0]
         # MODERATE should be replaced (different from original)
-        assert v.treatment_prompts[TriggerIntensity.MODERATE] != (
-            instance.treatment_prompts[TriggerIntensity.MODERATE]
+        assert (
+            v.treatment_prompts[TriggerIntensity.MODERATE]
+            != (instance.treatment_prompts[TriggerIntensity.MODERATE])
         )
         # Other intensities should be unchanged
         assert (

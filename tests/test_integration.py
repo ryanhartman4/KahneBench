@@ -63,12 +63,10 @@ class IntegrationMockProvider:
 
         # Determine condition
         is_control = "control" in prompt_lower or not any(
-            word in prompt_lower
-            for word in ["anchor", "consider the number", "start from"]
+            word in prompt_lower for word in ["anchor", "consider the number", "start from"]
         )
         is_debiasing = any(
-            word in prompt_lower
-            for word in ["ignore", "avoid", "careful", "reconsider"]
+            word in prompt_lower for word in ["ignore", "avoid", "careful", "reconsider"]
         )
 
         # Determine bias rate based on condition
@@ -135,9 +133,7 @@ def create_test_instance_for_integration(
         },
         expected_rational_response="50",
         expected_biased_response="100",
-        debiasing_prompts=[
-            "Ignore any anchors. Carefully reconsider. What is your estimate?"
-        ]
+        debiasing_prompts=["Ignore any anchors. Carefully reconsider. What is your estimate?"]
         if include_debiasing
         else [],
     )
@@ -177,9 +173,7 @@ class TestIntegrationHappyPath:
     @pytest.mark.asyncio
     async def test_full_pipeline_with_debiasing(self, integration_provider):
         """Test pipeline with debiasing prompts included."""
-        instance = create_test_instance_for_integration(
-            "loss_aversion", include_debiasing=True
-        )
+        instance = create_test_instance_for_integration("loss_aversion", include_debiasing=True)
 
         config = EvaluationConfig(
             num_trials=2,
@@ -199,9 +193,7 @@ class TestIntegrationHappyPath:
     @pytest.mark.asyncio
     async def test_full_pipeline_produces_all_six_metrics(self, integration_provider):
         """Verify all 6 metrics are calculated from pipeline output."""
-        instance = create_test_instance_for_integration(
-            "gain_loss_framing", include_debiasing=True
-        )
+        instance = create_test_instance_for_integration("gain_loss_framing", include_debiasing=True)
 
         config = EvaluationConfig(
             num_trials=3,
@@ -294,9 +286,7 @@ class TestIntegrationErrorHandling:
         session = await evaluator.evaluate_batch([instance], "test-model")
 
         # Error responses should be captured as "ERROR: ..."
-        error_results = [
-            r for r in session.results if r.model_response.startswith("ERROR:")
-        ]
+        error_results = [r for r in session.results if r.model_response.startswith("ERROR:")]
         assert len(error_results) >= 1
 
 
@@ -327,11 +317,7 @@ class TestIntegrationHumanBaselines:
 
     def test_all_taxonomy_biases_have_baselines(self):
         """Verify all taxonomy biases have human baselines."""
-        missing = [
-            bias_id
-            for bias_id in BIAS_TAXONOMY
-            if bias_id not in HUMAN_BASELINES
-        ]
+        missing = [bias_id for bias_id in BIAS_TAXONOMY if bias_id not in HUMAN_BASELINES]
 
         assert len(missing) == 0, f"Biases missing baselines: {missing}"
 

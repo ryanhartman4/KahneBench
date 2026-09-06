@@ -63,10 +63,10 @@ logger = logging.getLogger(__name__)
 # ===========================================================================
 
 DEFAULT_INTENSITY_WEIGHTS: dict[TriggerIntensity, float] = {
-    TriggerIntensity.WEAK: 2.0,        # Weak trigger causing bias = high susceptibility
-    TriggerIntensity.MODERATE: 1.0,    # Baseline
-    TriggerIntensity.STRONG: 0.67,     # Strong trigger causing bias = expected
-    TriggerIntensity.ADVERSARIAL: 0.5, # Adversarial pressure = very expected
+    TriggerIntensity.WEAK: 2.0,  # Weak trigger causing bias = high susceptibility
+    TriggerIntensity.MODERATE: 1.0,  # Baseline
+    TriggerIntensity.STRONG: 0.67,  # Strong trigger causing bias = expected
+    TriggerIntensity.ADVERSARIAL: 0.5,  # Adversarial pressure = very expected
 }
 
 # Weights for aggregating across intensities to compute overall magnitude.
@@ -198,15 +198,19 @@ class BiasMagnitudeScore:
         # Renormalize aggregation weights to exclude missing intensities,
         # preventing deflation when fewer than 4 intensities are present.
         observed_weight_sum = sum(
-            w for w, intensity in zip(aggregation_weights, TriggerIntensity)
+            w
+            for w, intensity in zip(aggregation_weights, TriggerIntensity)
             if intensity in magnitudes
         )
         if observed_weight_sum > 0:
-            overall = sum(
-                w * magnitudes[intensity]
-                for w, intensity in zip(aggregation_weights, TriggerIntensity)
-                if intensity in magnitudes
-            ) / observed_weight_sum
+            overall = (
+                sum(
+                    w * magnitudes[intensity]
+                    for w, intensity in zip(aggregation_weights, TriggerIntensity)
+                    if intensity in magnitudes
+                )
+                / observed_weight_sum
+            )
         else:
             overall = 0.0
 
@@ -438,7 +442,9 @@ class BiasMitigationPotential:
         warning_methods = [m for m in debiased_scores if "warn" in m.lower() or "bias" in m.lower()]
 
         cot_score = mean([debiased_scores[m] for m in cot_methods]) if cot_methods else baseline
-        warning_score = mean([debiased_scores[m] for m in warning_methods]) if warning_methods else baseline
+        warning_score = (
+            mean([debiased_scores[m] for m in warning_methods]) if warning_methods else baseline
+        )
 
         requires_warning = warning_score < cot_score
 
@@ -481,113 +487,98 @@ class BiasMitigationPotential:
 # None indicates insufficient research data for reliable baseline
 HUMAN_BASELINES: dict[str, float] = {
     # Representativeness Heuristic Biases
-    "base_rate_neglect": 0.68,          # Kahneman & Tversky (1973)
-    "conjunction_fallacy": 0.85,         # Tversky & Kahneman (1983) - Linda problem
-    "insensitivity_to_sample_size": 0.70, # Kahneman & Tversky (1972)
-    "gambler_fallacy": 0.45,             # Lower than other biases
-    "hot_hand_fallacy": 0.55,            # Gilovich et al. (1985)
-    "regression_neglect": 0.60,          # Kahneman & Tversky (1973)
-    "stereotype_bias": 0.65,             # Kahneman & Tversky (1973)
-    "prototype_heuristic": 0.58,         # Rosch (1978)
-
+    "base_rate_neglect": 0.68,  # Kahneman & Tversky (1973)
+    "conjunction_fallacy": 0.85,  # Tversky & Kahneman (1983) - Linda problem
+    "insensitivity_to_sample_size": 0.70,  # Kahneman & Tversky (1972)
+    "gambler_fallacy": 0.45,  # Lower than other biases
+    "hot_hand_fallacy": 0.55,  # Gilovich et al. (1985)
+    "regression_neglect": 0.60,  # Kahneman & Tversky (1973)
+    "stereotype_bias": 0.65,  # Kahneman & Tversky (1973)
+    "prototype_heuristic": 0.58,  # Rosch (1978)
     # Availability Heuristic Biases
-    "availability_bias": 0.60,           # Tversky & Kahneman (1973)
-    "recency_bias": 0.62,                # Extension of availability
-    "salience_bias": 0.68,               # Kahneman (2011)
-    "simulation_heuristic": 0.55,        # Kahneman & Tversky (1982)
-    "illusory_correlation": 0.50,        # Hamilton & Gifford (1976)
+    "availability_bias": 0.60,  # Tversky & Kahneman (1973)
+    "recency_bias": 0.62,  # Extension of availability
+    "salience_bias": 0.68,  # Kahneman (2011)
+    "simulation_heuristic": 0.55,  # Kahneman & Tversky (1982)
+    "illusory_correlation": 0.50,  # Hamilton & Gifford (1976)
     "primacy_bias": 0.58,
-
     # Anchoring Biases
-    "anchoring_effect": 0.65,            # Tversky & Kahneman (1974)
-    "insufficient_adjustment": 0.60,     # Epley & Gilovich (2006)
-    "focalism": 0.55,                    # Wilson et al. (2000)
-    "first_offer_anchoring": 0.70,       # Galinsky & Mussweiler (2001)
-    "numeric_priming": 0.45,             # Wilson et al. (1996)
-
+    "anchoring_effect": 0.65,  # Tversky & Kahneman (1974)
+    "insufficient_adjustment": 0.60,  # Epley & Gilovich (2006)
+    "focalism": 0.55,  # Wilson et al. (2000)
+    "first_offer_anchoring": 0.70,  # Galinsky & Mussweiler (2001)
+    "numeric_priming": 0.45,  # Wilson et al. (1996)
     # Prospect Theory - Loss Aversion
-    "loss_aversion": 0.70,               # Kahneman & Tversky (1979)
-    "endowment_effect": 0.65,            # Thaler (1980)
-    "status_quo_bias": 0.62,             # Samuelson & Zeckhauser (1988)
-    "sunk_cost_fallacy": 0.55,           # Arkes & Blumer (1985)
-    "disposition_effect": 0.60,          # Shefrin & Statman (1985)
-
+    "loss_aversion": 0.70,  # Kahneman & Tversky (1979)
+    "endowment_effect": 0.65,  # Thaler (1980)
+    "status_quo_bias": 0.62,  # Samuelson & Zeckhauser (1988)
+    "sunk_cost_fallacy": 0.55,  # Arkes & Blumer (1985)
+    "disposition_effect": 0.60,  # Shefrin & Statman (1985)
     # Framing Effects
-    "gain_loss_framing": 0.72,           # Tversky & Kahneman (1981) - Asian Disease
-    "attribute_framing": 0.58,           # Levin & Gaeth (1988)
-    "reference_point_framing": 0.60,     # Kahneman & Tversky (1979)
-    "default_effect": 0.75,              # Johnson & Goldstein (2003) - organ donation
-    "risk_framing": 0.52,                # Gigerenzer & Hoffrage (1995)
+    "gain_loss_framing": 0.72,  # Tversky & Kahneman (1981) - Asian Disease
+    "attribute_framing": 0.58,  # Levin & Gaeth (1988)
+    "reference_point_framing": 0.60,  # Kahneman & Tversky (1979)
+    "default_effect": 0.75,  # Johnson & Goldstein (2003) - organ donation
+    "risk_framing": 0.52,  # Gigerenzer & Hoffrage (1995)
     "temporal_framing": 0.48,
-
     # Probability Distortion
-    "probability_weighting": 0.68,       # Kahneman & Tversky (1979)
-    "certainty_effect": 0.72,            # Allais (1953)
-    "possibility_effect": 0.65,          # Kahneman & Tversky (1979)
-    "neglect_of_probability": 0.70,      # Sunstein (2002)
-    "denominator_neglect": 0.55,         # Reyna & Brainerd (2008)
-    "zero_risk_bias": 0.60,              # Baron et al. (1993)
-
+    "probability_weighting": 0.68,  # Kahneman & Tversky (1979)
+    "certainty_effect": 0.72,  # Allais (1953)
+    "possibility_effect": 0.65,  # Kahneman & Tversky (1979)
+    "neglect_of_probability": 0.70,  # Sunstein (2002)
+    "denominator_neglect": 0.55,  # Reyna & Brainerd (2008)
+    "zero_risk_bias": 0.60,  # Baron et al. (1993)
     # Overconfidence
-    "overconfidence_effect": 0.75,       # Lichtenstein et al. (1982)
-    "planning_fallacy": 0.80,            # Kahneman & Tversky (1979)
-    "illusion_of_control": 0.55,         # Langer (1975)
-    "hindsight_bias": 0.65,              # Fischhoff (1975)
-    "optimism_bias": 0.70,               # Weinstein (1980)
-
+    "overconfidence_effect": 0.75,  # Lichtenstein et al. (1982)
+    "planning_fallacy": 0.80,  # Kahneman & Tversky (1979)
+    "illusion_of_control": 0.55,  # Langer (1975)
+    "hindsight_bias": 0.65,  # Fischhoff (1975)
+    "optimism_bias": 0.70,  # Weinstein (1980)
     # Confirmation Bias
-    "confirmation_bias": 0.72,           # Wason (1960)
-    "belief_perseverance": 0.65,         # Ross et al. (1975)
-    "myside_bias": 0.68,                 # Stanovich et al. (2013)
-
+    "confirmation_bias": 0.72,  # Wason (1960)
+    "belief_perseverance": 0.65,  # Ross et al. (1975)
+    "myside_bias": 0.68,  # Stanovich et al. (2013)
     # Temporal Biases
-    "present_bias": 0.70,                # Laibson (1997)
-    "duration_neglect": 0.65,            # Kahneman et al. (1993)
-    "peak_end_rule": 0.75,               # Kahneman et al. (1993)
-
+    "present_bias": 0.70,  # Laibson (1997)
+    "duration_neglect": 0.65,  # Kahneman et al. (1993)
+    "peak_end_rule": 0.75,  # Kahneman et al. (1993)
     # Extension Neglect
-    "scope_insensitivity": 0.78,         # Kahneman & Knetsch (1992)
+    "scope_insensitivity": 0.78,  # Kahneman & Knetsch (1992)
     "identifiable_victim_effect": 0.72,  # Small et al. (2007)
-    "group_attribution_bias": 0.55,      # Pettigrew (1979)
-    "halo_effect": 0.60,                 # Thorndike (1920)
-
+    "group_attribution_bias": 0.55,  # Pettigrew (1979)
+    "halo_effect": 0.60,  # Thorndike (1920)
     # Attribution Biases
     "fundamental_attribution_error": 0.72,  # Ross (1977) - Jones & Harris (1967)
-    "actor_observer_bias": 0.65,            # Jones & Nisbett (1971)
-    "self_serving_bias": 0.75,              # Miller & Ross (1975)
-
+    "actor_observer_bias": 0.65,  # Jones & Nisbett (1971)
+    "self_serving_bias": 0.75,  # Miller & Ross (1975)
     # Uncertainty Judgment
-    "ambiguity_aversion": 0.68,             # Ellsberg (1961)
-    "illusion_of_validity": 0.70,           # Kahneman & Tversky (1973)
-    "competence_hypothesis": 0.58,          # Heath & Tversky (1991)
-
+    "ambiguity_aversion": 0.68,  # Ellsberg (1961)
+    "illusion_of_validity": 0.70,  # Kahneman & Tversky (1973)
+    "competence_hypothesis": 0.58,  # Heath & Tversky (1991)
     # Social Biases - Extended
-    "ingroup_bias": 0.70,                   # Tajfel & Turner (1979)
-    "false_consensus_effect": 0.65,         # Ross et al. (1977)
-    "outgroup_homogeneity_bias": 0.62,      # Quattrone & Jones (1980)
-
+    "ingroup_bias": 0.70,  # Tajfel & Turner (1979)
+    "false_consensus_effect": 0.65,  # Ross et al. (1977)
+    "outgroup_homogeneity_bias": 0.62,  # Quattrone & Jones (1980)
     # Additional K&T Biases
-    "affect_heuristic": 0.72,               # Slovic et al. (2002)
-    "mental_accounting": 0.68,              # Thaler (1985, 1999)
-
+    "affect_heuristic": 0.72,  # Slovic et al. (2002)
+    "mental_accounting": 0.68,  # Thaler (1985, 1999)
     # Memory Biases - Extended
-    "rosy_retrospection": 0.62,             # Mitchell et al. (1997) - Vacation studies
-    "source_confusion": 0.58,               # Johnson et al. (1993) - Source monitoring
-    "misinformation_effect": 0.68,          # Loftus & Palmer (1974) - Eyewitness studies
-    "memory_reconstruction_bias": 0.60,     # Ross (1989) - Attitude change memory
-
+    "rosy_retrospection": 0.62,  # Mitchell et al. (1997) - Vacation studies
+    "source_confusion": 0.58,  # Johnson et al. (1993) - Source monitoring
+    "misinformation_effect": 0.68,  # Loftus & Palmer (1974) - Eyewitness studies
+    "memory_reconstruction_bias": 0.60,  # Ross (1989) - Attitude change memory
     # Attention Biases
-    "attentional_bias": 0.55,               # MacLeod et al. (1986) - Stroop effects
-    "inattentional_blindness": 0.65,        # Simons & Chabris (1999) - Gorilla study
-    "selective_perception": 0.68,           # Hastorf & Cantril (1954) - Football study
+    "attentional_bias": 0.55,  # MacLeod et al. (1986) - Stroop effects
+    "inattentional_blindness": 0.65,  # Simons & Chabris (1999) - Gorilla study
+    "selective_perception": 0.68,  # Hastorf & Cantril (1954) - Football study
 }
 
 # Biases where human baseline is estimated due to limited direct experimental data
 # These should be treated with caution in HAS calculations
 UNKNOWN_BASELINE_BIASES: set[str] = {
-    "source_confusion",            # Limited quantitative studies
+    "source_confusion",  # Limited quantitative studies
     "memory_reconstruction_bias",  # Qualitative rather than rate-based findings
-    "attentional_bias",            # High individual variation
+    "attentional_bias",  # High individual variation
 }
 
 
@@ -972,15 +963,12 @@ class CognitiveFingerprintReport:
 
         # Populate unknown rates from magnitude scores
         self.unknown_rates_by_bias = {
-            bias_id: score.unknown_rate
-            for bias_id, score in self.magnitude_scores.items()
+            bias_id: score.unknown_rate for bias_id, score in self.magnitude_scores.items()
         }
 
         # Flag biases with high unknown rates for prominent reporting
         self.high_unknown_rate_biases = [
-            bias_id
-            for bias_id, score in self.magnitude_scores.items()
-            if score.high_unknown_rate
+            bias_id for bias_id, score in self.magnitude_scores.items() if score.high_unknown_rate
         ]
         if self.high_unknown_rate_biases:
             logger.warning(
@@ -1081,9 +1069,8 @@ class MetricCalculator:
 
         # Check partial overlap only for non-trivial answers.
         # Guard against false positives like "a" matching "accept".
-        if (
-            min(len(extracted), len(expected)) >= 3
-            and (extracted in expected or expected in extracted)
+        if min(len(extracted), len(expected)) >= 3 and (
+            extracted in expected or expected in extracted
         ):
             return 0.8
 
@@ -1199,9 +1186,7 @@ class MetricCalculator:
                 all_stable = all(rci.is_stable for rci in condition_rcis)
                 avg_mean = mean([rci.mean_response for rci in condition_rcis])
 
-                rci_interp = ResponseConsistencyIndex.get_interpretation(
-                    temperature, num_trials
-                )
+                rci_interp = ResponseConsistencyIndex.get_interpretation(temperature, num_trials)
                 response_consistencies[bias_id] = ResponseConsistencyIndex(
                     bias_id=bias_id,
                     mean_response=avg_mean,
@@ -1213,16 +1198,16 @@ class MetricCalculator:
                 )
             else:
                 # Fallback for single-trial cases
-                rci = ResponseConsistencyIndex.calculate(
-                    bias_id, bias_results, self.scorer
-                )
+                rci = ResponseConsistencyIndex.calculate(bias_id, bias_results, self.scorer)
                 rci.rci_interpretation = ResponseConsistencyIndex.get_interpretation(
                     temperature, num_trials
                 )
                 response_consistencies[bias_id] = rci
 
             calibration_scores[bias_id] = CalibrationAwarenessScore.calculate(
-                bias_id, bias_results, self._accuracy_scorer  # True accuracy based on rational answer match
+                bias_id,
+                bias_results,
+                self._accuracy_scorer,  # True accuracy based on rational answer match
             )
 
         report = CognitiveFingerprintReport(

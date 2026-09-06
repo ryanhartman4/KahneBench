@@ -135,7 +135,7 @@ def normalize_answer(answer: str) -> str:
             # (e.g., "i accept" contains "accept" but not just "a" or "e")
             if len(variation) >= 3 and variation in answer_lower:
                 # Ensure it's a word boundary match (not substring of another word)
-                if re.search(rf'\b{re.escape(variation)}\b', answer_lower):
+                if re.search(rf"\b{re.escape(variation)}\b", answer_lower):
                     return canonical
 
     return answer_lower
@@ -156,8 +156,7 @@ class OpenAIProvider:
     ) -> str:
         # Newer models (gpt-5.x, o3, o1) use max_completion_tokens instead of max_tokens
         uses_completion_tokens = any(
-            self.model.startswith(prefix)
-            for prefix in ("gpt-5", "o3", "o1", "chatgpt-")
+            self.model.startswith(prefix) for prefix in ("gpt-5", "o3", "o1", "chatgpt-")
         )
         request_kwargs: dict[str, Any] = {
             "model": self.model,
@@ -205,9 +204,7 @@ class AnthropicProvider:
         # Confirmed for 4.8 via probe on 2026-05-31 — identical failure mode to
         # 4.7; confirmed for fable-5 on 2026-06-09. Note 4.6 and the haiku judge
         # still accept temperature, so this stays an explicit per-version denylist.
-        if not self.model.startswith(
-            ("claude-opus-4-7", "claude-opus-4-8", "claude-fable-5")
-        ):
+        if not self.model.startswith(("claude-opus-4-7", "claude-opus-4-8", "claude-fable-5")):
             request_kwargs["temperature"] = temperature
 
         response = await self.client.messages.create(**request_kwargs)
@@ -219,9 +216,7 @@ class AnthropicProvider:
         # text blocks rather than assuming content[0] is the answer — otherwise
         # every call raises AttributeError and silently ghost-runs.
         return "".join(
-            block.text
-            for block in response.content
-            if getattr(block, "type", None) == "text"
+            block.text for block in response.content if getattr(block, "type", None) == "text"
         )
 
 
@@ -310,9 +305,7 @@ class EvaluationConfig:
     trial_delay_ms: int = 100  # Delay between trials
 
     # Testing scope
-    intensities: list[TriggerIntensity] = field(
-        default_factory=lambda: list(TriggerIntensity)
-    )
+    intensities: list[TriggerIntensity] = field(default_factory=lambda: list(TriggerIntensity))
     include_control: bool = True
     include_debiasing: bool = True
 
@@ -339,9 +332,16 @@ class EvaluationConfig:
 
 # Pre-compiled regex patterns for answer extraction (module level for performance)
 _OPTION_PATTERNS = [
-    re.compile(r"(?:I (?:would )?(?:choose|select|prefer|recommend)(?:ing)?)\s*(?:option\s*)?([A-D])", re.IGNORECASE),
-    re.compile(r"(?:my (?:choice|selection|preference|answer) is)\s*(?:option\s*)?([A-D])", re.IGNORECASE),
-    re.compile(r"(?:option\s*)?([A-D])\s*(?:is (?:the )?(?:best|better|correct|right))", re.IGNORECASE),
+    re.compile(
+        r"(?:I (?:would )?(?:choose|select|prefer|recommend)(?:ing)?)\s*(?:option\s*)?([A-D])",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:my (?:choice|selection|preference|answer) is)\s*(?:option\s*)?([A-D])", re.IGNORECASE
+    ),
+    re.compile(
+        r"(?:option\s*)?([A-D])\s*(?:is (?:the )?(?:best|better|correct|right))", re.IGNORECASE
+    ),
     re.compile(r"(?:^|\n)\s*([A-D])\s*[:\.\)]"),
     re.compile(r"(?:answer|choice|selection):\s*([A-D])", re.IGNORECASE),
 ]
@@ -353,7 +353,10 @@ _NUMERIC_PATTERNS = [
 ]
 
 _YES_NO_PATTERNS = [
-    re.compile(r"(?:I (?:would )?(?:recommend|suggest|advise))\s*(yes|no|accepting|rejecting)", re.IGNORECASE),
+    re.compile(
+        r"(?:I (?:would )?(?:recommend|suggest|advise))\s*(yes|no|accepting|rejecting)",
+        re.IGNORECASE,
+    ),
     re.compile(r"(?:my (?:answer|recommendation) is)\s*(yes|no)", re.IGNORECASE),
     re.compile(r"(?:^|\n)\s*(yes|no)\s*[,\.\:]", re.IGNORECASE),
 ]
@@ -546,7 +549,7 @@ class AnswerExtractor:
         """
         # Pattern: period followed by space and capital letter, or period at end
         # Negative lookbehind for digits to avoid splitting "0.30" or "P(X) = 0.5"
-        pattern = r'(?<!\d)\.(?=\s+[A-Z])|(?<!\d)\.$'
+        pattern = r"(?<!\d)\.(?=\s+[A-Z])|(?<!\d)\.$"
         sentences = re.split(pattern, text)
         # Filter out empty strings and strip whitespace
         return [s.strip() for s in sentences if s and s.strip()]
@@ -843,7 +846,9 @@ class BiasEvaluator:
                     elapsed = time.time() - start
                     logger.debug(
                         "API call completed: %d chars prompt, %d chars response, %.2fs",
-                        len(prompt), len(result), elapsed,
+                        len(prompt),
+                        len(result),
+                        elapsed,
                     )
                     return result
                 except Exception as exc:
@@ -938,7 +943,9 @@ class BiasEvaluator:
             """Execute a single trial with timing and scoring."""
             logger.debug(
                 "  Trial %d/%d for condition=%s",
-                trial_num + 1, self.config.num_trials, condition,
+                trial_num + 1,
+                self.config.num_trials,
+                condition,
             )
             start_time = time.time()
 
@@ -976,10 +983,12 @@ class BiasEvaluator:
             )
 
             # Score the response for bias (only if we have expected answers)
-            if (instance.expected_rational_response and
-                instance.expected_biased_response and
-                not instance.expected_rational_response.startswith("[") and
-                not instance.expected_biased_response.startswith("[")):
+            if (
+                instance.expected_rational_response
+                and instance.expected_biased_response
+                and not instance.expected_rational_response.startswith("[")
+                and not instance.expected_biased_response.startswith("[")
+            ):
                 rational_answer = self._resolve_rational_answer(instance, condition)
                 biased_answer = self._resolve_biased_answer(instance, condition)
                 is_biased, bias_score = self.score_response(
@@ -1065,7 +1074,10 @@ class BiasEvaluator:
 
         if any(opt in prompt_lower for opt in ["option a", "option b", "program a", "program b"]):
             return "option"
-        elif any(word in prompt_lower for word in ["estimate", "how much", "how many", "probability", "confidence:"]):
+        elif any(
+            word in prompt_lower
+            for word in ["estimate", "how much", "how many", "probability", "confidence:"]
+        ):
             return "numeric"
         elif any(word in prompt_lower for word in ["accept", "reject", "continue", "should you"]):
             return "yes_no"
@@ -1103,7 +1115,9 @@ class BiasEvaluator:
 
         logger.info(
             "Starting evaluation batch: %d instances, model=%s, trials=%d",
-            len(instances), model_id, self.config.num_trials,
+            len(instances),
+            model_id,
+            self.config.num_trials,
         )
 
         # Track progress with thread-safe counter
@@ -1115,8 +1129,10 @@ class BiasEvaluator:
             instance_num = instances.index(instance) + 1
             logger.info(
                 "Evaluating instance %d/%d: %s [%s]",
-                instance_num, len(instances),
-                instance.bias_id, instance.domain.value,
+                instance_num,
+                len(instances),
+                instance.bias_id,
+                instance.domain.value,
             )
             results = await self.evaluate_instance(instance, model_id)
             async with progress_lock:
@@ -1125,8 +1141,10 @@ class BiasEvaluator:
                     progress_callback(completed_count, len(instances))
             logger.info(
                 "Completed instance %d/%d: %s (%d results)",
-                instance_num, len(instances),
-                instance.bias_id, len(results),
+                instance_num,
+                len(instances),
+                instance.bias_id,
+                len(results),
             )
             return results
 
@@ -1211,10 +1229,14 @@ class BiasEvaluator:
         # Detect descriptive expected answers that can't be matched via regex.
         # These are long prose descriptions like "based on statistical data rather
         # than memorable examples" — they require LLM judge for proper scoring.
-        if self._is_descriptive_answer(rational_answer) or self._is_descriptive_answer(biased_answer):
+        if self._is_descriptive_answer(rational_answer) or self._is_descriptive_answer(
+            biased_answer
+        ):
             logger.debug(
                 "Descriptive expected answer for %s requires LLM judge: rational=%r, biased=%r",
-                result.instance.bias_id, rational_answer[:50], biased_answer[:50],
+                result.instance.bias_id,
+                rational_answer[:50],
+                biased_answer[:50],
             )
             result.metadata["requires_llm_judge"] = True
             return None, None
@@ -1329,16 +1351,20 @@ Now consider a similar but distinct situation:
                 condition=f"persistent_round_{round_num}",
                 prompt_used=prompt,
                 model_response=response,
-                extracted_answer=self.extractor.extract(response, self._infer_answer_type(instance)),
+                extracted_answer=self.extractor.extract(
+                    response, self._infer_answer_type(instance)
+                ),
                 response_time_ms=elapsed_ms,
                 metadata={"round": round_num, "temporal_condition": "persistent"},
             )
 
             # Score the response for bias
-            if (instance.expected_rational_response and
-                instance.expected_biased_response and
-                not instance.expected_rational_response.startswith("[") and
-                not instance.expected_biased_response.startswith("[")):
+            if (
+                instance.expected_rational_response
+                and instance.expected_biased_response
+                and not instance.expected_rational_response.startswith("[")
+                and not instance.expected_biased_response.startswith("[")
+            ):
                 condition = f"persistent_round_{round_num}"
                 rational_answer = self._resolve_rational_answer(instance, condition)
                 biased_answer = self._resolve_biased_answer(instance, condition)
@@ -1383,16 +1409,20 @@ Now consider a similar but distinct situation:
             condition="adaptive_pre_feedback",
             prompt_used=initial_prompt,
             model_response=initial_response,
-            extracted_answer=self.extractor.extract(initial_response, self._infer_answer_type(instance)),
+            extracted_answer=self.extractor.extract(
+                initial_response, self._infer_answer_type(instance)
+            ),
             response_time_ms=elapsed_ms,
             metadata={"temporal_condition": "adaptive", "phase": "pre_feedback"},
         )
 
         # Score the pre-feedback response (uses STRONG intensity → loss frame if applicable)
-        if (instance.expected_rational_response and
-            instance.expected_biased_response and
-            not instance.expected_rational_response.startswith("[") and
-            not instance.expected_biased_response.startswith("[")):
+        if (
+            instance.expected_rational_response
+            and instance.expected_biased_response
+            and not instance.expected_rational_response.startswith("[")
+            and not instance.expected_biased_response.startswith("[")
+        ):
             pre_condition = "adaptive_pre_feedback_strong"
             rational_answer = self._resolve_rational_answer(instance, pre_condition)
             biased_answer = self._resolve_biased_answer(instance, pre_condition)
@@ -1408,7 +1438,7 @@ Now consider a similar but distinct situation:
 
         # Corrective feedback
         feedback_prompt = f"""
-Your previous response showed signs of {instance.bias_id.replace('_', ' ')}.
+Your previous response showed signs of {instance.bias_id.replace("_", " ")}.
 
 {instance.control_prompt}
 
@@ -1425,16 +1455,20 @@ Please reconsider, being careful to avoid this cognitive bias.
             condition="adaptive_post_feedback",
             prompt_used=feedback_prompt,
             model_response=feedback_response,
-            extracted_answer=self.extractor.extract(feedback_response, self._infer_answer_type(instance)),
+            extracted_answer=self.extractor.extract(
+                feedback_response, self._infer_answer_type(instance)
+            ),
             response_time_ms=elapsed_ms,
             metadata={"temporal_condition": "adaptive", "phase": "post_feedback"},
         )
 
         # Score the post-feedback response (uses control prompt, default frame)
-        if (instance.expected_rational_response and
-            instance.expected_biased_response and
-            not instance.expected_rational_response.startswith("[") and
-            not instance.expected_biased_response.startswith("[")):
+        if (
+            instance.expected_rational_response
+            and instance.expected_biased_response
+            and not instance.expected_rational_response.startswith("[")
+            and not instance.expected_biased_response.startswith("[")
+        ):
             post_condition = "adaptive_post_feedback"
             rational_answer = self._resolve_rational_answer(instance, post_condition)
             biased_answer = self._resolve_biased_answer(instance, post_condition)
@@ -1546,9 +1580,7 @@ class ContextSensitivityEvaluator(BiasEvaluator):
 
             elapsed_ms = (time.time() - start_time) * 1000
 
-            extracted = self.extractor.extract(
-                response, self._infer_answer_type(instance)
-            )
+            extracted = self.extractor.extract(response, self._infer_answer_type(instance))
             confidence = self.extractor.extract_confidence(response)
 
             result = TestResult(
@@ -1569,10 +1601,12 @@ class ContextSensitivityEvaluator(BiasEvaluator):
             )
 
             # Score the response
-            if (instance.expected_rational_response and
-                instance.expected_biased_response and
-                not instance.expected_rational_response.startswith("[") and
-                not instance.expected_biased_response.startswith("[")):
+            if (
+                instance.expected_rational_response
+                and instance.expected_biased_response
+                and not instance.expected_rational_response.startswith("[")
+                and not instance.expected_biased_response.startswith("[")
+            ):
                 rational_answer = self._resolve_rational_answer(
                     instance, result.condition, intensity=intensity
                 )
@@ -1652,10 +1686,12 @@ class ContextSensitivityEvaluator(BiasEvaluator):
             )
 
             # Score the response
-            if (instance.expected_rational_response and
-                instance.expected_biased_response and
-                not instance.expected_rational_response.startswith("[") and
-                not instance.expected_biased_response.startswith("[")):
+            if (
+                instance.expected_rational_response
+                and instance.expected_biased_response
+                and not instance.expected_rational_response.startswith("[")
+                and not instance.expected_biased_response.startswith("[")
+            ):
                 rational_answer = self._resolve_rational_answer(
                     instance, result.condition, intensity=intensity
                 )
@@ -1735,10 +1771,12 @@ class ContextSensitivityEvaluator(BiasEvaluator):
             )
 
             # Score the response
-            if (instance.expected_rational_response and
-                instance.expected_biased_response and
-                not instance.expected_rational_response.startswith("[") and
-                not instance.expected_biased_response.startswith("[")):
+            if (
+                instance.expected_rational_response
+                and instance.expected_biased_response
+                and not instance.expected_rational_response.startswith("[")
+                and not instance.expected_biased_response.startswith("[")
+            ):
                 rational_answer = self._resolve_rational_answer(
                     instance, result.condition, intensity=intensity
                 )

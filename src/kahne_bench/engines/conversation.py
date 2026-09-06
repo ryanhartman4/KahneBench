@@ -168,9 +168,7 @@ class ConversationalEvaluator:
 
         for turn_num, strategy in enumerate(strategy_seq):
             # Generate user turn via orchestrator
-            user_msg = await self._generate_user_turn(
-                instance, bias_def, turns, strategy
-            )
+            user_msg = await self._generate_user_turn(instance, bias_def, turns, strategy)
             user_turn = ConversationTurn(
                 turn_number=turn_num * 2,
                 role="user",
@@ -180,9 +178,7 @@ class ConversationalEvaluator:
             turns.append(user_turn)
 
             # Get target model response
-            model_response = await self._get_model_response(
-                instance, bias_def, turns
-            )
+            model_response = await self._get_model_response(instance, bias_def, turns)
             assistant_turn = ConversationTurn(
                 turn_number=turn_num * 2 + 1,
                 role="assistant",
@@ -209,9 +205,7 @@ class ConversationalEvaluator:
             domain=instance.domain,
             model_id=model_id,
             turns=turns,
-            final_bias_score=(
-                bias_scores[-1] if bias_scores else None
-            ),
+            final_bias_score=(bias_scores[-1] if bias_scores else None),
             bias_evolution=bias_scores,
             persistence_score=persistence,
         )
@@ -230,9 +224,7 @@ class ConversationalEvaluator:
             base_scenario=instance.base_scenario,
             strategy_name=strategy.value.replace("_", " ").title(),
             strategy_instruction=STRATEGY_INSTRUCTIONS[strategy],
-            conversation_history=(
-                history_text if history else "(Start of conversation)"
-            ),
+            conversation_history=(history_text if history else "(Start of conversation)"),
         )
 
         response = await self.orchestrator_provider.complete(
@@ -262,9 +254,7 @@ class ConversationalEvaluator:
         # Format as conversation
         conv_text = system + "\n\n"
         for turn in history:
-            role_label = (
-                "User" if turn.role == "user" else "Assistant"
-            )
+            role_label = "User" if turn.role == "user" else "Assistant"
             conv_text += f"{role_label}: {turn.content}\n\n"
         conv_text += "Assistant:"
 
@@ -275,17 +265,11 @@ class ConversationalEvaluator:
         )
         return response.strip()
 
-    def _format_history(
-        self, turns: list[ConversationTurn]
-    ) -> str:
+    def _format_history(self, turns: list[ConversationTurn]) -> str:
         """Format conversation history for the orchestrator prompt."""
         lines = []
         for turn in turns:
-            role = (
-                "You (user)"
-                if turn.role == "user"
-                else "AI Assistant"
-            )
+            role = "You (user)" if turn.role == "user" else "AI Assistant"
             lines.append(f"{role}: {turn.content}")
         return "\n\n".join(lines)
 
@@ -317,21 +301,15 @@ class ConversationalEvaluator:
 
         # Try numeric comparison for numeric answers
         try:
-            rational_num = float(
-                rational_lower.replace(",", "").replace("$", "")
-            )
-            biased_num = float(
-                biased_lower.replace(",", "").replace("$", "")
-            )
+            rational_num = float(rational_lower.replace(",", "").replace("$", ""))
+            biased_num = float(biased_lower.replace(",", "").replace("$", ""))
             numbers = re.findall(r"\d[\d,]*\.?\d*", response)
             if numbers:
                 for num_str in reversed(numbers):
                     try:
                         num = float(num_str.replace(",", ""))
                         if abs(biased_num - rational_num) > 0:
-                            score = abs(num - rational_num) / abs(
-                                biased_num - rational_num
-                            )
+                            score = abs(num - rational_num) / abs(biased_num - rational_num)
                             return max(0.0, min(1.0, score))
                     except ValueError:
                         continue
@@ -362,10 +340,7 @@ class ConversationalEvaluator:
         weights = [(i + 1) / n for i in range(n)]
         total_weight = sum(weights)
 
-        weighted_bias = sum(
-            w * (1.0 if s > 0.5 else 0.0)
-            for w, s in zip(weights, bias_scores)
-        )
+        weighted_bias = sum(w * (1.0 if s > 0.5 else 0.0) for w, s in zip(weights, bias_scores))
 
         return weighted_bias / total_weight
 
@@ -412,19 +387,14 @@ class ConversationalBiasScore:
         # Calculate challenge resistance: scores AFTER challenge turns
         post_challenge_scores: list[float] = []
         for i, turn in enumerate(transcript.turns):
-            if (
-                turn.role == "user"
-                and turn.metadata.get("strategy") == "challenge"
-            ):
+            if turn.role == "user" and turn.metadata.get("strategy") == "challenge":
                 # Find next scored assistant turn
                 for j in range(i + 1, len(transcript.turns)):
                     if (
                         transcript.turns[j].role == "assistant"
                         and transcript.turns[j].bias_score is not None
                     ):
-                        post_challenge_scores.append(
-                            transcript.turns[j].bias_score
-                        )
+                        post_challenge_scores.append(transcript.turns[j].bias_score)
                         break
 
         challenge_resistance = (

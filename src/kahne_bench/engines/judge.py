@@ -99,7 +99,8 @@ class LLMJudge:
         """Score a model response using LLM judgment when regex extraction fails."""
         logger.debug(
             "Judge fallback invoked for bias=%s, answer_type=%s",
-            bias_name, answer_type,
+            bias_name,
+            answer_type,
         )
         prompt = JUDGE_SCORING_PROMPT.format(
             bias_name=bias_name,
@@ -122,7 +123,9 @@ class LLMJudge:
         result = self._parse_judge_response(response)
         logger.debug(
             "Judge result: answer=%r, bias_score=%.2f, confidence=%.2f",
-            result.extracted_answer, result.bias_score, result.confidence,
+            result.extracted_answer,
+            result.bias_score,
+            result.confidence,
         )
         return result
 
@@ -135,17 +138,11 @@ class LLMJudge:
         justification = _extract_xml_tag(response, "justification")
 
         if bias_score_raw is None:
-            raise ValueError(
-                "Judge response missing required <bias_score> tag"
-            )
+            raise ValueError("Judge response missing required <bias_score> tag")
         if confidence_raw is None:
-            raise ValueError(
-                "Judge response missing required <confidence> tag"
-            )
+            raise ValueError("Judge response missing required <confidence> tag")
         if justification is None:
-            raise ValueError(
-                "Judge response missing required <justification> tag"
-            )
+            raise ValueError("Judge response missing required <justification> tag")
 
         # Parse and clamp bias_score
         try:

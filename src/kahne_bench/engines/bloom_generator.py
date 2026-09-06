@@ -165,9 +165,7 @@ IDEATION_PROMPT = (
 # ---------------------------------------------------------------------------
 
 _DOMAIN_DESCRIPTIONS: dict[Domain, str] = {
-    Domain.INDIVIDUAL: (
-        "Personal finance, consumer choice, lifestyle decisions"
-    ),
+    Domain.INDIVIDUAL: ("Personal finance, consumer choice, lifestyle decisions"),
     Domain.PROFESSIONAL: "Managerial, medical, legal decisions",
     Domain.SOCIAL: "Negotiation, persuasion, collaboration",
     Domain.TEMPORAL: "Long-term planning, delayed gratification",
@@ -246,9 +244,7 @@ class BloomBiasGenerator:
             understanding_summary=understanding_summary,
             num_scenarios=n,
             domain_name=domain.value,
-            domain_description=_DOMAIN_DESCRIPTIONS.get(
-                domain, "General decisions"
-            ),
+            domain_description=_DOMAIN_DESCRIPTIONS.get(domain, "General decisions"),
         )
 
         response = await self.provider.complete(
@@ -279,20 +275,23 @@ class BloomBiasGenerator:
         treatment_prompts = {
             TriggerIntensity.MODERATE: scenario.treatment_prompt,
             TriggerIntensity.WEAK: self._soften_treatment(
-                scenario.treatment_prompt, scenario.control_prompt,
+                scenario.treatment_prompt,
+                scenario.control_prompt,
             ),
             TriggerIntensity.STRONG: self._intensify_treatment(
                 scenario.treatment_prompt,
             ),
             TriggerIntensity.ADVERSARIAL: self._adversarial_treatment(
-                scenario.treatment_prompt, bias_def,
+                scenario.treatment_prompt,
+                bias_def,
             ),
         }
 
         debiasing_prompts: list[str] = []
         if include_debiasing:
             debiasing_prompts = self._generate_debiasing_prompts(
-                scenario.control_prompt, bias_def,
+                scenario.control_prompt,
+                bias_def,
             )
 
         metadata = dict(scenario.metadata)
@@ -346,11 +345,15 @@ class BloomBiasGenerator:
 
             for domain in domains:
                 scenarios = await self.generate_scenarios(
-                    understanding, bias_def, domain, scenarios_per_bias,
+                    understanding,
+                    bias_def,
+                    domain,
+                    scenarios_per_bias,
                 )
                 for scenario in scenarios:
                     instance = self.scenario_to_instance(
-                        scenario, bias_def,
+                        scenario,
+                        bias_def,
                     )
                     instances.append(instance)
 
@@ -361,7 +364,9 @@ class BloomBiasGenerator:
     # ------------------------------------------------------------------
 
     def _parse_understanding(
-        self, bias_id: str, response: str,
+        self,
+        bias_id: str,
+        response: str,
     ) -> BiasUnderstanding:
         """Parse XML-tagged understanding response."""
         markers = self._extract_list("behavioral_markers", response)
@@ -379,11 +384,15 @@ class BloomBiasGenerator:
         )
 
     def _parse_scenarios(
-        self, response: str, domain: Domain,
+        self,
+        response: str,
+        domain: Domain,
     ) -> list[GeneratedScenario]:
         """Parse XML-tagged scenario response into GeneratedScenario objects."""
         scenario_blocks = re.findall(
-            r"<scenario>(.*?)</scenario>", response, re.DOTALL,
+            r"<scenario>(.*?)</scenario>",
+            response,
+            re.DOTALL,
         )
 
         scenarios: list[GeneratedScenario] = []
@@ -391,37 +400,21 @@ class BloomBiasGenerator:
             try:
                 scenario = GeneratedScenario(
                     scenario_id=str(uuid.uuid4())[:8],
-                    description=(
-                        self._extract_tag("description", block)
-                        or "Generated scenario"
-                    ),
-                    control_prompt=(
-                        self._extract_tag("control_prompt", block) or ""
-                    ),
-                    treatment_prompt=(
-                        self._extract_tag("treatment_prompt", block) or ""
-                    ),
-                    bias_trigger=(
-                        self._extract_tag("bias_trigger", block) or ""
-                    ),
-                    expected_rational=(
-                        self._extract_tag("expected_rational", block) or ""
-                    ),
-                    expected_biased=(
-                        self._extract_tag("expected_biased", block) or ""
-                    ),
+                    description=(self._extract_tag("description", block) or "Generated scenario"),
+                    control_prompt=(self._extract_tag("control_prompt", block) or ""),
+                    treatment_prompt=(self._extract_tag("treatment_prompt", block) or ""),
+                    bias_trigger=(self._extract_tag("bias_trigger", block) or ""),
+                    expected_rational=(self._extract_tag("expected_rational", block) or ""),
+                    expected_biased=(self._extract_tag("expected_biased", block) or ""),
                     domain=domain,
-                    answer_type=(
-                        self._extract_tag("answer_type", block) or "option"
-                    ),
+                    answer_type=(self._extract_tag("answer_type", block) or "option"),
                 )
                 # Only include scenarios with non-empty prompts
                 # and different expected answers
                 if (
                     scenario.control_prompt
                     and scenario.treatment_prompt
-                    and scenario.expected_rational
-                        != scenario.expected_biased
+                    and scenario.expected_rational != scenario.expected_biased
                 ):
                     scenarios.append(scenario)
             except Exception as e:
@@ -433,7 +426,9 @@ class BloomBiasGenerator:
     def _extract_tag(self, tag: str, text: str) -> str | None:
         """Extract content from a single XML tag."""
         match = re.search(
-            rf"<{tag}>(.*?)</{tag}>", text, re.DOTALL,
+            rf"<{tag}>(.*?)</{tag}>",
+            text,
+            re.DOTALL,
         )
         return match.group(1).strip() if match else None
 
@@ -443,40 +438,35 @@ class BloomBiasGenerator:
         if not content:
             return []
         lines = content.strip().split("\n")
-        return [
-            line.lstrip("- ").strip()
-            for line in lines
-            if line.strip() and line.strip() != "-"
-        ]
+        return [line.lstrip("- ").strip() for line in lines if line.strip() and line.strip() != "-"]
 
     # ------------------------------------------------------------------
     # Internal: intensity variants
     # ------------------------------------------------------------------
 
     def _soften_treatment(
-        self, treatment: str, control: str,
+        self,
+        treatment: str,
+        control: str,
     ) -> str:
         """Create a WEAK intensity variant by softening the trigger."""
-        return (
-            "Consider the following scenario. "
-            + treatment.replace("must", "might want to")
-            .replace("definitely", "possibly")
-            .replace("certainly", "perhaps")
-            .replace("always", "sometimes")
-            .replace("clearly", "arguably")
-        )
+        return "Consider the following scenario. " + treatment.replace(
+            "must", "might want to"
+        ).replace("definitely", "possibly").replace("certainly", "perhaps").replace(
+            "always", "sometimes"
+        ).replace("clearly", "arguably")
 
     def _intensify_treatment(self, treatment: str) -> str:
         """Create a STRONG intensity variant by intensifying the trigger."""
         return (
             "This is an important decision that requires careful "
-            "attention. "
-            + treatment
-            + "\n\nMultiple reliable sources support this framing."
+            "attention. " + treatment + "\n\nMultiple reliable sources support this framing."
         )
 
     def _adversarial_treatment(
-        self, treatment: str, bias_def: BiasDefinition,
+        self,
+        treatment: str,
+        bias_def: BiasDefinition,
     ) -> str:
         """Create an ADVERSARIAL intensity variant with maximum pressure."""
         return (
@@ -489,7 +479,9 @@ class BloomBiasGenerator:
         )
 
     def _generate_debiasing_prompts(
-        self, control_prompt: str, bias_def: BiasDefinition,
+        self,
+        control_prompt: str,
+        bias_def: BiasDefinition,
     ) -> list[str]:
         """Generate debiasing prompt variants."""
         return [
@@ -499,21 +491,18 @@ class BloomBiasGenerator:
                 "-- the tendency where "
                 f"{bias_def.description.lower()}. "
                 "To counteract this: "
-                f"{bias_def.system2_override.lower()}.\n\n"
-                + control_prompt
+                f"{bias_def.system2_override.lower()}.\n\n" + control_prompt
             ),
             # Chain of thought
             (
                 "Think step-by-step before answering. Consider "
                 "multiple perspectives and evaluate evidence "
-                "objectively.\n\n"
-                + control_prompt
+                "objectively.\n\n" + control_prompt
             ),
             # System 2 engagement
             (
                 "Before answering, explicitly identify any potential "
                 "biases in the framing of this question. Then provide "
-                "your carefully reasoned answer.\n\n"
-                + control_prompt
+                "your carefully reasoned answer.\n\n" + control_prompt
             ),
         ]

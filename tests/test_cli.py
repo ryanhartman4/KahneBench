@@ -25,21 +25,23 @@ def _make_instances(bias_ids: list[str]) -> list[CognitiveBiasInstance]:
     """Create minimal valid instances for the given bias IDs."""
     instances = []
     for bias_id in bias_ids:
-        instances.append(CognitiveBiasInstance(
-            bias_id=bias_id,
-            base_scenario="Test scenario",
-            bias_trigger="Test trigger",
-            control_prompt="Control prompt for testing",
-            treatment_prompts={
-                TriggerIntensity.WEAK: "Weak treatment",
-                TriggerIntensity.MODERATE: "Moderate treatment",
-                TriggerIntensity.STRONG: "Strong treatment",
-            },
-            expected_rational_response="Rational response",
-            expected_biased_response="Biased response",
-            domain=Domain.PROFESSIONAL,
-            debiasing_prompts=["Consider alternatives"],
-        ))
+        instances.append(
+            CognitiveBiasInstance(
+                bias_id=bias_id,
+                base_scenario="Test scenario",
+                bias_trigger="Test trigger",
+                control_prompt="Control prompt for testing",
+                treatment_prompts={
+                    TriggerIntensity.WEAK: "Weak treatment",
+                    TriggerIntensity.MODERATE: "Moderate treatment",
+                    TriggerIntensity.STRONG: "Strong treatment",
+                },
+                expected_rational_response="Rational response",
+                expected_biased_response="Biased response",
+                domain=Domain.PROFESSIONAL,
+                debiasing_prompts=["Consider alternatives"],
+            )
+        )
     return instances
 
 
@@ -60,13 +62,19 @@ class TestTierEnforcement:
         """Input with wrong biases for tier should fail with non-zero exit."""
         filepath = _write_instances_file(["some_fake_bias", "another_fake_bias"])
         try:
-            result = runner.invoke(main, [
-                "evaluate",
-                "-i", str(filepath),
-                "-p", "mock",
-                "-t", "core",
-                *MOCK_EVAL_ARGS,
-            ])
+            result = runner.invoke(
+                main,
+                [
+                    "evaluate",
+                    "-i",
+                    str(filepath),
+                    "-p",
+                    "mock",
+                    "-t",
+                    "core",
+                    *MOCK_EVAL_ARGS,
+                ],
+            )
             assert result.exit_code != 0
             assert "Tier mismatch" in result.output
         finally:
@@ -76,13 +84,19 @@ class TestTierEnforcement:
         """Error message should list missing biases."""
         filepath = _write_instances_file(["anchoring_effect", "loss_aversion"])
         try:
-            result = runner.invoke(main, [
-                "evaluate",
-                "-i", str(filepath),
-                "-p", "mock",
-                "-t", "core",
-                *MOCK_EVAL_ARGS,
-            ])
+            result = runner.invoke(
+                main,
+                [
+                    "evaluate",
+                    "-i",
+                    str(filepath),
+                    "-p",
+                    "mock",
+                    "-t",
+                    "core",
+                    *MOCK_EVAL_ARGS,
+                ],
+            )
             assert result.exit_code != 0
             assert "Missing biases" in result.output
         finally:
@@ -94,13 +108,19 @@ class TestTierEnforcement:
         extra_biases = core_biases + ["totally_unknown_bias"]
         filepath = _write_instances_file(extra_biases)
         try:
-            result = runner.invoke(main, [
-                "evaluate",
-                "-i", str(filepath),
-                "-p", "mock",
-                "-t", "core",
-                *MOCK_EVAL_ARGS,
-            ])
+            result = runner.invoke(
+                main,
+                [
+                    "evaluate",
+                    "-i",
+                    str(filepath),
+                    "-p",
+                    "mock",
+                    "-t",
+                    "core",
+                    *MOCK_EVAL_ARGS,
+                ],
+            )
             assert result.exit_code != 0
             assert "Extra biases" in result.output
         finally:
@@ -116,16 +136,24 @@ class TestTierEnforcement:
         outfile.close()
         fpfile.close()
         try:
-            result = runner.invoke(main, [
-                "evaluate",
-                "-i", str(filepath),
-                "-p", "mock",
-                "-t", "core",
-                "--allow-tier-mismatch",
-                "-o", str(outpath),
-                "-f", str(fppath),
-                *MOCK_EVAL_ARGS,
-            ])
+            result = runner.invoke(
+                main,
+                [
+                    "evaluate",
+                    "-i",
+                    str(filepath),
+                    "-p",
+                    "mock",
+                    "-t",
+                    "core",
+                    "--allow-tier-mismatch",
+                    "-o",
+                    str(outpath),
+                    "-f",
+                    str(fppath),
+                    *MOCK_EVAL_ARGS,
+                ],
+            )
             assert result.exit_code == 0, f"Output: {result.output}"
             assert "Proceeding with --allow-tier-mismatch" in result.output
         finally:
@@ -144,15 +172,23 @@ class TestTierEnforcement:
         outfile.close()
         fpfile.close()
         try:
-            result = runner.invoke(main, [
-                "evaluate",
-                "-i", str(filepath),
-                "-p", "mock",
-                "-t", "core",
-                "-o", str(outpath),
-                "-f", str(fppath),
-                *MOCK_EVAL_ARGS,
-            ])
+            result = runner.invoke(
+                main,
+                [
+                    "evaluate",
+                    "-i",
+                    str(filepath),
+                    "-p",
+                    "mock",
+                    "-t",
+                    "core",
+                    "-o",
+                    str(outpath),
+                    "-f",
+                    str(fppath),
+                    *MOCK_EVAL_ARGS,
+                ],
+            )
             assert result.exit_code == 0, f"Output: {result.output}"
             assert "Tier mismatch" not in result.output
         finally:
@@ -175,15 +211,23 @@ class TestIntensityPolicy:
         outfile.close()
         fpfile.close()
         try:
-            result = runner.invoke(main, [
-                "evaluate",
-                "-i", str(filepath),
-                "-p", "mock",
-                "-t", "core",
-                "-o", str(outpath),
-                "-f", str(fppath),
-                *MOCK_EVAL_ARGS,
-            ])
+            result = runner.invoke(
+                main,
+                [
+                    "evaluate",
+                    "-i",
+                    str(filepath),
+                    "-p",
+                    "mock",
+                    "-t",
+                    "core",
+                    "-o",
+                    str(outpath),
+                    "-f",
+                    str(fppath),
+                    *MOCK_EVAL_ARGS,
+                ],
+            )
             assert result.exit_code == 0, f"Output: {result.output}"
             assert "weak, moderate, strong" in result.output
             # Verify ADVERSARIAL is NOT on the Intensities line
@@ -207,16 +251,24 @@ class TestIntensityPolicy:
         outfile.close()
         fpfile.close()
         try:
-            result = runner.invoke(main, [
-                "evaluate",
-                "-i", str(filepath),
-                "-p", "mock",
-                "-t", "core",
-                "--include-adversarial",
-                "-o", str(outpath),
-                "-f", str(fppath),
-                *MOCK_EVAL_ARGS,
-            ])
+            result = runner.invoke(
+                main,
+                [
+                    "evaluate",
+                    "-i",
+                    str(filepath),
+                    "-p",
+                    "mock",
+                    "-t",
+                    "core",
+                    "--include-adversarial",
+                    "-o",
+                    str(outpath),
+                    "-f",
+                    str(fppath),
+                    *MOCK_EVAL_ARGS,
+                ],
+            )
             assert result.exit_code == 0, f"Output: {result.output}"
             assert "adversarial" in result.output.lower()
         finally:
@@ -235,15 +287,23 @@ class TestIntensityPolicy:
         outfile.close()
         fpfile.close()
         try:
-            result = runner.invoke(main, [
-                "evaluate",
-                "-i", str(filepath),
-                "-p", "mock",
-                "-t", "core",
-                "-o", str(outpath),
-                "-f", str(fppath),
-                *MOCK_EVAL_ARGS,
-            ])
+            result = runner.invoke(
+                main,
+                [
+                    "evaluate",
+                    "-i",
+                    str(filepath),
+                    "-p",
+                    "mock",
+                    "-t",
+                    "core",
+                    "-o",
+                    str(outpath),
+                    "-f",
+                    str(fppath),
+                    *MOCK_EVAL_ARGS,
+                ],
+            )
             assert result.exit_code == 0, f"Output: {result.output}"
 
             with open(fppath) as f:
@@ -265,14 +325,22 @@ class TestCanonicalExport:
         outpath = Path(outfile.name)
         outfile.close()
         try:
-            result = runner.invoke(main, [
-                "generate",
-                "--bias", "anchoring_effect",
-                "--domain", "professional",
-                "--instances", "1",
-                "--output", str(outpath),
-                "--seed", "42",
-            ])
+            result = runner.invoke(
+                main,
+                [
+                    "generate",
+                    "--bias",
+                    "anchoring_effect",
+                    "--domain",
+                    "professional",
+                    "--instances",
+                    "1",
+                    "--output",
+                    str(outpath),
+                    "--seed",
+                    "42",
+                ],
+            )
             assert result.exit_code == 0
 
             with open(outpath) as f:
@@ -296,14 +364,22 @@ class TestCanonicalExport:
         outpath = Path(outfile.name)
         outfile.close()
         try:
-            result = runner.invoke(main, [
-                "generate",
-                "--bias", "anchoring_effect",
-                "--domain", "professional",
-                "--instances", "1",
-                "--output", str(outpath),
-                "--seed", "42",
-            ])
+            result = runner.invoke(
+                main,
+                [
+                    "generate",
+                    "--bias",
+                    "anchoring_effect",
+                    "--domain",
+                    "professional",
+                    "--instances",
+                    "1",
+                    "--output",
+                    str(outpath),
+                    "--seed",
+                    "42",
+                ],
+            )
             assert result.exit_code == 0
 
             # Round-trip: import the generated output
@@ -321,13 +397,30 @@ class TestRunProvenance:
     """PP-004: Run provenance metadata in outputs."""
 
     REQUIRED_METADATA_KEYS = [
-        "provider", "model", "judge_provider", "judge_model",
-        "temperature", "max_tokens", "num_trials", "max_concurrent_requests",
-        "rate_limit_retries", "rate_limit_retry_delay_s",
-        "intensities", "include_control", "include_debiasing",
-        "tier", "input_file", "bias_manifest", "bias_manifest_hash", "instance_count_by_bias",
-        "git_commit", "git_branch", "git_is_dirty",
-        "timestamp", "python_version", "kahne_bench_version",
+        "provider",
+        "model",
+        "judge_provider",
+        "judge_model",
+        "temperature",
+        "max_tokens",
+        "num_trials",
+        "max_concurrent_requests",
+        "rate_limit_retries",
+        "rate_limit_retry_delay_s",
+        "intensities",
+        "include_control",
+        "include_debiasing",
+        "tier",
+        "input_file",
+        "bias_manifest",
+        "bias_manifest_hash",
+        "instance_count_by_bias",
+        "git_commit",
+        "git_branch",
+        "git_is_dirty",
+        "timestamp",
+        "python_version",
+        "kahne_bench_version",
     ]
 
     def test_results_json_contains_provenance(self, runner):
@@ -341,15 +434,23 @@ class TestRunProvenance:
         outfile.close()
         fpfile.close()
         try:
-            result = runner.invoke(main, [
-                "evaluate",
-                "-i", str(filepath),
-                "-p", "mock",
-                "-t", "core",
-                "-o", str(outpath),
-                "-f", str(fppath),
-                *MOCK_EVAL_ARGS,
-            ])
+            result = runner.invoke(
+                main,
+                [
+                    "evaluate",
+                    "-i",
+                    str(filepath),
+                    "-p",
+                    "mock",
+                    "-t",
+                    "core",
+                    "-o",
+                    str(outpath),
+                    "-f",
+                    str(fppath),
+                    *MOCK_EVAL_ARGS,
+                ],
+            )
             assert result.exit_code == 0, f"Output: {result.output}"
 
             with open(outpath) as f:
@@ -387,15 +488,23 @@ class TestRunProvenance:
         outfile.close()
         fpfile.close()
         try:
-            result = runner.invoke(main, [
-                "evaluate",
-                "-i", str(filepath),
-                "-p", "mock",
-                "-t", "core",
-                "-o", str(outpath),
-                "-f", str(fppath),
-                *MOCK_EVAL_ARGS,
-            ])
+            result = runner.invoke(
+                main,
+                [
+                    "evaluate",
+                    "-i",
+                    str(filepath),
+                    "-p",
+                    "mock",
+                    "-t",
+                    "core",
+                    "-o",
+                    str(outpath),
+                    "-f",
+                    str(fppath),
+                    *MOCK_EVAL_ARGS,
+                ],
+            )
             assert result.exit_code == 0, f"Output: {result.output}"
 
             with open(fppath) as f:
@@ -421,15 +530,23 @@ class TestRunProvenance:
         outpath = Path(outfile.name)
         outfile.close()
         try:
-            result = runner.invoke(main, [
-                "evaluate",
-                "-i", str(filepath),
-                "-p", "mock",
-                "-t", "core",
-                "-o", str(outpath),
-                "-f", str(fppath),
-                *MOCK_EVAL_ARGS,
-            ])
+            result = runner.invoke(
+                main,
+                [
+                    "evaluate",
+                    "-i",
+                    str(filepath),
+                    "-p",
+                    "mock",
+                    "-t",
+                    "core",
+                    "-o",
+                    str(outpath),
+                    "-f",
+                    str(fppath),
+                    *MOCK_EVAL_ARGS,
+                ],
+            )
             assert result.exit_code == 0, f"Output: {result.output}"
 
             with open(fppath) as f:
@@ -466,17 +583,26 @@ class TestRunProvenance:
         outfile.close()
         fpfile.close()
         try:
-            result = runner.invoke(main, [
-                "evaluate",
-                "-i", str(filepath),
-                "-p", "mock",
-                "-t", "core",
-                "--allow-tier-mismatch",
-                "--trials", "5",
-                "-o", str(outpath),
-                "-f", str(fppath),
-                *MOCK_EVAL_ARGS,
-            ])
+            result = runner.invoke(
+                main,
+                [
+                    "evaluate",
+                    "-i",
+                    str(filepath),
+                    "-p",
+                    "mock",
+                    "-t",
+                    "core",
+                    "--allow-tier-mismatch",
+                    "--trials",
+                    "5",
+                    "-o",
+                    str(outpath),
+                    "-f",
+                    str(fppath),
+                    *MOCK_EVAL_ARGS,
+                ],
+            )
             assert result.exit_code == 0, f"Output: {result.output}"
             assert captured["temperature"] == 0.0
             assert captured["num_trials"] == 5
@@ -551,16 +677,23 @@ class TestEvaluateVerbose:
         fingerprint_file = str(tmp_path / "fingerprint.json")
 
         runner = CliRunner()
-        result = runner.invoke(main, [
-            "evaluate",
-            "-i", input_file,
-            "-p", "mock",
-            "-o", output_file,
-            "-f", fingerprint_file,
-            "--allow-tier-mismatch",
-            "--verbose",
-            *MOCK_EVAL_ARGS,
-        ])
+        result = runner.invoke(
+            main,
+            [
+                "evaluate",
+                "-i",
+                input_file,
+                "-p",
+                "mock",
+                "-o",
+                output_file,
+                "-f",
+                fingerprint_file,
+                "--allow-tier-mismatch",
+                "--verbose",
+                *MOCK_EVAL_ARGS,
+            ],
+        )
 
         assert result.exit_code == 0, f"CLI failed: {result.output}"
 
@@ -581,14 +714,21 @@ class TestEvaluateVerbose:
         fingerprint_file = str(tmp_path / "fingerprint.json")
 
         runner = CliRunner()
-        result = runner.invoke(main, [
-            "evaluate",
-            "-i", input_file,
-            "-p", "mock",
-            "-o", output_file,
-            "-f", fingerprint_file,
-            "--allow-tier-mismatch",
-            *MOCK_EVAL_ARGS,
-        ])
+        result = runner.invoke(
+            main,
+            [
+                "evaluate",
+                "-i",
+                input_file,
+                "-p",
+                "mock",
+                "-o",
+                output_file,
+                "-f",
+                fingerprint_file,
+                "--allow-tier-mismatch",
+                *MOCK_EVAL_ARGS,
+            ],
+        )
 
         assert result.exit_code == 0, f"CLI failed: {result.output}"

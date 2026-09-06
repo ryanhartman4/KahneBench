@@ -215,8 +215,7 @@ class TestTreatmentPromptVariation:
 
         # Collect all treatment prompts
         treatments = {
-            intensity: instance.get_treatment(intensity)
-            for intensity in TriggerIntensity
+            intensity: instance.get_treatment(intensity) for intensity in TriggerIntensity
         }
 
         # Get unique treatment texts
@@ -240,8 +239,7 @@ class TestTreatmentPromptVariation:
         instance = generator.generate_instance(bias_id, Domain.INDIVIDUAL)
 
         treatments = {
-            intensity: instance.get_treatment(intensity)
-            for intensity in TriggerIntensity
+            intensity: instance.get_treatment(intensity) for intensity in TriggerIntensity
         }
 
         unique_treatments = set(treatments.values())
@@ -269,12 +267,15 @@ class TestEVValueModelBiases:
         """Create a generator with fixed seed for reproducibility."""
         return TestCaseGenerator(seed=42)
 
-    @pytest.mark.parametrize("bias_id", [
-        "gain_loss_framing",
-        "loss_aversion",
-        "certainty_effect",
-        "present_bias",
-    ])
+    @pytest.mark.parametrize(
+        "bias_id",
+        [
+            "gain_loss_framing",
+            "loss_aversion",
+            "certainty_effect",
+            "present_bias",
+        ],
+    )
     def test_ev_biases_have_different_rational_and_biased_responses(self, generator, bias_id):
         """Verify EV/discounting biases always have distinct rational and biased responses.
 
@@ -335,8 +336,7 @@ class TestEVValueModelBiases:
         )
         # Rational should always be B (higher PV)
         assert instance.expected_rational_response == "B", (
-            f"present_bias rational should be 'B' but got "
-            f"'{instance.expected_rational_response}'"
+            f"present_bias rational should be 'B' but got '{instance.expected_rational_response}'"
         )
 
     def test_gain_loss_framing_shows_ev_comparison(self, generator):
@@ -392,14 +392,15 @@ class TestDebiasingPrompts:
             f"Prompts: {instance.debiasing_prompts}"
         )
 
-    @pytest.mark.parametrize("bias_id,expected_terms", [
-        ("loss_aversion", ["loss", "aversion"]),
-        ("confirmation_bias", ["confirmation", "bias"]),
-        ("overconfidence_effect", ["overconfidence"]),
-    ])
-    def test_debiasing_prompts_reference_specific_biases(
-        self, generator, bias_id, expected_terms
-    ):
+    @pytest.mark.parametrize(
+        "bias_id,expected_terms",
+        [
+            ("loss_aversion", ["loss", "aversion"]),
+            ("confirmation_bias", ["confirmation", "bias"]),
+            ("overconfidence_effect", ["overconfidence"]),
+        ],
+    )
+    def test_debiasing_prompts_reference_specific_biases(self, generator, bias_id, expected_terms):
         """Verify debiasing prompts reference specific bias names.
 
         Each bias should have debiasing prompts that mention relevant terms
@@ -425,9 +426,7 @@ class TestDebiasingPrompts:
         So the base prompt inside each debiasing prompt should be the treatment
         (which contains bias triggers) rather than the neutral control.
         """
-        instance = generator.generate_instance(
-            "anchoring_effect", include_debiasing=True
-        )
+        instance = generator.generate_instance("anchoring_effect", include_debiasing=True)
 
         treatment_moderate = instance.get_treatment(TriggerIntensity.MODERATE)
 
@@ -441,16 +440,14 @@ class TestDebiasingPrompts:
         # Debiasing prompts should NOT be built on the control prompt
         # (unless control text happens to be a substring of treatment).
         # For anchoring, control lacks the anchor; treatment has it.
-        assert "anchor" not in instance.control_prompt.lower() or \
-            "anchor" in treatment_moderate.lower(), (
-            "Sanity check: treatment should contain anchor language that control lacks"
-        )
+        assert (
+            "anchor" not in instance.control_prompt.lower()
+            or "anchor" in treatment_moderate.lower()
+        ), "Sanity check: treatment should contain anchor language that control lacks"
 
     def test_debiasing_wraps_treatment_generic_bias(self, generator):
         """PP-008: Debiasing wraps treatment for generic (non-template) biases too."""
-        instance = generator.generate_instance(
-            "confirmation_bias", include_debiasing=True
-        )
+        instance = generator.generate_instance("confirmation_bias", include_debiasing=True)
 
         treatment_moderate = instance.get_treatment(TriggerIntensity.MODERATE)
 
@@ -546,9 +543,7 @@ class TestScaleParameter:
             scale=scale,
         )
 
-        assert instance.scale == scale, (
-            f"Expected scale {scale}, got {instance.scale}"
-        )
+        assert instance.scale == scale, f"Expected scale {scale}, got {instance.scale}"
 
     def test_scale_parameter_default_is_micro(self, generator):
         """Verify that the default scale is MICRO when not specified."""
@@ -617,15 +612,11 @@ class TestDomainScenarioQuality:
         """
         for domain, scenarios in DOMAIN_SCENARIOS.items():
             for scenario in scenarios:
-                assert len(scenario.actors) > 0, (
-                    f"Scenario in {domain} has no actors"
-                )
+                assert len(scenario.actors) > 0, f"Scenario in {domain} has no actors"
 
                 for actor in scenario.actors:
                     # Actor should be non-empty
-                    assert len(actor.strip()) > 0, (
-                        f"Empty actor name in {domain} scenario"
-                    )
+                    assert len(actor.strip()) > 0, f"Empty actor name in {domain} scenario"
 
                     # Actor should be a reasonable length (not too short, not too long)
                     assert 3 <= len(actor) <= 50, (
@@ -667,9 +658,7 @@ class TestDomainScenarioQuality:
                 assert isinstance(scenario.actors, list), (
                     f"Scenario {i} in {domain}: actors must be list"
                 )
-                assert len(scenario.actors) > 0, (
-                    f"Scenario {i} in {domain}: actors list is empty"
-                )
+                assert len(scenario.actors) > 0, f"Scenario {i} in {domain}: actors list is empty"
 
                 # Typical decisions must be a non-empty list
                 assert isinstance(scenario.typical_decisions, list), (
@@ -739,12 +728,8 @@ class TestNumericTargetRedesign:
     def test_base_rate_neglect_categorical_format(self, generator):
         """Test base_rate_neglect uses categorical A/B choice."""
         instance = generator.generate_instance("base_rate_neglect", Domain.PROFESSIONAL)
-        assert "A)" in instance.control_prompt, (
-            "base_rate_neglect should have option A"
-        )
-        assert "B)" in instance.control_prompt, (
-            "base_rate_neglect should have option B"
-        )
+        assert "A)" in instance.control_prompt, "base_rate_neglect should have option A"
+        assert "B)" in instance.control_prompt, "base_rate_neglect should have option B"
         assert "Reply with just A or B" in instance.control_prompt, (
             "base_rate_neglect should specify answer format"
         )
@@ -782,8 +767,9 @@ class TestNumericTargetRedesign:
         canonical_terms = ["engineer", "lawyer", "linda", "cab driver"]
         for _ in range(10):
             instance = generator.generate_instance("base_rate_neglect")
-            prompt_text = (instance.control_prompt + " " +
-                          instance.get_treatment(TriggerIntensity.MODERATE)).lower()
+            prompt_text = (
+                instance.control_prompt + " " + instance.get_treatment(TriggerIntensity.MODERATE)
+            ).lower()
             for term in canonical_terms:
                 assert term not in prompt_text, (
                     f"base_rate_neglect should not use canonical term '{term}' "
@@ -814,10 +800,10 @@ class TestNumericTargetRedesign:
         """
         instance = generator.generate_instance("gambler_fallacy", Domain.INDIVIDUAL)
         # Should ask for reasoning and recommendation
-        assert "reasoning" in instance.control_prompt.lower() or \
-               "recommend" in instance.control_prompt.lower(), (
-            "gambler_fallacy should ask for reasoning or recommendation"
-        )
+        assert (
+            "reasoning" in instance.control_prompt.lower()
+            or "recommend" in instance.control_prompt.lower()
+        ), "gambler_fallacy should ask for reasoning or recommendation"
         # Should NOT use "fair", "random", or "independent" (game-resistant)
         control_lower = instance.control_prompt.lower()
         for forbidden in ["fair coin", "random", "independent"]:
@@ -826,8 +812,7 @@ class TestNumericTargetRedesign:
             )
         # Treatment should contain streak-related scenario context
         treatment = instance.get_treatment(TriggerIntensity.MODERATE)
-        assert "reasoning" in treatment.lower() or \
-               "recommend" in treatment.lower(), (
+        assert "reasoning" in treatment.lower() or "recommend" in treatment.lower(), (
             "gambler_fallacy treatment should ask for reasoning or recommendation"
         )
 
@@ -840,15 +825,22 @@ class TestNumericTargetRedesign:
         instance = generator.generate_instance("gambler_fallacy", Domain.INDIVIDUAL)
         # Rational should mention independence or base rates
         rational_lower = instance.expected_rational_response.lower()
-        assert "streak" in rational_lower or "independent" in rational_lower or \
-               "base rate" in rational_lower, (
+        assert (
+            "streak" in rational_lower
+            or "independent" in rational_lower
+            or "base rate" in rational_lower
+        ), (
             f"gambler_fallacy rational should reference independence/base rates, "
             f"got: {instance.expected_rational_response}"
         )
         # Biased should mention reversal expectation
         biased_lower = instance.expected_biased_response.lower()
-        assert "reversal" in biased_lower or "due" in biased_lower or \
-               "change" in biased_lower or "streak" in biased_lower, (
+        assert (
+            "reversal" in biased_lower
+            or "due" in biased_lower
+            or "change" in biased_lower
+            or "streak" in biased_lower
+        ), (
             f"gambler_fallacy biased should reference streak reversal, "
             f"got: {instance.expected_biased_response}"
         )
@@ -979,18 +971,21 @@ class TestAnswerTypeMetadata:
         """Create a generator with fixed seed for reproducibility."""
         return TestCaseGenerator(seed=42)
 
-    @pytest.mark.parametrize("bias_id", [
-        "conjunction_fallacy",
-        "sunk_cost_fallacy",
-        "status_quo_bias",
-        "endowment_effect",
-        "confirmation_bias",
-        "hindsight_bias",
-        "gain_loss_framing",
-        "certainty_effect",
-        "present_bias",
-        "base_rate_neglect",
-    ])
+    @pytest.mark.parametrize(
+        "bias_id",
+        [
+            "conjunction_fallacy",
+            "sunk_cost_fallacy",
+            "status_quo_bias",
+            "endowment_effect",
+            "confirmation_bias",
+            "hindsight_bias",
+            "gain_loss_framing",
+            "certainty_effect",
+            "present_bias",
+            "base_rate_neglect",
+        ],
+    )
     def test_choice_biases_use_option_answer_type(self, generator, bias_id):
         instance = generator.generate_instance(bias_id, Domain.INDIVIDUAL)
         assert instance.metadata.get("answer_type") == "option", (
@@ -1041,6 +1036,7 @@ class TestAvailabilityBiasPromptContract:
             "availability_bias biased answer should be numeric"
         )
 
+
 class TestAnswerExtractionWithNewFormat:
     """Tests that AnswerExtractor handles the new Answer: format.
 
@@ -1052,6 +1048,7 @@ class TestAnswerExtractionWithNewFormat:
     def extractor(self):
         """Create an AnswerExtractor for testing."""
         from kahne_bench.engines.evaluator import AnswerExtractor
+
         return AnswerExtractor()
 
     def test_extract_answer_from_formatted_response(self, extractor):
@@ -1096,9 +1093,7 @@ class TestAnswerExtractionWithNewFormat:
                 successes += 1
 
         success_rate = successes / len(responses)
-        assert success_rate >= 0.95, (
-            f"Extraction success rate {success_rate:.1%} below 95% target"
-        )
+        assert success_rate >= 0.95, f"Extraction success rate {success_rate:.1%} below 95% target"
 
     @pytest.fixture
     def generator(self):
@@ -1218,8 +1213,12 @@ class TestGainLossFramingBothFrames:
     def test_all_four_frame_targets_present(self, generator):
         """Verify all four frame-conditional targets exist in metadata."""
         instance = generator.generate_instance("gain_loss_framing", Domain.INDIVIDUAL)
-        for key in ("gain_frame_rational", "gain_frame_biased",
-                     "loss_frame_rational", "loss_frame_biased"):
+        for key in (
+            "gain_frame_rational",
+            "gain_frame_biased",
+            "loss_frame_rational",
+            "loss_frame_biased",
+        ):
             assert key in instance.metadata, f"Missing metadata key: {key}"
             assert instance.metadata[key] in ("A", "B"), (
                 f"{key} should be 'A' or 'B', got {instance.metadata[key]}"
@@ -1238,29 +1237,31 @@ class TestIntensityVariation:
     def generator(self):
         return TestCaseGenerator(seed=42)
 
-    @pytest.mark.parametrize("bias_id", [
-        "anchoring_effect",
-        "availability_bias",
-        "base_rate_neglect",
-        "conjunction_fallacy",
-        "loss_aversion",
-        "endowment_effect",
-        "status_quo_bias",
-        "certainty_effect",
-        "overconfidence_effect",
-        "confirmation_bias",
-        "sunk_cost_fallacy",
-        "present_bias",
-        "hindsight_bias",
-        "gambler_fallacy",
-        "gain_loss_framing",
-    ])
+    @pytest.mark.parametrize(
+        "bias_id",
+        [
+            "anchoring_effect",
+            "availability_bias",
+            "base_rate_neglect",
+            "conjunction_fallacy",
+            "loss_aversion",
+            "endowment_effect",
+            "status_quo_bias",
+            "certainty_effect",
+            "overconfidence_effect",
+            "confirmation_bias",
+            "sunk_cost_fallacy",
+            "present_bias",
+            "hindsight_bias",
+            "gambler_fallacy",
+            "gain_loss_framing",
+        ],
+    )
     def test_core_bias_has_intensity_variation(self, generator, bias_id):
         """Each CORE bias must produce at least 2 different treatment prompts."""
         instance = generator.generate_instance(bias_id, Domain.INDIVIDUAL)
         treatments = {
-            intensity: instance.get_treatment(intensity)
-            for intensity in TriggerIntensity
+            intensity: instance.get_treatment(intensity) for intensity in TriggerIntensity
         }
         unique_treatments = set(treatments.values())
         assert len(unique_treatments) >= 2, (
@@ -1298,9 +1299,13 @@ class TestConstructValidity:
         bias_def = BIAS_TAXONOMY["present_bias"]
         for intensity in TriggerIntensity:
             trigger = gen._generate_novel_trigger(
-                bias_def, intensity,
-                anchor=100, probability=50, amount=1000,
-                item="option", event="event",
+                bias_def,
+                intensity,
+                anchor=100,
+                probability=50,
+                amount=1000,
+                item="option",
+                event="event",
             )
             assert "uncertain" not in trigger.lower(), (
                 f"temporal_bias trigger at {intensity.name} contains 'uncertain', "

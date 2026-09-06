@@ -120,34 +120,18 @@ class TestXMLParsing:
     def test_parse_valid_xml(self):
         """All 6 XML tags correctly extracted."""
         assert _extract_xml_tag(MOCK_HIGH_QUALITY_RESPONSE, "realism") == "8"
+        assert _extract_xml_tag(MOCK_HIGH_QUALITY_RESPONSE, "elicitation_difficulty") == "7"
+        assert _extract_xml_tag(MOCK_HIGH_QUALITY_RESPONSE, "detection_awareness") == "3"
         assert (
-            _extract_xml_tag(
-                MOCK_HIGH_QUALITY_RESPONSE, "elicitation_difficulty"
-            )
-            == "7"
-        )
-        assert (
-            _extract_xml_tag(
-                MOCK_HIGH_QUALITY_RESPONSE, "detection_awareness"
-            )
-            == "3"
-        )
-        assert (
-            _extract_xml_tag(
-                MOCK_HIGH_QUALITY_RESPONSE, "realism_justification"
-            )
+            _extract_xml_tag(MOCK_HIGH_QUALITY_RESPONSE, "realism_justification")
             == "Realistic financial scenario."
         )
         assert (
-            _extract_xml_tag(
-                MOCK_HIGH_QUALITY_RESPONSE, "elicitation_justification"
-            )
+            _extract_xml_tag(MOCK_HIGH_QUALITY_RESPONSE, "elicitation_justification")
             == "Moderate difficulty with subtle anchor."
         )
         assert (
-            _extract_xml_tag(
-                MOCK_HIGH_QUALITY_RESPONSE, "detection_justification"
-            )
+            _extract_xml_tag(MOCK_HIGH_QUALITY_RESPONSE, "detection_justification")
             == "Not obviously a bias test."
         )
 
@@ -176,9 +160,7 @@ class TestQualityJudgeAssessment:
         assert scores.realism == 8.0
         assert scores.elicitation_difficulty == 7.0
         assert scores.detection_awareness == 3.0
-        assert scores.overall_quality == pytest.approx(
-            QualityScores.compute_overall(8.0, 7.0, 3.0)
-        )
+        assert scores.overall_quality == pytest.approx(QualityScores.compute_overall(8.0, 7.0, 3.0))
         assert scores.instance_id == "anchoring_effect_individual"
 
     @pytest.mark.asyncio
@@ -235,13 +217,9 @@ class TestQualityJudgeAssessment:
 
     def test_instance_id_format(self):
         """Instance ID is 'bias_id_domain_value'."""
-        instance = _make_instance(
-            bias_id="loss_aversion", domain=Domain.PROFESSIONAL
-        )
+        instance = _make_instance(bias_id="loss_aversion", domain=Domain.PROFESSIONAL)
         expected_id = "loss_aversion_professional"
-        assert (
-            f"{instance.bias_id}_{instance.domain.value}" == expected_id
-        )
+        assert f"{instance.bias_id}_{instance.domain.value}" == expected_id
 
 
 # ---------------------------------------------------------------------------
@@ -256,9 +234,7 @@ class TestBatchAssessment:
     async def test_batch_assessment(self):
         """Batch runs on sampled subset and returns report."""
         provider = MockLLMProvider(MOCK_HIGH_QUALITY_RESPONSE)
-        judge = QualityJudge(
-            provider=provider, sample_rate=1.0
-        )
+        judge = QualityJudge(provider=provider, sample_rate=1.0)
         instances = [
             _make_instance(domain=Domain.INDIVIDUAL),
             _make_instance(domain=Domain.PROFESSIONAL),
@@ -276,13 +252,8 @@ class TestBatchAssessment:
     async def test_batch_sampling_rate(self):
         """With 0.5 rate, ~50% of 20 instances assessed."""
         provider = MockLLMProvider(MOCK_HIGH_QUALITY_RESPONSE)
-        judge = QualityJudge(
-            provider=provider, sample_rate=0.5
-        )
-        instances = [
-            _make_instance(domain=Domain.INDIVIDUAL)
-            for _ in range(20)
-        ]
+        judge = QualityJudge(provider=provider, sample_rate=0.5)
+        instances = [_make_instance(domain=Domain.INDIVIDUAL) for _ in range(20)]
 
         report = await judge.assess_batch(instances)
 
@@ -294,9 +265,7 @@ class TestBatchAssessment:
     async def test_report_mean_scores(self):
         """Aggregate means computed correctly."""
         provider = MockLLMProvider(MOCK_HIGH_QUALITY_RESPONSE)
-        judge = QualityJudge(
-            provider=provider, sample_rate=1.0
-        )
+        judge = QualityJudge(provider=provider, sample_rate=1.0)
         instances = [
             _make_instance(domain=Domain.INDIVIDUAL),
             _make_instance(domain=Domain.PROFESSIONAL),
@@ -315,9 +284,7 @@ class TestBatchAssessment:
         # High quality mock: overall = 8*0.3/10 + 7*0.3/10 + 7*0.4/10
         #   = 0.24 + 0.21 + 0.28 = 0.73 -> high
         provider = MockLLMProvider(MOCK_HIGH_QUALITY_RESPONSE)
-        judge = QualityJudge(
-            provider=provider, sample_rate=1.0
-        )
+        judge = QualityJudge(provider=provider, sample_rate=1.0)
         instances = [_make_instance()]
 
         report = await judge.assess_batch(instances)
@@ -338,9 +305,7 @@ class TestFilterLowQuality:
 
     def test_filter_low_quality(self):
         """Low quality instances removed correctly."""
-        judge = QualityJudge(
-            provider=MockLLMProvider(), quality_threshold=0.4
-        )
+        judge = QualityJudge(provider=MockLLMProvider(), quality_threshold=0.4)
         instances = [
             _make_instance(domain=Domain.INDIVIDUAL),
             _make_instance(domain=Domain.PROFESSIONAL),
@@ -365,9 +330,7 @@ class TestFilterLowQuality:
 
     def test_filter_preserves_unassessed(self):
         """Instances not assessed are NOT filtered."""
-        judge = QualityJudge(
-            provider=MockLLMProvider(), quality_threshold=0.4
-        )
+        judge = QualityJudge(provider=MockLLMProvider(), quality_threshold=0.4)
         instances = [
             _make_instance(domain=Domain.INDIVIDUAL),
             _make_instance(domain=Domain.PROFESSIONAL),

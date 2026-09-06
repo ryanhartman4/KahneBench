@@ -1,6 +1,5 @@
 """Tests for the cognitive bias taxonomy."""
 
-
 import re
 
 from kahne_bench.biases import (
@@ -149,8 +148,7 @@ class TestBiasTaxonomy:
 
         orphaned = all_categories - used_categories
         assert not orphaned, (
-            f"The following BiasCategory enum values have no biases: "
-            f"{[c.name for c in orphaned]}"
+            f"The following BiasCategory enum values have no biases: {[c.name for c in orphaned]}"
         )
 
     def test_bias_ids_follow_naming_convention(self):
@@ -209,8 +207,7 @@ class TestBiasInteractionMatrix:
         for primary_bias, secondaries in BIAS_INTERACTION_MATRIX.items():
             for secondary_bias in secondaries:
                 assert secondary_bias in BIAS_TAXONOMY, (
-                    f"Secondary bias {secondary_bias} not in taxonomy "
-                    f"(from primary {primary_bias})"
+                    f"Secondary bias {secondary_bias} not in taxonomy (from primary {primary_bias})"
                 )
 
     def test_each_primary_has_multiple_interactions(self):
@@ -243,9 +240,7 @@ class TestBiasInteractionMatrix:
 
         for primary_bias, secondaries in BIAS_INTERACTION_MATRIX.items():
             if len(secondaries) > max_interactions:
-                excessive_interactions.append(
-                    f"{primary_bias}: {len(secondaries)} interactions"
-                )
+                excessive_interactions.append(f"{primary_bias}: {len(secondaries)} interactions")
 
         assert not excessive_interactions, (
             f"The following biases exceed {max_interactions} interaction partners: "
@@ -276,9 +271,7 @@ class TestKTCoreField:
             if bias.is_kt_core:
                 basis_lower = bias.theoretical_basis.lower()
                 has_kt = any(kw in basis_lower for kw in kt_keywords)
-                assert has_kt, (
-                    f"K&T core bias {bias.id} doesn't cite K&T: {bias.theoretical_basis}"
-                )
+                assert has_kt, f"K&T core bias {bias.id} doesn't cite K&T: {bias.theoretical_basis}"
 
     def test_helper_functions_exist(self):
         """Verify get_kt_core_biases and get_extended_biases work."""
@@ -303,9 +296,7 @@ class TestKTCoreField:
         """
         non_kt_core_biases = [b for b in BIAS_TAXONOMY.values() if not b.is_kt_core]
 
-        assert len(non_kt_core_biases) > 0, (
-            "Expected at least some biases with is_kt_core=False"
-        )
+        assert len(non_kt_core_biases) > 0, "Expected at least some biases with is_kt_core=False"
 
         # Should have a reasonable number of extended biases (not just 1 or 2)
         assert len(non_kt_core_biases) >= 10, (
@@ -327,8 +318,7 @@ class TestKTCoreField:
         # All returned biases must have is_kt_core=True
         for bias in kt_core:
             assert bias.is_kt_core, (
-                f"Bias '{bias.id}' returned by get_kt_core_biases() "
-                f"but has is_kt_core=False"
+                f"Bias '{bias.id}' returned by get_kt_core_biases() but has is_kt_core=False"
             )
 
         # Should be a proper subset (not all biases)

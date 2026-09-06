@@ -147,10 +147,7 @@ class VariationGenerator:
         intensity: TriggerIntensity = TriggerIntensity.MODERATE,
     ) -> list[VariationSpec]:
         """Generate variations along ALL dimensions for a single instance."""
-        return [
-            self.generate_variation(instance, dim, intensity)
-            for dim in VariationDimension
-        ]
+        return [self.generate_variation(instance, dim, intensity) for dim in VariationDimension]
 
     def generate_varied_instances(
         self,
@@ -247,10 +244,7 @@ class VariationRobustnessScore:
                 mean_deviation=0.0,
             )
 
-        deviations = {
-            dim: abs(score - baseline_score)
-            for dim, score in dimension_scores.items()
-        }
+        deviations = {dim: abs(score - baseline_score) for dim, score in dimension_scores.items()}
 
         max_deviation = max(deviations.values())
         mean_deviation = sum(deviations.values()) / len(deviations)

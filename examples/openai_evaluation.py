@@ -55,8 +55,7 @@ class OpenAIProvider:
         """Generate completion from the model."""
         # Match evaluator.py pattern: gpt-5.x, o-series, chatgpt- use max_completion_tokens
         uses_completion_tokens = any(
-            self.model.startswith(prefix)
-            for prefix in ("gpt-5", "o3", "o1", "chatgpt-")
+            self.model.startswith(prefix) for prefix in ("gpt-5", "o3", "o1", "chatgpt-")
         )
         request_kwargs = {
             "model": self.model,
@@ -114,14 +113,14 @@ async def run_evaluation(
     if domains:
         domain_list = [Domain(d) for d in domains]
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("KAHNE-BENCH EVALUATION")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Model: {model}")
     print(f"Tier: {tier} ({len(bias_ids)} biases)")
     print(f"Domains: {[d.value for d in domain_list]}")
     print(f"Trials per condition: {num_trials}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # Generate test instances
     print("Generating test instances...")
@@ -179,9 +178,9 @@ async def run_evaluation(
     report = calculator.calculate_all_metrics(model, session.results)
 
     # Print summary
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("RESULTS SUMMARY")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(generate_summary_report(report))
 
     # Export results
@@ -202,33 +201,26 @@ def main():
     parser = argparse.ArgumentParser(
         description="Evaluate an LLM for cognitive biases using Kahne-Bench"
     )
+    parser.add_argument("--model", "-m", default="gpt-5.2", help="Model name (default: gpt-5.2)")
     parser.add_argument(
-        "--model", "-m",
-        default="gpt-5.2",
-        help="Model name (default: gpt-5.2)"
-    )
-    parser.add_argument(
-        "--tier", "-t",
+        "--tier",
+        "-t",
         choices=["core", "extended", "interaction"],
         default="core",
-        help="Benchmark tier (default: core)"
+        help="Benchmark tier (default: core)",
     )
     parser.add_argument(
-        "--domains", "-d",
+        "--domains",
+        "-d",
         nargs="+",
         choices=["individual", "professional", "social", "temporal", "risk"],
-        help="Domains to test (default: professional, individual)"
+        help="Domains to test (default: professional, individual)",
     )
     parser.add_argument(
-        "--trials", "-n",
-        type=int,
-        default=3,
-        help="Number of trials per condition (default: 3)"
+        "--trials", "-n", type=int, default=3, help="Number of trials per condition (default: 3)"
     )
     parser.add_argument(
-        "--output", "-o",
-        default="evaluation",
-        help="Output file prefix (default: evaluation)"
+        "--output", "-o", default="evaluation", help="Output file prefix (default: evaluation)"
     )
 
     args = parser.parse_args()
@@ -240,13 +232,15 @@ def main():
         return 1
 
     # Run evaluation
-    asyncio.run(run_evaluation(
-        model=args.model,
-        tier=args.tier,
-        domains=args.domains,
-        num_trials=args.trials,
-        output_prefix=args.output,
-    ))
+    asyncio.run(
+        run_evaluation(
+            model=args.model,
+            tier=args.tier,
+            domains=args.domains,
+            num_trials=args.trials,
+            output_prefix=args.output,
+        )
+    )
 
     return 0
 

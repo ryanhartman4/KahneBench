@@ -143,11 +143,13 @@ class MockProvider:
         max_tokens: int = 1024,
         temperature: float = 0.0,
     ) -> str:
-        self.calls.append({
-            "prompt": prompt,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-        })
+        self.calls.append(
+            {
+                "prompt": prompt,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            }
+        )
         if self._responses:
             resp = self._responses[self._index % len(self._responses)]
             self._index += 1
@@ -230,7 +232,8 @@ class TestParseUnderstanding:
     def test_parse_understanding_valid(self, anchoring_def):
         gen = BloomBiasGenerator(provider=MockProvider())
         result = gen._parse_understanding(
-            "anchoring_effect", MOCK_UNDERSTANDING_RESPONSE,
+            "anchoring_effect",
+            MOCK_UNDERSTANDING_RESPONSE,
         )
 
         assert isinstance(result, BiasUnderstanding)
@@ -268,7 +271,8 @@ class TestParseScenarios:
     def test_parse_scenarios_valid(self):
         gen = BloomBiasGenerator(provider=MockProvider())
         scenarios = gen._parse_scenarios(
-            MOCK_IDEATION_RESPONSE, Domain.PROFESSIONAL,
+            MOCK_IDEATION_RESPONSE,
+            Domain.PROFESSIONAL,
         )
         assert len(scenarios) == 2
         for s in scenarios:
@@ -282,7 +286,8 @@ class TestParseScenarios:
         """Malformed scenarios (missing prompts) are silently skipped."""
         gen = BloomBiasGenerator(provider=MockProvider())
         scenarios = gen._parse_scenarios(
-            MOCK_IDEATION_MALFORMED, Domain.INDIVIDUAL,
+            MOCK_IDEATION_MALFORMED,
+            Domain.INDIVIDUAL,
         )
         # Only the first valid scenario survives (second has missing
         # prompts, third has identical answers)
@@ -317,11 +322,14 @@ class TestScenarioToInstance:
     """Tests for scenario_to_instance conversion."""
 
     def test_scenario_to_instance(
-        self, anchoring_def, sample_scenario,
+        self,
+        anchoring_def,
+        sample_scenario,
     ):
         gen = BloomBiasGenerator(provider=MockProvider())
         instance = gen.scenario_to_instance(
-            sample_scenario, anchoring_def,
+            sample_scenario,
+            anchoring_def,
         )
         assert isinstance(instance, CognitiveBiasInstance)
         assert instance.bias_id.endswith("_anchoring_effect")
@@ -329,40 +337,54 @@ class TestScenarioToInstance:
         assert instance.scale == TestScale.MICRO
 
     def test_instance_has_all_intensities(
-        self, anchoring_def, sample_scenario,
+        self,
+        anchoring_def,
+        sample_scenario,
     ):
         gen = BloomBiasGenerator(provider=MockProvider())
         instance = gen.scenario_to_instance(
-            sample_scenario, anchoring_def,
+            sample_scenario,
+            anchoring_def,
         )
         for intensity in TriggerIntensity:
             assert intensity in instance.treatment_prompts
             assert len(instance.treatment_prompts[intensity]) > 0
 
     def test_instance_has_debiasing(
-        self, anchoring_def, sample_scenario,
+        self,
+        anchoring_def,
+        sample_scenario,
     ):
         gen = BloomBiasGenerator(provider=MockProvider())
         instance = gen.scenario_to_instance(
-            sample_scenario, anchoring_def, include_debiasing=True,
+            sample_scenario,
+            anchoring_def,
+            include_debiasing=True,
         )
         assert len(instance.debiasing_prompts) == 3
 
     def test_instance_no_debiasing(
-        self, anchoring_def, sample_scenario,
+        self,
+        anchoring_def,
+        sample_scenario,
     ):
         gen = BloomBiasGenerator(provider=MockProvider())
         instance = gen.scenario_to_instance(
-            sample_scenario, anchoring_def, include_debiasing=False,
+            sample_scenario,
+            anchoring_def,
+            include_debiasing=False,
         )
         assert len(instance.debiasing_prompts) == 0
 
     def test_instance_metadata(
-        self, anchoring_def, sample_scenario,
+        self,
+        anchoring_def,
+        sample_scenario,
     ):
         gen = BloomBiasGenerator(provider=MockProvider())
         instance = gen.scenario_to_instance(
-            sample_scenario, anchoring_def,
+            sample_scenario,
+            anchoring_def,
         )
         assert instance.metadata["generation_method"] == "bloom"
         assert instance.metadata["answer_type"] == "numeric"
@@ -398,7 +420,8 @@ class TestIntensityVariants:
         gen = BloomBiasGenerator(provider=MockProvider())
         original = "Choose an option. Answer:"
         adversarial = gen._adversarial_treatment(
-            original, anchoring_def,
+            original,
+            anchoring_def,
         )
         assert "Pay close attention" in adversarial
         assert original in adversarial
@@ -440,15 +463,22 @@ class TestGenerateScenarios:
 
     @pytest.mark.asyncio
     async def test_generate_scenarios_calls_provider(
-        self, anchoring_def, sample_understanding,
+        self,
+        anchoring_def,
+        sample_understanding,
     ):
         mock = MockProvider(responses=[MOCK_IDEATION_RESPONSE])
         gen = BloomBiasGenerator(
-            provider=mock, temperature=0.6, max_tokens=2048,
+            provider=mock,
+            temperature=0.6,
+            max_tokens=2048,
         )
 
         scenarios = await gen.generate_scenarios(
-            sample_understanding, anchoring_def, Domain.SOCIAL, 3,
+            sample_understanding,
+            anchoring_def,
+            Domain.SOCIAL,
+            3,
         )
 
         assert len(mock.calls) == 1
@@ -470,10 +500,12 @@ class TestGenerateBatch:
 
     @pytest.mark.asyncio
     async def test_generate_batch(self):
-        mock = MockProvider(responses=[
-            MOCK_UNDERSTANDING_RESPONSE,
-            MOCK_IDEATION_RESPONSE,
-        ])
+        mock = MockProvider(
+            responses=[
+                MOCK_UNDERSTANDING_RESPONSE,
+                MOCK_IDEATION_RESPONSE,
+            ]
+        )
         gen = BloomBiasGenerator(provider=mock, num_scenarios=2)
 
         instances = await gen.generate_batch(
@@ -503,11 +535,13 @@ class TestGenerateBatch:
 
     @pytest.mark.asyncio
     async def test_generate_batch_multiple_domains(self):
-        mock = MockProvider(responses=[
-            MOCK_UNDERSTANDING_RESPONSE,
-            MOCK_IDEATION_RESPONSE,
-            MOCK_IDEATION_RESPONSE,
-        ])
+        mock = MockProvider(
+            responses=[
+                MOCK_UNDERSTANDING_RESPONSE,
+                MOCK_IDEATION_RESPONSE,
+                MOCK_IDEATION_RESPONSE,
+            ]
+        )
         gen = BloomBiasGenerator(provider=mock)
 
         instances = await gen.generate_batch(
@@ -546,13 +580,7 @@ class TestXmlHelpers:
 
     def test_extract_list(self):
         gen = BloomBiasGenerator(provider=MockProvider())
-        text = (
-            "<items>\n"
-            "- First item\n"
-            "- Second item\n"
-            "- Third item\n"
-            "</items>"
-        )
+        text = "<items>\n- First item\n- Second item\n- Third item\n</items>"
         result = gen._extract_list("items", text)
         assert result == ["First item", "Second item", "Third item"]
 

@@ -159,7 +159,7 @@ AVAILABILITY_BIASES = [
         system1_mechanism="Recent events more available in memory",
         system2_override="Consider full historical data, not just recent events",
         classic_paradigm="Stock market: Recent trends predict future",
-        trigger_template="Given recent {events}, predict the likelihood of {future_outcome}."
+        trigger_template="Given recent {events}, predict the likelihood of {future_outcome}.",
     ),
     BiasDefinition(
         id="salience_bias",
@@ -194,7 +194,7 @@ AVAILABILITY_BIASES = [
         system1_mechanism="Distinctive pairings are memorable, create false associations",
         system2_override="Check actual covariation statistics",
         classic_paradigm="Believing minorities commit more crimes due to media salience",
-        trigger_template="Based on {salient_examples}, estimate the correlation between {variable_a} and {variable_b}."
+        trigger_template="Based on {salient_examples}, estimate the correlation between {variable_a} and {variable_b}.",
     ),
     BiasDefinition(
         id="primacy_bias",
@@ -205,7 +205,7 @@ AVAILABILITY_BIASES = [
         system1_mechanism="First information sets context and is highly available",
         system2_override="Deliberately consider all information equally",
         classic_paradigm="First impressions in interviews; first options in lists",
-        trigger_template="Consider options: {option_a_first}, {option_b}, {option_c}, {option_d}. Which do you prefer?"
+        trigger_template="Consider options: {option_a_first}, {option_b}, {option_c}, {option_d}. Which do you prefer?",
     ),
 ]
 
@@ -236,7 +236,7 @@ ANCHORING_BIASES = [
         system1_mechanism="Adjustment is effortful; System 1 stops when plausible reached",
         system2_override="Continue adjustment until confident in independence from anchor",
         classic_paradigm="Self-generated anchors in estimation tasks",
-        trigger_template="Starting from {anchor}, estimate {target}. Consider if you've adjusted enough."
+        trigger_template="Starting from {anchor}, estimate {target}. Consider if you've adjusted enough.",
     ),
     BiasDefinition(
         id="focalism",
@@ -247,7 +247,7 @@ ANCHORING_BIASES = [
         system1_mechanism="Focal information dominates attention and judgment",
         system2_override="Systematically consider multiple relevant factors",
         classic_paradigm="Predicting future happiness based on single life change",
-        trigger_template="Given {focal_factor}, predict {outcome}. What else should you consider?"
+        trigger_template="Given {focal_factor}, predict {outcome}. What else should you consider?",
     ),
     BiasDefinition(
         id="first_offer_anchoring",
@@ -258,7 +258,7 @@ ANCHORING_BIASES = [
         system1_mechanism="First number sets psychological reference point",
         system2_override="Prepare independent valuation before negotiation",
         classic_paradigm="Salary negotiations anchored by initial offer",
-        trigger_template="The first offer in this negotiation was {amount}. What would be a fair final agreement?"
+        trigger_template="The first offer in this negotiation was {amount}. What would be a fair final agreement?",
     ),
     BiasDefinition(
         id="numeric_priming",
@@ -269,7 +269,7 @@ ANCHORING_BIASES = [
         system1_mechanism="Any activated number can serve as implicit anchor",
         system2_override="Recognize potential for incidental anchoring",
         classic_paradigm="Social security number affecting price estimates",
-        trigger_template="Consider the number {irrelevant_number}. Now estimate {unrelated_quantity}."
+        trigger_template="Consider the number {irrelevant_number}. Now estimate {unrelated_quantity}.",
     ),
 ]
 
@@ -312,7 +312,7 @@ LOSS_AVERSION_BIASES = [
         system1_mechanism="Change = potential losses from current position",
         system2_override="Evaluate all options from neutral reference point",
         classic_paradigm="Sticking with default options even when suboptimal",
-        trigger_template="Current situation: {status_quo}. Alternative: {alternative}. Which do you prefer?"
+        trigger_template="Current situation: {status_quo}. Alternative: {alternative}. Which do you prefer?",
     ),
     BiasDefinition(
         id="sunk_cost_fallacy",
@@ -323,7 +323,7 @@ LOSS_AVERSION_BIASES = [
         system1_mechanism="Abandoning = crystallizing prior losses",
         system2_override="Ignore sunk costs; decide based on future value only",
         classic_paradigm="Watching boring movie because ticket was expensive",
-        trigger_template="You've invested {sunk_cost} in {project}. It will require {additional_cost} to complete, or you could switch to {alternative}. Which option do you recommend?"
+        trigger_template="You've invested {sunk_cost} in {project}. It will require {additional_cost} to complete, or you could switch to {alternative}. Which option do you recommend?",
     ),
     BiasDefinition(
         id="disposition_effect",
@@ -334,7 +334,7 @@ LOSS_AVERSION_BIASES = [
         system1_mechanism="Selling losers = realizing losses; hold to avoid pain",
         system2_override="Evaluate each position on future prospects only",
         classic_paradigm="Investor portfolio decisions",
-        trigger_template="Stock A is up {gain}%. Stock B is down {loss}%. Which do you sell to raise cash?"
+        trigger_template="Stock A is up {gain}%. Stock B is down {loss}%. Which do you sell to raise cash?",
     ),
 ]
 
@@ -365,7 +365,7 @@ FRAMING_BIASES = [
         system1_mechanism="Positive/negative labels trigger different associations",
         system2_override="Translate frames to common metric before evaluating",
         classic_paradigm="75% lean vs 25% fat beef",
-        trigger_template="Product is {positive_frame}. How would you rate it? (Compare: {negative_frame})"
+        trigger_template="Product is {positive_frame}. How would you rate it? (Compare: {negative_frame})",
     ),
     BiasDefinition(
         id="reference_point_framing",
@@ -388,7 +388,7 @@ FRAMING_BIASES = [
         system1_mechanism="Default = implicit recommendation + loss aversion for change",
         system2_override="Actively evaluate whether default suits your preferences",
         classic_paradigm="Organ donation opt-in vs opt-out countries",
-        trigger_template="The default option is {default}. Alternatives are {alternatives}. What do you choose?"
+        trigger_template="The default option is {default}. Alternatives are {alternatives}. What do you choose?",
     ),
     BiasDefinition(
         id="risk_framing",
@@ -399,7 +399,7 @@ FRAMING_BIASES = [
         system1_mechanism="Percentages harder to process than natural frequencies",
         system2_override="Convert to common format before comparing risks",
         classic_paradigm="1 in 1000 chance vs 0.1% probability",
-        trigger_template="Risk A: {percentage_format}. Risk B: {frequency_format}. Which seems more concerning?"
+        trigger_template="Risk A: {percentage_format}. Risk B: {frequency_format}. Which seems more concerning?",
     ),
     BiasDefinition(
         id="temporal_framing",
@@ -410,7 +410,7 @@ FRAMING_BIASES = [
         system1_mechanism="Daily vs yearly costs processed as different magnitudes",
         system2_override="Normalize all time periods for fair comparison",
         classic_paradigm="$1/day vs $365/year",
-        trigger_template="Cost is {daily_frame} per day, equivalent to {yearly_frame} per year. How expensive does this seem?"
+        trigger_template="Cost is {daily_frame} per day, equivalent to {yearly_frame} per year. How expensive does this seem?",
     ),
 ]
 
@@ -465,7 +465,7 @@ PROBABILITY_BIASES = [
         system1_mechanism="Emotional outcomes dominate; probability fades to background",
         system2_override="Force explicit probability estimation before evaluation",
         classic_paradigm="Fear of terrorism vs car accidents",
-        trigger_template="Event has {probability}% chance and would result in {outcome}. How worried should you be?"
+        trigger_template="Event has {probability}% chance and would result in {outcome}. How worried should you be?",
     ),
     BiasDefinition(
         id="denominator_neglect",
@@ -476,7 +476,7 @@ PROBABILITY_BIASES = [
         system1_mechanism="Numerator is salient; denominator requires calculation",
         system2_override="Explicitly consider both parts of ratio",
         classic_paradigm="7 in 100 vs 1 in 10 preference",
-        trigger_template="Which is more likely: {n1} in {d1} or {n2} in {d2}?"
+        trigger_template="Which is more likely: {n1} in {d1} or {n2} in {d2}?",
     ),
     BiasDefinition(
         id="zero_risk_bias",
@@ -487,7 +487,7 @@ PROBABILITY_BIASES = [
         system1_mechanism="Zero is qualitatively different from small number",
         system2_override="Calculate actual risk reduction magnitudes",
         classic_paradigm="Preferring to eliminate one small risk over reducing larger risk",
-        trigger_template="Option A: Eliminate {small_risk}% risk completely. Option B: Reduce {large_risk}% risk by {reduction}%. Choose."
+        trigger_template="Option A: Eliminate {small_risk}% risk completely. Option B: Reduce {large_risk}% risk by {reduction}%. Choose.",
     ),
 ]
 
@@ -506,7 +506,7 @@ OVERCONFIDENCE_BIASES = [
         system1_mechanism="Coherent narrative feels like accurate understanding",
         system2_override="Track calibration; seek disconfirming evidence",
         classic_paradigm="Confidence intervals too narrow; 90% confidence correct <50%",
-        trigger_template="Answer: {answer}. How confident are you (0-100%)? {actual_accuracy}"
+        trigger_template="Answer: {answer}. How confident are you (0-100%)? {actual_accuracy}",
     ),
     BiasDefinition(
         id="planning_fallacy",
@@ -529,7 +529,7 @@ OVERCONFIDENCE_BIASES = [
         system1_mechanism="Agency feelings extend beyond actual influence",
         system2_override="Distinguish skill from chance outcomes",
         classic_paradigm="Rolling dice harder for higher numbers",
-        trigger_template="In {random_process}, how much can your {action} influence the outcome?"
+        trigger_template="In {random_process}, how much can your {action} influence the outcome?",
     ),
     BiasDefinition(
         id="hindsight_bias",
@@ -540,7 +540,7 @@ OVERCONFIDENCE_BIASES = [
         system1_mechanism="Outcome integrates into narrative as inevitable",
         system2_override="Record predictions before outcomes; compare honestly",
         classic_paradigm="Post-election: 'I always knew they would win'",
-        trigger_template="Before knowing outcome: What did you predict for {event}? After: {actual_outcome}"
+        trigger_template="Before knowing outcome: What did you predict for {event}? After: {actual_outcome}",
     ),
     BiasDefinition(
         id="optimism_bias",
@@ -551,7 +551,7 @@ OVERCONFIDENCE_BIASES = [
         system1_mechanism="Positive self-image generalizes to predictions",
         system2_override="Compare to objective base rates for similar people",
         classic_paradigm="Smokers underestimating personal cancer risk",
-        trigger_template="Estimate your personal probability of {negative_event}. Population base rate: {base_rate}%"
+        trigger_template="Estimate your personal probability of {negative_event}. Population base rate: {base_rate}%",
     ),
 ]
 
@@ -570,7 +570,7 @@ CONFIRMATION_BIASES = [
         system1_mechanism="Confirming evidence is more fluently processed",
         system2_override="Actively seek disconfirming evidence",
         classic_paradigm="2-4-6 task: Testing rule by confirming examples only",
-        trigger_template="Your hypothesis is {hypothesis}. What evidence would you seek to test it?"
+        trigger_template="Your hypothesis is {hypothesis}. What evidence would you seek to test it?",
     ),
     BiasDefinition(
         id="belief_perseverance",
@@ -581,7 +581,7 @@ CONFIRMATION_BIASES = [
         system1_mechanism="Initial belief creates mental model resistant to update",
         system2_override="Consider evidence strength when updating beliefs",
         classic_paradigm="Fake feedback studies: beliefs persist after debriefing",
-        trigger_template="You believed {belief}. Evidence now shows {disconfirming_evidence}. What do you now believe?"
+        trigger_template="You believed {belief}. Evidence now shows {disconfirming_evidence}. What do you now believe?",
     ),
     BiasDefinition(
         id="myside_bias",
@@ -592,7 +592,7 @@ CONFIRMATION_BIASES = [
         system1_mechanism="Prior beliefs act as filter for evidence evaluation",
         system2_override="Evaluate evidence quality independent of conclusion",
         classic_paradigm="Asymmetric skepticism about evidence for/against one's views",
-        trigger_template="Evidence for your position: {supporting}. Against: {opposing}. Rate the quality of each."
+        trigger_template="Evidence for your position: {supporting}. Against: {opposing}. Rate the quality of each.",
     ),
 ]
 
@@ -611,7 +611,7 @@ TEMPORAL_BIASES = [
         system1_mechanism="Present is vivid and certain; future is abstract",
         system2_override="Apply consistent discount rate across time periods",
         classic_paradigm="Preferring $100 today over $110 tomorrow, but $110 in 31 days over $100 in 30",
-        trigger_template="Choose: {immediate_reward} now, or {larger_reward} in {delay}?"
+        trigger_template="Choose: {immediate_reward} now, or {larger_reward} in {delay}?",
     ),
     BiasDefinition(
         id="duration_neglect",
@@ -667,7 +667,7 @@ EXTENSION_NEGLECT_BIASES = [
         system1_mechanism="Individual story evokes emotion; statistics don't",
         system2_override="Consider total impact regardless of identifiability",
         classic_paradigm="Donations higher for named child than statistics",
-        trigger_template="Help {named_individual} or program affecting {statistical_count} people?"
+        trigger_template="Help {named_individual} or program affecting {statistical_count} people?",
     ),
     BiasDefinition(
         id="group_attribution_bias",
@@ -678,7 +678,7 @@ EXTENSION_NEGLECT_BIASES = [
         system1_mechanism="Group prototype applied to individuals",
         system2_override="Consider individual variation within groups",
         classic_paradigm="Judging individual based on group stereotypes",
-        trigger_template="{individual} belongs to {group}. Predict their {attribute}."
+        trigger_template="{individual} belongs to {group}. Predict their {attribute}.",
     ),
     BiasDefinition(
         id="halo_effect",
@@ -689,7 +689,7 @@ EXTENSION_NEGLECT_BIASES = [
         system1_mechanism="Positive impression in one area creates positive expectations in others",
         system2_override="Evaluate each attribute independently based on specific evidence",
         classic_paradigm="Attractive people judged as more competent and honest",
-        trigger_template="{person} excels at {positive_trait}. Evaluate their likely {unrelated_trait}."
+        trigger_template="{person} excels at {positive_trait}. Evaluate their likely {unrelated_trait}.",
     ),
 ]
 
@@ -709,7 +709,7 @@ MEMORY_BIASES = [
         system1_mechanism="Emotional fading allows positive aspects to dominate memory reconstruction",
         system2_override="Use contemporaneous records and objective data when evaluating past events",
         classic_paradigm="Vacations remembered more positively than rated during the trip",
-        trigger_template="Recall your experience with {past_event}. How would you rate it compared to similar {current_event}?"
+        trigger_template="Recall your experience with {past_event}. How would you rate it compared to similar {current_event}?",
     ),
     BiasDefinition(
         id="source_confusion",
@@ -720,7 +720,7 @@ MEMORY_BIASES = [
         system1_mechanism="Familiarity overrides source attribution during retrieval",
         system2_override="Explicitly verify source attribution before acting on remembered information",
         classic_paradigm="Remembering information but forgetting where it was learned",
-        trigger_template="You recall {information}. Where did you originally learn this, and how certain are you?"
+        trigger_template="You recall {information}. Where did you originally learn this, and how certain are you?",
     ),
     BiasDefinition(
         id="misinformation_effect",
@@ -731,7 +731,7 @@ MEMORY_BIASES = [
         system1_mechanism="New information integrates with original memory trace",
         system2_override="Distinguish between original observations and later acquired information",
         classic_paradigm="Leading questions changing eyewitness memory of car crash speed",
-        trigger_template="After observing {event}, you learn that {post_event_information}. Describe what you originally saw."
+        trigger_template="After observing {event}, you learn that {post_event_information}. Describe what you originally saw.",
     ),
     BiasDefinition(
         id="memory_reconstruction_bias",
@@ -742,7 +742,7 @@ MEMORY_BIASES = [
         system1_mechanism="Current beliefs serve as anchors for reconstructing past beliefs",
         system2_override="Consult records and external evidence of past positions",
         classic_paradigm="People who changed opinions believing they always held new view",
-        trigger_template="Your current position on {topic} is {current_position}. What was your position {time_ago}?"
+        trigger_template="Your current position on {topic} is {current_position}. What was your position {time_ago}?",
     ),
 ]
 
@@ -762,7 +762,7 @@ ATTENTION_BIASES = [
         system1_mechanism="Emotionally relevant information captures attention automatically",
         system2_override="Consciously redirect attention to all relevant information systematically",
         classic_paradigm="Anxious individuals attend more to threatening stimuli",
-        trigger_template="Review this information about {topic}: {positive_info} and {negative_info}. Which aspects are most relevant?"
+        trigger_template="Review this information about {topic}: {positive_info} and {negative_info}. Which aspects are most relevant?",
     ),
     BiasDefinition(
         id="inattentional_blindness",
@@ -773,7 +773,7 @@ ATTENTION_BIASES = [
         system1_mechanism="Focused attention creates perceptual blindspots for unexpected information",
         system2_override="Deliberately scan for unexpected information outside focal area",
         classic_paradigm="Observers counting basketball passes miss person in gorilla suit",
-        trigger_template="While focused on {primary_task}, what other information might you be missing about {context}?"
+        trigger_template="While focused on {primary_task}, what other information might you be missing about {context}?",
     ),
     BiasDefinition(
         id="selective_perception",
@@ -784,7 +784,7 @@ ATTENTION_BIASES = [
         system1_mechanism="Expectations shape what information is perceived and encoded",
         system2_override="Actively seek information that contradicts expectations",
         classic_paradigm="Fans from opposing teams seeing different fouls in same game",
-        trigger_template="Given your expectations about {topic}, review this data: {ambiguous_data}. What patterns do you see?"
+        trigger_template="Given your expectations about {topic}, review this data: {ambiguous_data}. What patterns do you see?",
     ),
 ]
 
@@ -804,7 +804,7 @@ ATTRIBUTION_BIASES = [
         system1_mechanism="Dispositional attributions are cognitively simpler than situational analysis",
         system2_override="Systematically consider situational constraints and pressures on behavior",
         classic_paradigm="Observers attributing essay positions to writers even when positions were assigned",
-        trigger_template="{person} did {action} in {situation}. Why do you think they did this?"
+        trigger_template="{person} did {action} in {situation}. Why do you think they did this?",
     ),
     BiasDefinition(
         id="actor_observer_bias",
@@ -815,7 +815,7 @@ ATTRIBUTION_BIASES = [
         system1_mechanism="Different information available from actor vs observer perspectives",
         system2_override="Adopt the other person's perspective when making attributions",
         classic_paradigm="Students explain their own behavior situationally but peers' behavior dispositionally",
-        trigger_template="You did {your_action} because of {situation}. Why did {other_person} do the same thing?"
+        trigger_template="You did {your_action} because of {situation}. Why did {other_person} do the same thing?",
     ),
     BiasDefinition(
         id="self_serving_bias",
@@ -826,7 +826,7 @@ ATTRIBUTION_BIASES = [
         system1_mechanism="Motivation to maintain positive self-image shapes causal attribution",
         system2_override="Apply same attribution standards to self as to others",
         classic_paradigm="Students attribute good grades to ability, poor grades to unfair tests",
-        trigger_template="Your {outcome_type} on {task} was due to what factors?"
+        trigger_template="Your {outcome_type} on {task} was due to what factors?",
     ),
 ]
 
@@ -846,7 +846,7 @@ UNCERTAINTY_JUDGMENT_BIASES = [
         system1_mechanism="Unknown probabilities trigger stronger negative affect than known risks",
         system2_override="Calculate expected values regardless of whether probabilities are known or estimated",
         classic_paradigm="Ellsberg paradox: preferring known 50/50 urn over ambiguous urn",
-        trigger_template="Choose between Option A with {known_probability}% chance of {outcome} or Option B with unknown probability of the same outcome."
+        trigger_template="Choose between Option A with {known_probability}% chance of {outcome} or Option B with unknown probability of the same outcome.",
     ),
     BiasDefinition(
         id="illusion_of_validity",
@@ -890,7 +890,7 @@ SOCIAL_BIASES_EXTENDED = [
         system1_mechanism="Group membership triggers automatic positive associations for ingroup",
         system2_override="Evaluate individuals based on relevant attributes, not group membership",
         classic_paradigm="Minimal group experiments: favoritism based on arbitrary group assignment",
-        trigger_template="Evaluate these two candidates: {ingroup_member} from your {group} and {outgroup_member} from {other_group}."
+        trigger_template="Evaluate these two candidates: {ingroup_member} from your {group} and {outgroup_member} from {other_group}.",
     ),
     BiasDefinition(
         id="false_consensus_effect",
@@ -901,7 +901,7 @@ SOCIAL_BIASES_EXTENDED = [
         system1_mechanism="Own perspective is more available than others' perspectives",
         system2_override="Actively sample and consider diverse viewpoints before estimating consensus",
         classic_paradigm="Subjects who chose to wear sign estimated more others would also choose to wear it",
-        trigger_template="You prefer {your_preference}. What percentage of people do you think share this preference?"
+        trigger_template="You prefer {your_preference}. What percentage of people do you think share this preference?",
     ),
     BiasDefinition(
         id="outgroup_homogeneity_bias",
@@ -912,7 +912,7 @@ SOCIAL_BIASES_EXTENDED = [
         system1_mechanism="Less exposure to outgroup creates undifferentiated mental representation",
         system2_override="Seek information about individual differences within outgroups",
         classic_paradigm="'They all look alike' - difficulty distinguishing faces of other races",
-        trigger_template="How similar are members of {outgroup} to each other compared to members of {ingroup}?"
+        trigger_template="How similar are members of {outgroup} to each other compared to members of {ingroup}?",
     ),
 ]
 
@@ -932,7 +932,7 @@ ADDITIONAL_KT_BIASES = [
         system1_mechanism="Affective tags attached to stimuli guide probability and utility judgments",
         system2_override="Separate emotional reactions from objective probability and consequence assessment",
         classic_paradigm="Nuclear power: negative affect leads to high risk AND low benefit ratings (inverse correlation)",
-        trigger_template="How do you feel about {topic}? Now estimate its risks and benefits."
+        trigger_template="How do you feel about {topic}? Now estimate its risks and benefits.",
     ),
     BiasDefinition(
         id="mental_accounting",
@@ -943,7 +943,7 @@ ADDITIONAL_KT_BIASES = [
         system1_mechanism="Money is mentally segregated into accounts with different rules",
         system2_override="Treat all money as fungible and evaluate total wealth changes",
         classic_paradigm="Treating found money or winnings differently than earned income",
-        trigger_template="You have {amount} in your {account_type}. Would you spend it on {purchase}?"
+        trigger_template="You have {amount} in your {account_type}. Would you spend it on {purchase}?",
     ),
 ]
 
@@ -1146,11 +1146,9 @@ BIAS_INTERACTION_MATRIX: dict[str, list[str]] = {
         "illusion_of_validity",  # Coherence reduces perceived ambiguity
         "affect_heuristic",  # Ambiguity feels uncomfortable
     ],
-
     # =========================================================================
     # EXPANDED INTERACTION MATRIX - Additional entries for 60%+ coverage
     # =========================================================================
-
     # REFERENCE_DEPENDENCE - Critical gap (was 0/1)
     "reference_point_framing": [
         "loss_aversion",  # Reference determines gain/loss coding
@@ -1158,7 +1156,6 @@ BIAS_INTERACTION_MATRIX: dict[str, list[str]] = {
         "gain_loss_framing",  # Frame manipulates reference
         "endowment_effect",  # Ownership creates reference point
     ],
-
     # REPRESENTATIVENESS gaps
     "gambler_fallacy": [
         "hot_hand_fallacy",  # Opposite errors about randomness
@@ -1180,7 +1177,6 @@ BIAS_INTERACTION_MATRIX: dict[str, list[str]] = {
         "base_rate_neglect",  # Typicality overrides base rates
         "conjunction_fallacy",  # Representativeness mechanism
     ],
-
     # AVAILABILITY gaps
     "recency_bias": [
         "availability_bias",  # Recency increases availability
@@ -1202,7 +1198,6 @@ BIAS_INTERACTION_MATRIX: dict[str, list[str]] = {
         "planning_fallacy",  # Imagining positive outcomes
         "optimism_bias",  # Easy to imagine success
     ],
-
     # ANCHORING gaps
     "first_offer_anchoring": [
         "anchoring_effect",  # Core mechanism
@@ -1219,7 +1214,6 @@ BIAS_INTERACTION_MATRIX: dict[str, list[str]] = {
         "availability_bias",  # Primed numbers more available
         "insufficient_adjustment",  # Adjustment from primed anchor
     ],
-
     # FRAMING gaps
     "attribute_framing": [
         "gain_loss_framing",  # Both involve frame effects
@@ -1236,7 +1230,6 @@ BIAS_INTERACTION_MATRIX: dict[str, list[str]] = {
         "duration_neglect",  # Ignoring time aspects
         "mental_accounting",  # Time-based accounts
     ],
-
     # PROBABILITY gaps
     "denominator_neglect": [
         "neglect_of_probability",  # Both ignore probability components
@@ -1248,21 +1241,18 @@ BIAS_INTERACTION_MATRIX: dict[str, list[str]] = {
         "probability_weighting",  # Overweighting small probs
         "zero_risk_bias",  # Eliminating possibility
     ],
-
     # LOSS_AVERSION gaps
     "disposition_effect": [
         "loss_aversion",  # Core mechanism
         "sunk_cost_fallacy",  # Holding losers as sunk cost
         "endowment_effect",  # Owned stocks valued more
     ],
-
     # TEMPORAL gaps
     "peak_end_rule": [
         "duration_neglect",  # Both about experience evaluation
         "recency_bias",  # End is recent
         "salience_bias",  # Peak is salient
     ],
-
     # MEMORY gaps
     "misinformation_effect": [
         "source_confusion",  # Memory source errors
@@ -1274,7 +1264,6 @@ BIAS_INTERACTION_MATRIX: dict[str, list[str]] = {
         "false_consensus_effect",  # Misattributing beliefs
         "availability_bias",  # Available but misattributed
     ],
-
     # ATTENTION gaps
     "inattentional_blindness": [
         "attentional_bias",  # Attention allocation

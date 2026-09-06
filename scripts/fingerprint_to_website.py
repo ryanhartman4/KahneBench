@@ -58,7 +58,7 @@ def extract_const(src: str, name: str):
     """
     i = src.index("export const " + name)
     eq = src.index("=", i)
-    j = min(src.index(c, eq) for c in "[{" if c in src[eq:eq + 200])
+    j = min(src.index(c, eq) for c in "[{" if c in src[eq : eq + 200])
     opener = src[j]
     close = {"[": "]", "{": "}"}[opener]
     depth = in_str = esc = 0
@@ -79,7 +79,7 @@ def extract_const(src: str, name: str):
         elif c == close:
             depth -= 1
             if depth == 0:
-                blob = re.sub(r",(\s*[}\]])", r"\1", src[j:k + 1])
+                blob = re.sub(r",(\s*[}\]])", r"\1", src[j : k + 1])
                 return json.loads(blob)
     raise ValueError(f"unbalanced brackets for {name}")
 
@@ -230,12 +230,16 @@ def validate(leaderboard: list, fingerprints: dict) -> None:
     gen_lb, gen_fp = transform(src_fp, VALIDATION_NAME, "Anthropic", gt_lb["rank"])
     problems = diff(gen_lb, gt_lb, "leaderboard") + diff(gen_fp, gt_fp, "fingerprint")
     if problems:
-        print(f"VALIDATION FAILED — {len(problems)} mismatches reproducing "
-              f"{VALIDATION_MODEL_ID}:", file=sys.stderr)
+        print(
+            f"VALIDATION FAILED — {len(problems)} mismatches reproducing {VALIDATION_MODEL_ID}:",
+            file=sys.stderr,
+        )
         for p in problems[:40]:
             print("  ", p, file=sys.stderr)
-        sys.exit("Refusing to emit: the transform no longer matches the website. "
-                 "The website schema or fingerprint format likely changed.")
+        sys.exit(
+            "Refusing to emit: the transform no longer matches the website. "
+            "The website schema or fingerprint format likely changed."
+        )
     print(f"validation OK — reproduced {VALIDATION_MODEL_ID} byte-for-byte (tol 1e-9)")
 
 
@@ -244,17 +248,19 @@ def ts_block(obj, statement_prefix="") -> str:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("fingerprint", nargs="?",
-                    help="path to results/fingerprint_<model>.json for the new model")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "fingerprint", nargs="?", help="path to results/fingerprint_<model>.json for the new model"
+    )
     ap.add_argument("--name", help="display name, e.g. 'Claude Fable 5'")
     ap.add_argument("--provider", default="Anthropic")
     ap.add_argument("--tier", default="core")
-    ap.add_argument("--website", default=str(DEFAULT_WEBSITE),
-                    help="path to mock-results.ts")
-    ap.add_argument("--validate-only", action="store_true",
-                    help="only run the reproduction check, then exit")
+    ap.add_argument("--website", default=str(DEFAULT_WEBSITE), help="path to mock-results.ts")
+    ap.add_argument(
+        "--validate-only", action="store_true", help="only run the reproduction check, then exit"
+    )
     args = ap.parse_args()
 
     src = Path(args.website).read_text()
@@ -265,13 +271,15 @@ def main() -> None:
     if args.validate_only:
         return
     if not args.fingerprint or not args.name:
-        sys.exit("provide a fingerprint path and --name to emit entries "
-                 "(or pass --validate-only)")
+        sys.exit("provide a fingerprint path and --name to emit entries (or pass --validate-only)")
 
     fp = json.load(open(args.fingerprint))
     if fp["model_id"] in fingerprints:
-        print(f"NOTE: {fp['model_id']} is already in the website data — "
-              f"emitting anyway (you may be re-running).", file=sys.stderr)
+        print(
+            f"NOTE: {fp['model_id']} is already in the website data — "
+            f"emitting anyway (you may be re-running).",
+            file=sys.stderr,
+        )
 
     new_lb, new_fp = transform(fp, args.name, args.provider, rank=None, tier=args.tier)
     # rebuild the full leaderboard: existing (minus any same-id) + new, re-ranked
@@ -281,8 +289,10 @@ def main() -> None:
         e["rank"] = i
     new_rank = next(e["rank"] for e in merged if e["modelId"] == fp["model_id"])
 
-    print(f"\n{fp['model_id']} -> rank {new_rank} of {len(merged)} "
-          f"(susceptibility {new_fp['overallBiasSusceptibility']:.4f})\n")
+    print(
+        f"\n{fp['model_id']} -> rank {new_rank} of {len(merged)} "
+        f"(susceptibility {new_fp['overallBiasSusceptibility']:.4f})\n"
+    )
     print("=" * 70)
     print("1) Replace the LEADERBOARD array in mock-results.ts with:")
     print("=" * 70)
@@ -293,8 +303,10 @@ def main() -> None:
     entry = ts_block(new_fp)
     entry = "\n".join(("  " + ln) for ln in entry.split("\n"))
     print(f'  "{fp["model_id"]}": {entry.lstrip()},')
-    print("\nReminder: also add MODEL_COLORS[\"%s\"] in bias-radar-chart.tsx "
-          "and bump STATS.modelCount." % fp["model_id"])
+    print(
+        '\nReminder: also add MODEL_COLORS["%s"] in bias-radar-chart.tsx '
+        "and bump STATS.modelCount." % fp["model_id"]
+    )
 
 
 if __name__ == "__main__":

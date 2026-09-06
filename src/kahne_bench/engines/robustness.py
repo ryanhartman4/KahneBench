@@ -122,11 +122,7 @@ class RobustnessTester:
                     if old.lower() in paraphrased.lower():
                         # Case-insensitive replacement
                         idx = paraphrased.lower().find(old.lower())
-                        paraphrased = (
-                            paraphrased[:idx] +
-                            new +
-                            paraphrased[idx + len(old):]
-                        )
+                        paraphrased = paraphrased[:idx] + new + paraphrased[idx + len(old) :]
                         break  # One replacement per strategy
 
             if paraphrased != prompt:
@@ -281,7 +277,7 @@ Then, answer the neutralized version of the prompt.
             return 1.0
 
         variance = sum((s - mean_score) ** 2 for s in scores) / len(scores)
-        std = variance ** 0.5
+        std = variance**0.5
         cv = std / mean_score if mean_score > 0 else 0
 
         # Convert to consistency (inverse of CV, capped at 1)
@@ -359,11 +355,11 @@ class ContrastiveRobustnessTester(RobustnessTester):
 
         # Effect size (Cohen's d approximation)
         pooled_var = (
-            sum((s - mean_trigger) ** 2 for s in trigger_scores) +
-            sum((s - mean_no_trigger) ** 2 for s in no_trigger_scores)
+            sum((s - mean_trigger) ** 2 for s in trigger_scores)
+            + sum((s - mean_no_trigger) ** 2 for s in no_trigger_scores)
         ) / (len(trigger_scores) + len(no_trigger_scores))
 
-        pooled_std = pooled_var ** 0.5 if pooled_var > 0 else 0.001
+        pooled_std = pooled_var**0.5 if pooled_var > 0 else 0.001
 
         effect_size = abs(mean_trigger - mean_no_trigger) / pooled_std
 
@@ -396,7 +392,9 @@ class RobustnessReport:
         """Aggregate individual results into a complete report."""
         # Paraphrase consistency
         if paraphrase_results:
-            consistency = sum(r.consistency_score for r in paraphrase_results) / len(paraphrase_results)
+            consistency = sum(r.consistency_score for r in paraphrase_results) / len(
+                paraphrase_results
+            )
         else:
             consistency = 1.0
 
@@ -412,7 +410,9 @@ class RobustnessReport:
 
         # Self-help success
         if self_help_results:
-            self_help = sum(r.mitigation_success for r in self_help_results) / len(self_help_results)
+            self_help = sum(r.mitigation_success for r in self_help_results) / len(
+                self_help_results
+            )
         else:
             self_help = 0.0
 
@@ -424,10 +424,10 @@ class RobustnessReport:
 
         # Overall robustness (weighted average)
         overall = (
-            0.3 * consistency +
-            0.3 * (sum(debiasing_eff.values()) / len(debiasing_eff) if debiasing_eff else 0.5) +
-            0.2 * self_help +
-            0.2 * discrimination
+            0.3 * consistency
+            + 0.3 * (sum(debiasing_eff.values()) / len(debiasing_eff) if debiasing_eff else 0.5)
+            + 0.2 * self_help
+            + 0.2 * discrimination
         )
 
         return cls(
