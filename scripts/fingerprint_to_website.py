@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Transform a KahneBench fingerprint_<m>.json into the website's camelCase
-LEADERBOARD + FINGERPRINTS entries (for src/lib/data/mock-results.ts).
+LEADERBOARD + FINGERPRINTS entries (for src/lib/data/results.ts).
 
 The website's model data is HAND-MAINTAINED, not generated from the Python
 fingerprints, and a naive snake_case->camelCase conversion produces valid-but-
@@ -31,7 +31,7 @@ Usage:
 
 Paste the printed LEADERBOARD block (replacing the existing array) and the
 FINGERPRINTS entry (anywhere inside the FINGERPRINTS object) into
-website/src/lib/data/mock-results.ts, then run `npx tsc --noEmit && npx next
+website/src/lib/data/results.ts, then run `npx tsc --noEmit && npx next
 build` and visually check /results (leaderboard rank + radar color). Remember
 to also add a MODEL_COLORS hex entry in bias-radar-chart.tsx and bump
 STATS.modelCount — those are not emitted here.
@@ -44,7 +44,7 @@ import sys
 from pathlib import Path
 
 BENCH_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_WEBSITE = BENCH_ROOT.parent / "website" / "src" / "lib" / "data" / "mock-results.ts"
+DEFAULT_WEBSITE = BENCH_ROOT.parent / "website" / "src" / "lib" / "data" / "results.ts"
 VALIDATION_MODEL_ID = "claude-opus-4-8"
 VALIDATION_FINGERPRINT = BENCH_ROOT / "results" / "fingerprint_opus48.json"
 VALIDATION_NAME = "Claude Opus 4.8"
@@ -53,7 +53,7 @@ VALIDATION_NAME = "Claude Opus 4.8"
 def extract_const(src: str, name: str):
     """Find `export const NAME...= <[ or {>` and balance brackets, parse as JSON.
 
-    mock-results.ts uses quoted keys and JSON-compatible values, so the literal
+    results.ts uses quoted keys and JSON-compatible values, so the literal
     parses as JSON once trailing commas are stripped.
     """
     i = src.index("export const " + name)
@@ -257,7 +257,7 @@ def main() -> None:
     ap.add_argument("--name", help="display name, e.g. 'Claude Fable 5'")
     ap.add_argument("--provider", default="Anthropic")
     ap.add_argument("--tier", default="core")
-    ap.add_argument("--website", default=str(DEFAULT_WEBSITE), help="path to mock-results.ts")
+    ap.add_argument("--website", default=str(DEFAULT_WEBSITE), help="path to results.ts")
     ap.add_argument(
         "--validate-only", action="store_true", help="only run the reproduction check, then exit"
     )
@@ -294,7 +294,7 @@ def main() -> None:
         f"(susceptibility {new_fp['overallBiasSusceptibility']:.4f})\n"
     )
     print("=" * 70)
-    print("1) Replace the LEADERBOARD array in mock-results.ts with:")
+    print("1) Replace the LEADERBOARD array in results.ts with:")
     print("=" * 70)
     print(ts_block(merged, "export const LEADERBOARD: LeaderboardEntry[] = ") + ";")
     print("\n" + "=" * 70)
