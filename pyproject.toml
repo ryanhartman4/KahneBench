@@ -46,18 +46,13 @@ Repository = "https://github.com/ryanhartman4/KahneBench"
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.black]
-line-length = 100
-target-version = ["py310", "py311", "py312"]
-
 [tool.ruff]
 line-length = 100
 target-version = "py310"
 
 [tool.mypy]
 python_version = "3.10"
-# The codebase is partially typed and still under type-hardening.
-# Keep mypy enabled without claiming strict compliance.
+# Advisory only. The codebase is partially typed; mypy is not run in CI.
 strict = false
 
 [tool.pytest.ini_options]
@@ -69,7 +64,6 @@ asyncio_mode = "strict"
 dev = [
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
-    "black>=23.0.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
 ]
