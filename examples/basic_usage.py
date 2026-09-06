@@ -13,13 +13,11 @@ from dataclasses import dataclass
 
 from kahne_bench import (
     # Core types
-    CognitiveBiasInstance,
     Domain,
     TestScale,
     TriggerIntensity,
     # Taxonomy
     BIAS_TAXONOMY,
-    get_bias_by_id,
     get_biases_by_category,
     BiasCategory,
     # Engines
@@ -28,7 +26,6 @@ from kahne_bench import (
     # Metrics
     MetricCalculator,
 )
-from kahne_bench.core import TestResult, EvaluationSession
 from kahne_bench.engines.compound import CompoundTestGenerator
 
 

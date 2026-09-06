@@ -369,6 +369,8 @@ class TestResult:
     Result of running a single bias test on an LLM.
     """
 
+    __test__ = False  # Not a pytest test class, despite the name.
+
     instance: CognitiveBiasInstance
     model_id: str
     condition: str  # "control" or intensity level
